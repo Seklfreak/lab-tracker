@@ -51,7 +51,8 @@ export function Reports() {
 
   return (
     <Card>
-      <table className="w-full text-sm">
+      <div className="overflow-x-auto">
+      <table className="w-full min-w-[560px] text-sm">
         <thead>
           <tr className="text-left text-muted">
             <th className="pb-2">File</th>
@@ -119,6 +120,7 @@ export function Reports() {
           })}
         </tbody>
       </table>
+      </div>
     </Card>
   );
 }

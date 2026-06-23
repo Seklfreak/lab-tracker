@@ -37,21 +37,25 @@ export default function App() {
   return (
     <div className="min-h-full">
       <header className="sticky top-0 z-10 border-b border-border bg-bg/80 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-3">
+        {/* Mobile: brand + profile on row 1, nav wraps to a full-width row 2.
+            sm+: single row brand | nav | profile. */}
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 sm:px-6">
           <div className="flex items-center gap-2 font-semibold">
             <Activity className="text-accent" size={20} />
             Lab Tracker
           </div>
-          <nav className="flex items-center gap-1">
+          <div className="order-2 ml-auto sm:order-3">
+            <ProfileSwitcher />
+          </div>
+          <nav className="order-3 flex w-full items-center justify-center gap-1 sm:order-2 sm:ml-2 sm:w-auto sm:justify-start">
             <NavItem to="/" icon={<LayoutGrid size={16} />} label="Dashboard" />
             <NavItem to="/upload" icon={<UploadIcon size={16} />} label="Upload" />
             <NavItem to="/reports" icon={<FileText size={16} />} label="Reports" />
           </nav>
-          <ProfileSwitcher />
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-6 py-6">
+      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/analytes/:analyteId" element={<AnalyteDetail />} />

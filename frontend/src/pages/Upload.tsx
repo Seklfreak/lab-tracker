@@ -390,7 +390,7 @@ function ReviewForm({
         </div>
       </Card>
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="text-sm text-muted">
           {includedCount} result{includedCount === 1 ? "" : "s"} to save
           {!collectedDate && (

@@ -30,7 +30,7 @@ export function ProfileSwitcher() {
 
   return (
     <div className="flex items-center gap-2">
-      <span className="text-sm text-muted">Profile</span>
+      <span className="hidden text-sm text-muted sm:inline">Profile</span>
       {adding ? (
         <form
           className="flex items-center gap-2"
@@ -56,7 +56,7 @@ export function ProfileSwitcher() {
       ) : (
         <>
           <Select
-            className="w-48"
+            className="w-40 sm:w-48"
             value={profileId ?? ""}
             onChange={(e) => setProfileId(e.target.value || null)}
           >

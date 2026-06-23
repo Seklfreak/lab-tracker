@@ -62,7 +62,7 @@ export function AnalyteDetail() {
   return (
     <div className="space-y-5">
       <BackLink />
-      <div className="flex items-baseline justify-between">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h1 className="text-xl font-semibold">
           {name} {unit && <span className="text-base text-muted">({unit})</span>}
         </h1>
@@ -122,7 +122,8 @@ export function AnalyteDetail() {
       )}
 
       <Card>
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[420px] text-sm">
           <thead>
             <tr className="text-left text-muted">
               <th className="pb-2">Date</th>
@@ -168,6 +169,7 @@ export function AnalyteDetail() {
             })}
           </tbody>
         </table>
+        </div>
       </Card>
     </div>
   );
