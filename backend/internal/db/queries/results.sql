@@ -28,7 +28,8 @@ ORDER BY r.observed_date;
 
 -- name: ListLatestResultsForProfile :many
 SELECT DISTINCT ON (r.analyte_id)
-    r.*, a.name AS analyte_name, a.category AS analyte_category
+    r.*, a.name AS analyte_name, a.category AS analyte_category,
+    COUNT(*) OVER (PARTITION BY r.analyte_id) AS result_count
 FROM lab_results r
 JOIN analytes a ON a.id = r.analyte_id
 WHERE r.profile_id = $1

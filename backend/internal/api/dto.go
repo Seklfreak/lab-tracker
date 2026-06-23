@@ -52,6 +52,7 @@ type ResultDTO struct {
 	ReferenceText *string   `json:"referenceText"`
 	Note          *string   `json:"note"`
 	ObservedDate  *string   `json:"observedDate"`
+	Count         *int      `json:"count,omitempty"`
 }
 
 func toResultDTO(r sqlc.ListResultsForProfileRow) ResultDTO {
@@ -93,6 +94,7 @@ func toResultDTOFromAnalyte(r sqlc.ListResultsForProfileAnalyteRow) ResultDTO {
 }
 
 func toResultDTOFromLatest(r sqlc.ListLatestResultsForProfileRow) ResultDTO {
+	count := int(r.ResultCount)
 	return ResultDTO{
 		ID:            r.ID,
 		ReportID:      r.ReportID,
@@ -108,6 +110,7 @@ func toResultDTOFromLatest(r sqlc.ListLatestResultsForProfileRow) ResultDTO {
 		ReferenceText: textToPtr(r.ReferenceText),
 		Note:          textToPtr(r.Note),
 		ObservedDate:  dateToPtr(r.ObservedDate),
+		Count:         &count,
 	}
 }
 

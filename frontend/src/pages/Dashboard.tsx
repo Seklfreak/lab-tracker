@@ -75,9 +75,14 @@ export function Dashboard() {
                       </span>
                       {r.unit && <span className="text-sm text-muted">{r.unit}</span>}
                     </div>
-                    <div className="mt-1 text-xs text-muted">
-                      {ref ? `Ref: ${ref}` : "No reference"} ·{" "}
-                      {r.observedDate ?? "no date"}
+                    <div className="mt-1 flex items-center justify-between text-xs text-muted">
+                      <span>
+                        {ref ? `Ref: ${ref}` : "No reference"} ·{" "}
+                        {r.observedDate ?? "no date"}
+                      </span>
+                      <span className="shrink-0">
+                        {r.count ?? 1} reading{(r.count ?? 1) === 1 ? "" : "s"}
+                      </span>
                     </div>
                   </Card>
                 </Link>

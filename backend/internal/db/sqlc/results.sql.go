@@ -85,7 +85,8 @@ func (q *Queries) DeleteResultsForReport(ctx context.Context, reportID uuid.UUID
 
 const listLatestResultsForProfile = `-- name: ListLatestResultsForProfile :many
 SELECT DISTINCT ON (r.analyte_id)
-    r.id, r.report_id, r.profile_id, r.analyte_id, r.raw_test_name, r.value_text, r.value_numeric, r.unit, r.reference_low, r.reference_high, r.reference_text, r.observed_date, r.created_at, r.note, a.name AS analyte_name, a.category AS analyte_category
+    r.id, r.report_id, r.profile_id, r.analyte_id, r.raw_test_name, r.value_text, r.value_numeric, r.unit, r.reference_low, r.reference_high, r.reference_text, r.observed_date, r.created_at, r.note, a.name AS analyte_name, a.category AS analyte_category,
+    COUNT(*) OVER (PARTITION BY r.analyte_id) AS result_count
 FROM lab_results r
 JOIN analytes a ON a.id = r.analyte_id
 WHERE r.profile_id = $1
@@ -109,6 +110,7 @@ type ListLatestResultsForProfileRow struct {
 	Note            pgtype.Text        `json:"note"`
 	AnalyteName     string             `json:"analyte_name"`
 	AnalyteCategory pgtype.Text        `json:"analyte_category"`
+	ResultCount     int64              `json:"result_count"`
 }
 
 func (q *Queries) ListLatestResultsForProfile(ctx context.Context, profileID uuid.UUID) ([]ListLatestResultsForProfileRow, error) {
@@ -137,6 +139,7 @@ func (q *Queries) ListLatestResultsForProfile(ctx context.Context, profileID uui
 			&i.Note,
 			&i.AnalyteName,
 			&i.AnalyteCategory,
+			&i.ResultCount,
 		); err != nil {
 			return nil, err
 		}
