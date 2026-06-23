@@ -16,11 +16,11 @@ const createResult = `-- name: CreateResult :one
 INSERT INTO lab_results (
     report_id, profile_id, analyte_id, raw_test_name,
     value_text, value_numeric, unit,
-    reference_low, reference_high, reference_text, observed_date
+    reference_low, reference_high, reference_text, note, observed_date
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
 )
-RETURNING id, report_id, profile_id, analyte_id, raw_test_name, value_text, value_numeric, unit, reference_low, reference_high, reference_text, observed_date, created_at
+RETURNING id, report_id, profile_id, analyte_id, raw_test_name, value_text, value_numeric, unit, reference_low, reference_high, reference_text, observed_date, created_at, note
 `
 
 type CreateResultParams struct {
@@ -34,6 +34,7 @@ type CreateResultParams struct {
 	ReferenceLow  pgtype.Float8 `json:"reference_low"`
 	ReferenceHigh pgtype.Float8 `json:"reference_high"`
 	ReferenceText pgtype.Text   `json:"reference_text"`
+	Note          pgtype.Text   `json:"note"`
 	ObservedDate  pgtype.Date   `json:"observed_date"`
 }
 
@@ -49,6 +50,7 @@ func (q *Queries) CreateResult(ctx context.Context, arg CreateResultParams) (Lab
 		arg.ReferenceLow,
 		arg.ReferenceHigh,
 		arg.ReferenceText,
+		arg.Note,
 		arg.ObservedDate,
 	)
 	var i LabResult
@@ -66,6 +68,7 @@ func (q *Queries) CreateResult(ctx context.Context, arg CreateResultParams) (Lab
 		&i.ReferenceText,
 		&i.ObservedDate,
 		&i.CreatedAt,
+		&i.Note,
 	)
 	return i, err
 }
@@ -82,7 +85,7 @@ func (q *Queries) DeleteResultsForReport(ctx context.Context, reportID uuid.UUID
 
 const listLatestResultsForProfile = `-- name: ListLatestResultsForProfile :many
 SELECT DISTINCT ON (r.analyte_id)
-    r.id, r.report_id, r.profile_id, r.analyte_id, r.raw_test_name, r.value_text, r.value_numeric, r.unit, r.reference_low, r.reference_high, r.reference_text, r.observed_date, r.created_at, a.name AS analyte_name, a.category AS analyte_category
+    r.id, r.report_id, r.profile_id, r.analyte_id, r.raw_test_name, r.value_text, r.value_numeric, r.unit, r.reference_low, r.reference_high, r.reference_text, r.observed_date, r.created_at, r.note, a.name AS analyte_name, a.category AS analyte_category
 FROM lab_results r
 JOIN analytes a ON a.id = r.analyte_id
 WHERE r.profile_id = $1
@@ -103,6 +106,7 @@ type ListLatestResultsForProfileRow struct {
 	ReferenceText   pgtype.Text        `json:"reference_text"`
 	ObservedDate    pgtype.Date        `json:"observed_date"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	Note            pgtype.Text        `json:"note"`
 	AnalyteName     string             `json:"analyte_name"`
 	AnalyteCategory pgtype.Text        `json:"analyte_category"`
 }
@@ -130,6 +134,7 @@ func (q *Queries) ListLatestResultsForProfile(ctx context.Context, profileID uui
 			&i.ReferenceText,
 			&i.ObservedDate,
 			&i.CreatedAt,
+			&i.Note,
 			&i.AnalyteName,
 			&i.AnalyteCategory,
 		); err != nil {
@@ -144,7 +149,7 @@ func (q *Queries) ListLatestResultsForProfile(ctx context.Context, profileID uui
 }
 
 const listResultsForProfile = `-- name: ListResultsForProfile :many
-SELECT r.id, r.report_id, r.profile_id, r.analyte_id, r.raw_test_name, r.value_text, r.value_numeric, r.unit, r.reference_low, r.reference_high, r.reference_text, r.observed_date, r.created_at, a.name AS analyte_name, a.category AS analyte_category
+SELECT r.id, r.report_id, r.profile_id, r.analyte_id, r.raw_test_name, r.value_text, r.value_numeric, r.unit, r.reference_low, r.reference_high, r.reference_text, r.observed_date, r.created_at, r.note, a.name AS analyte_name, a.category AS analyte_category
 FROM lab_results r
 JOIN analytes a ON a.id = r.analyte_id
 WHERE r.profile_id = $1
@@ -165,6 +170,7 @@ type ListResultsForProfileRow struct {
 	ReferenceText   pgtype.Text        `json:"reference_text"`
 	ObservedDate    pgtype.Date        `json:"observed_date"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	Note            pgtype.Text        `json:"note"`
 	AnalyteName     string             `json:"analyte_name"`
 	AnalyteCategory pgtype.Text        `json:"analyte_category"`
 }
@@ -192,6 +198,7 @@ func (q *Queries) ListResultsForProfile(ctx context.Context, profileID uuid.UUID
 			&i.ReferenceText,
 			&i.ObservedDate,
 			&i.CreatedAt,
+			&i.Note,
 			&i.AnalyteName,
 			&i.AnalyteCategory,
 		); err != nil {
@@ -206,7 +213,7 @@ func (q *Queries) ListResultsForProfile(ctx context.Context, profileID uuid.UUID
 }
 
 const listResultsForProfileAnalyte = `-- name: ListResultsForProfileAnalyte :many
-SELECT r.id, r.report_id, r.profile_id, r.analyte_id, r.raw_test_name, r.value_text, r.value_numeric, r.unit, r.reference_low, r.reference_high, r.reference_text, r.observed_date, r.created_at, a.name AS analyte_name, a.category AS analyte_category
+SELECT r.id, r.report_id, r.profile_id, r.analyte_id, r.raw_test_name, r.value_text, r.value_numeric, r.unit, r.reference_low, r.reference_high, r.reference_text, r.observed_date, r.created_at, r.note, a.name AS analyte_name, a.category AS analyte_category
 FROM lab_results r
 JOIN analytes a ON a.id = r.analyte_id
 WHERE r.profile_id = $1 AND r.analyte_id = $2
@@ -232,6 +239,7 @@ type ListResultsForProfileAnalyteRow struct {
 	ReferenceText   pgtype.Text        `json:"reference_text"`
 	ObservedDate    pgtype.Date        `json:"observed_date"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	Note            pgtype.Text        `json:"note"`
 	AnalyteName     string             `json:"analyte_name"`
 	AnalyteCategory pgtype.Text        `json:"analyte_category"`
 }
@@ -259,6 +267,7 @@ func (q *Queries) ListResultsForProfileAnalyte(ctx context.Context, arg ListResu
 			&i.ReferenceText,
 			&i.ObservedDate,
 			&i.CreatedAt,
+			&i.Note,
 			&i.AnalyteName,
 			&i.AnalyteCategory,
 		); err != nil {

@@ -161,6 +161,7 @@ type confirmResult struct {
 	ReferenceLow   *float64 `json:"referenceLow"`
 	ReferenceHigh  *float64 `json:"referenceHigh"`
 	ReferenceText  *string  `json:"referenceText"`
+	Note           *string  `json:"note"`
 	ObservedDate   *string  `json:"observedDate"`
 	LearnAlias     bool     `json:"learnAlias"`
 }
@@ -244,6 +245,7 @@ func (s *Server) confirmReport(w http.ResponseWriter, r *http.Request) {
 			ReferenceLow:  ptrToFloat8(res.ReferenceLow),
 			ReferenceHigh: ptrToFloat8(res.ReferenceHigh),
 			ReferenceText: ptrToText(res.ReferenceText),
+			Note:          ptrToText(res.Note),
 			ObservedDate:  obsDate,
 		}); err != nil {
 			s.log.Error("create result", "err", err)
@@ -347,6 +349,7 @@ func (s *Server) enrichDraft(ctx context.Context, ex *llm.ExtractedReport) Draft
 			ReferenceLow:   r.ReferenceLow,
 			ReferenceHigh:  r.ReferenceHigh,
 			Specimen:       r.Specimen,
+			Note:           r.Note,
 		}
 		wantUrine := r.Specimen != nil && strings.EqualFold(strings.TrimSpace(*r.Specimen), "urine")
 		row.SuggestedAnalyteID, row.SuggestedAnalyteName = s.suggestAnalyte(ctx, r.TestName, wantUrine)

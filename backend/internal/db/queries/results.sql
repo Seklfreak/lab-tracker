@@ -2,9 +2,9 @@
 INSERT INTO lab_results (
     report_id, profile_id, analyte_id, raw_test_name,
     value_text, value_numeric, unit,
-    reference_low, reference_high, reference_text, observed_date
+    reference_low, reference_high, reference_text, note, observed_date
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
 )
 RETURNING *;
 

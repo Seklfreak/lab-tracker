@@ -50,6 +50,7 @@ type ResultDTO struct {
 	ReferenceLow  *float64  `json:"referenceLow"`
 	ReferenceHigh *float64  `json:"referenceHigh"`
 	ReferenceText *string   `json:"referenceText"`
+	Note          *string   `json:"note"`
 	ObservedDate  *string   `json:"observedDate"`
 }
 
@@ -67,6 +68,7 @@ func toResultDTO(r sqlc.ListResultsForProfileRow) ResultDTO {
 		ReferenceLow:  float8ToPtr(r.ReferenceLow),
 		ReferenceHigh: float8ToPtr(r.ReferenceHigh),
 		ReferenceText: textToPtr(r.ReferenceText),
+		Note:          textToPtr(r.Note),
 		ObservedDate:  dateToPtr(r.ObservedDate),
 	}
 }
@@ -85,6 +87,7 @@ func toResultDTOFromAnalyte(r sqlc.ListResultsForProfileAnalyteRow) ResultDTO {
 		ReferenceLow:  float8ToPtr(r.ReferenceLow),
 		ReferenceHigh: float8ToPtr(r.ReferenceHigh),
 		ReferenceText: textToPtr(r.ReferenceText),
+		Note:          textToPtr(r.Note),
 		ObservedDate:  dateToPtr(r.ObservedDate),
 	}
 }
@@ -103,6 +106,7 @@ func toResultDTOFromLatest(r sqlc.ListLatestResultsForProfileRow) ResultDTO {
 		ReferenceLow:  float8ToPtr(r.ReferenceLow),
 		ReferenceHigh: float8ToPtr(r.ReferenceHigh),
 		ReferenceText: textToPtr(r.ReferenceText),
+		Note:          textToPtr(r.Note),
 		ObservedDate:  dateToPtr(r.ObservedDate),
 	}
 }
@@ -118,6 +122,7 @@ type DraftResultDTO struct {
 	ReferenceLow         *float64 `json:"referenceLow"`
 	ReferenceHigh        *float64 `json:"referenceHigh"`
 	Specimen             *string  `json:"specimen"`
+	Note                 *string  `json:"note"`
 	SuggestedAnalyteID   *string  `json:"suggestedAnalyteId"`
 	SuggestedAnalyteName *string  `json:"suggestedAnalyteName"`
 }

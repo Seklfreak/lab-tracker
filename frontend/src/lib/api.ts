@@ -26,6 +26,7 @@ export interface Result {
   referenceLow: number | null;
   referenceHigh: number | null;
   referenceText: string | null;
+  note: string | null;
   observedDate: string | null;
 }
 
@@ -38,6 +39,7 @@ export interface DraftResult {
   referenceLow: number | null;
   referenceHigh: number | null;
   specimen: string | null;
+  note: string | null;
   suggestedAnalyteId: string | null;
   suggestedAnalyteName: string | null;
 }
@@ -74,6 +76,7 @@ export interface ConfirmResultInput {
   referenceLow: number | null;
   referenceHigh: number | null;
   referenceText: string | null;
+  note: string | null;
   observedDate: string | null;
   learnAlias: boolean;
 }

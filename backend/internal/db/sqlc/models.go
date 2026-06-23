@@ -54,6 +54,7 @@ type LabResult struct {
 	ReferenceText pgtype.Text        `json:"reference_text"`
 	ObservedDate  pgtype.Date        `json:"observed_date"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	Note          pgtype.Text        `json:"note"`
 }
 
 type Profile struct {

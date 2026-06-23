@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { Fragment, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { api, type Draft, type Report } from "@/lib/api";
@@ -126,6 +126,7 @@ interface Row {
   refLow: string;
   refHigh: string;
   refText: string;
+  note: string;
   learnAlias: boolean;
   include: boolean;
 }
@@ -168,6 +169,7 @@ function ReviewForm({
       refLow: d.referenceLow !== null ? String(d.referenceLow) : "",
       refHigh: d.referenceHigh !== null ? String(d.referenceHigh) : "",
       refText: d.referenceRange ?? "",
+      note: d.note ?? "",
       learnAlias: !d.suggestedAnalyteId,
       include: true,
     })),
@@ -195,6 +197,7 @@ function ReviewForm({
             referenceLow: parseNum(r.refLow),
             referenceHigh: parseNum(r.refHigh),
             referenceText: r.refText || null,
+            note: r.note || null,
             observedDate: null, // falls back to collectedDate server-side
             learnAlias: r.learnAlias,
           })),
@@ -271,8 +274,8 @@ function ReviewForm({
             </thead>
             <tbody>
               {rows.map((row, i) => (
+                <Fragment key={i}>
                 <tr
-                  key={i}
                   className={
                     row.include ? "border-t border-border" : "border-t border-border opacity-40"
                   }
@@ -356,6 +359,22 @@ function ReviewForm({
                     </button>
                   </td>
                 </tr>
+                {row.note !== "" && (
+                  <tr className={row.include ? "" : "opacity-40"}>
+                    <td className="pb-2 pr-2" colSpan={9}>
+                      <div className="flex items-start gap-2">
+                        <span className="mt-1 shrink-0 text-xs text-muted">Note</span>
+                        <textarea
+                          className="w-full rounded-md border border-border bg-panel2 px-2 py-1 text-xs outline-none focus:border-accent"
+                          rows={2}
+                          value={row.note}
+                          onChange={(e) => update(i, { note: e.target.value })}
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               ))}
             </tbody>
           </table>

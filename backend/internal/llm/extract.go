@@ -21,6 +21,7 @@ type ExtractedResult struct {
 	ReferenceLow   *float64 `json:"reference_low"`
 	ReferenceHigh  *float64 `json:"reference_high"`
 	Specimen       *string  `json:"specimen"`
+	Note           *string  `json:"note"`
 }
 
 // ExtractedReport is the full structured extraction of one lab PDF.
@@ -57,7 +58,8 @@ Extract every individual test result into JSON. Respond with ONLY a single JSON 
       "reference_range": string | null,  // the reference interval exactly as printed, e.g. "70-99", "<150"
       "reference_low": number | null,    // numeric lower bound if present, else null
       "reference_high": number | null,   // numeric upper bound if present, else null
-      "specimen": string | null          // specimen type: "serum", "plasma", "whole blood", "urine", or null if unclear
+      "specimen": string | null,         // specimen type: "serum", "plasma", "whole blood", "urine", or null if unclear
+      "note": string | null              // interpretive comment/note printed for this specific result, else null
     }
   ]
 }
@@ -66,6 +68,7 @@ Rules:
 - Include only actual analyte measurements. Skip headers, patient demographics, page footers, and narrative comments.
 - Preserve the exact printed test name; do not normalize it.
 - reference_range applies to qualitative results too: capture the expected/normal value when printed (e.g. "Negative", "Non-Reactive", "Not Detected", "Yellow", "Clear"). For these, set reference_low and reference_high to null and put the expected value in reference_range. For numeric results, also set reference_low/high from the interval where possible.
+- note: if an interpretive comment or narrative is printed for a specific result (e.g. "No laboratory evidence of syphilis..."), capture its full text verbatim in that result's note. Leave null if there is no per-result comment.
 - If a date is ambiguous, prefer the collection date for collected_date.
 - For "specimen": use the panel/section context. Urinalysis and urine dipstick or microscopic tests are "urine". CBC and hematology/differential tests are "whole blood". Most chemistry, lipid, thyroid, and immunoassay/serology tests are "serum". Use null only if genuinely unclear.
 - If no results are found, return an empty "results" array.`

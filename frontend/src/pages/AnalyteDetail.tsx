@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import {
@@ -124,24 +125,33 @@ export function AnalyteDetail() {
               const tone = statusTone(r);
               const flag = derivedFlag(r);
               return (
-                <tr key={r.id} className="border-t border-border">
-                  <td className="py-2">{r.observedDate ?? "—"}</td>
-                  <td className={tone === "bad" ? "py-2 font-medium text-bad" : "py-2"}>
-                    {displayValue(r)} {r.unit}
-                  </td>
-                  <td className="py-2 text-muted">{referenceLabel(r) ?? "—"}</td>
-                  <td className="py-2">{flag ? <Badge tone={tone}>{flag}</Badge> : "—"}</td>
-                  <td className="py-2">
-                    <a
-                      href={api.pdfUrl(r.reportId)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-accent"
-                    >
-                      PDF
-                    </a>
-                  </td>
-                </tr>
+                <Fragment key={r.id}>
+                  <tr className="border-t border-border">
+                    <td className="py-2">{r.observedDate ?? "—"}</td>
+                    <td className={tone === "bad" ? "py-2 font-medium text-bad" : "py-2"}>
+                      {displayValue(r)} {r.unit}
+                    </td>
+                    <td className="py-2 text-muted">{referenceLabel(r) ?? "—"}</td>
+                    <td className="py-2">{flag ? <Badge tone={tone}>{flag}</Badge> : "—"}</td>
+                    <td className="py-2">
+                      <a
+                        href={api.pdfUrl(r.reportId)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-accent"
+                      >
+                        PDF
+                      </a>
+                    </td>
+                  </tr>
+                  {r.note && (
+                    <tr>
+                      <td colSpan={5} className="pb-2 text-xs italic text-muted">
+                        {r.note}
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               );
             })}
           </tbody>
