@@ -129,6 +129,7 @@ interface Row {
   refHigh: string;
   refText: string;
   note: string;
+  suggestedByAi: boolean;
   learnAlias: boolean;
   include: boolean;
 }
@@ -172,6 +173,7 @@ function ReviewForm({
       refHigh: d.referenceHigh !== null ? String(d.referenceHigh) : "",
       refText: d.referenceRange ?? "",
       note: d.note ?? "",
+      suggestedByAi: d.suggestedByAi,
       learnAlias: !d.suggestedAnalyteId,
       include: true,
     })),
@@ -305,6 +307,11 @@ function ReviewForm({
                         onChange={(e) => update(i, { newName: e.target.value })}
                         placeholder="Canonical name"
                       />
+                    )}
+                    {row.suggestedByAi && row.analyteId !== "new" && (
+                      <div className="mt-1">
+                        <Badge tone="warn">AI match — verify</Badge>
+                      </div>
                     )}
                   </td>
                   <td className="py-2 pr-2 align-top">

@@ -44,6 +44,7 @@ export interface DraftResult {
   note: string | null;
   suggestedAnalyteId: string | null;
   suggestedAnalyteName: string | null;
+  suggestedByAi: boolean;
 }
 
 export interface Draft {

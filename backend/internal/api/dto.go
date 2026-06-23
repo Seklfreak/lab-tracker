@@ -130,6 +130,7 @@ type DraftResultDTO struct {
 	Note                 *string  `json:"note"`
 	SuggestedAnalyteID   *string  `json:"suggestedAnalyteId"`
 	SuggestedAnalyteName *string  `json:"suggestedAnalyteName"`
+	SuggestedByAI        bool     `json:"suggestedByAi"`
 }
 
 // DraftDTO is the enriched, review-ready extraction stored on the report.

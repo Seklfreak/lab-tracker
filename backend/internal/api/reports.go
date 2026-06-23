@@ -406,7 +406,70 @@ func (s *Server) enrichDraft(ctx context.Context, ex *llm.ExtractedReport) Draft
 		row.SuggestedAnalyteID, row.SuggestedAnalyteName = s.suggestAnalyte(ctx, r.TestName, wantUrine)
 		draft.Results = append(draft.Results, row)
 	}
+
+	// Second pass: for rows with no exact match, ask the model to map them to an
+	// existing analyte (conservative — same-specimen synonyms only). These
+	// suggestions are flagged so the user verifies them.
+	var inputs []llm.MatchInput
+	for _, row := range draft.Results {
+		if row.SuggestedAnalyteID == nil {
+			spec := ""
+			if row.Specimen != nil {
+				spec = *row.Specimen
+			}
+			inputs = append(inputs, llm.MatchInput{TestName: row.TestName, Specimen: spec})
+		}
+	}
+	if len(inputs) > 0 {
+		if matches := s.semanticMatch(ctx, inputs); len(matches) > 0 {
+			for i := range draft.Results {
+				if draft.Results[i].SuggestedAnalyteID != nil {
+					continue
+				}
+				if a, ok := matches[draft.Results[i].TestName]; ok {
+					id := a.ID.String()
+					name := a.Name
+					draft.Results[i].SuggestedAnalyteID = &id
+					draft.Results[i].SuggestedAnalyteName = &name
+					draft.Results[i].SuggestedByAI = true
+				}
+			}
+		}
+	}
 	return draft
+}
+
+// semanticMatch maps unmatched test names to existing analytes via the LLM,
+// validating the model's answers against the live catalog. Best-effort: returns
+// an empty map on any failure (rows just stay unmatched).
+func (s *Server) semanticMatch(ctx context.Context, inputs []llm.MatchInput) map[string]sqlc.Analyte {
+	catalog, err := s.q.ListAnalytes(ctx)
+	if err != nil {
+		s.log.Error("list analytes for semantic match", "err", err)
+		return nil
+	}
+	opts := make([]llm.AnalyteOption, 0, len(catalog))
+	byName := make(map[string]sqlc.Analyte, len(catalog))
+	for _, a := range catalog {
+		cat := ""
+		if a.Category.Valid {
+			cat = a.Category.String
+		}
+		opts = append(opts, llm.AnalyteOption{Name: a.Name, Specimens: a.Specimens, Category: cat})
+		byName[strings.ToLower(strings.TrimSpace(a.Name))] = a
+	}
+	raw, err := s.extractor.MatchAnalytes(ctx, inputs, opts)
+	if err != nil {
+		s.log.Warn("semantic analyte match", "err", err)
+		return nil
+	}
+	out := make(map[string]sqlc.Analyte, len(raw))
+	for testName, analyteName := range raw {
+		if a, ok := byName[strings.ToLower(strings.TrimSpace(analyteName))]; ok {
+			out[testName] = a
+		}
+	}
+	return out
 }
 
 // suggestAnalyte resolves a parsed test name to a canonical analyte. It prefers

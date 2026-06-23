@@ -155,6 +155,29 @@ for r in json.load(sys.stdin)['draft']['results']:
 Expected: serum `GLUCOSE` → **Glucose**, urine `GLUCOSE` → **Urine Glucose**,
 urine `CHLAMYDIA …` → **Chlamydia trachomatis RNA** (specimen-neutral fallback).
 
+## 3b. LLM semantic matching (LLM, conservative)
+
+When exact alias/name matching fails, a batched LLM call maps remaining names to
+existing analytes — but only **same-specimen synonyms** (so reference ranges stay
+meaningful); method/specimen variants (POC, blood gas) are left as new.
+
+```bash
+cat > /tmp/lab6.txt <<'EOF'
+Quest Diagnostics   Collected: 06/07/2025  Reported: 06/09/2025
+CHEMISTRY PANEL (serum)
+Sodium Level, Serum          140    mmol/L   135-146
+POINT OF CARE TESTING (whole blood)
+Sodium, Whole Blood (POC)    139    mmol/L   133-145
+EOF
+cupsfilter /tmp/lab6.txt > /tmp/lab6.pdf 2>/dev/null
+# upload + poll, then inspect the draft:
+#   "Sodium Level, Serum" (serum)        -> Sodium      suggestedByAi=true
+#   "Sodium, Whole Blood (POC)" (blood)  -> (new)       (not merged — ranges differ)
+```
+
+AI-sourced suggestions carry `suggestedByAi: true` and show an "AI match — verify"
+badge in the review form so the user double-checks them.
+
 ## 4. Qualitative reference + per-result notes (LLM)
 
 A PDF with qualitative results and an interpretive comment should populate
