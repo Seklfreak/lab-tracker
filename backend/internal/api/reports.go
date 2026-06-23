@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -348,15 +349,22 @@ func (s *Server) enrichDraft(ctx context.Context, ex *llm.ExtractedReport) Draft
 			ReferenceLow:   r.ReferenceLow,
 			ReferenceHigh:  r.ReferenceHigh,
 			Flag:           r.Flag,
+			Specimen:       r.Specimen,
 		}
-		// Prefer an alias match; fall back to an exact canonical-name match so
-		// tests printed under their canonical name (e.g. "BUN") also map.
-		if a, err := s.q.GetAliasByRawName(ctx, r.TestName); err == nil {
+		// Match within specimen so urine dipstick tests (e.g. "Glucose") map to
+		// the urine variant, not the serum analyte of the same name. Prefer an
+		// alias match, then an exact canonical-name match.
+		wantUrine := r.Specimen != nil && strings.EqualFold(strings.TrimSpace(*r.Specimen), "urine")
+		if a, err := s.q.MatchAliasBySpecimen(ctx, sqlc.MatchAliasBySpecimenParams{
+			RawName: r.TestName, WantUrine: wantUrine,
+		}); err == nil {
 			id := a.ID.String()
 			name := a.Name
 			row.SuggestedAnalyteID = &id
 			row.SuggestedAnalyteName = &name
-		} else if a, err := s.q.GetAnalyteByName(ctx, r.TestName); err == nil {
+		} else if a, err := s.q.MatchAnalyteBySpecimen(ctx, sqlc.MatchAnalyteBySpecimenParams{
+			Name: r.TestName, WantUrine: wantUrine,
+		}); err == nil {
 			id := a.ID.String()
 			name := a.Name
 			row.SuggestedAnalyteID = &id

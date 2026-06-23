@@ -38,6 +38,7 @@ export interface DraftResult {
   referenceLow: number | null;
   referenceHigh: number | null;
   flag: string | null;
+  specimen: string | null;
   suggestedAnalyteId: string | null;
   suggestedAnalyteName: string | null;
 }

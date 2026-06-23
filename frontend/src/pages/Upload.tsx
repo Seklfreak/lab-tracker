@@ -117,6 +117,7 @@ export function Upload() {
 
 interface Row {
   rawTestName: string;
+  specimen: string | null;
   analyteId: string; // "" | "new" | uuid
   newName: string;
   value: string;
@@ -149,6 +150,7 @@ function ReviewForm({
   const [rows, setRows] = useState<Row[]>(() =>
     draft.results.map((d) => ({
       rawTestName: d.testName,
+      specimen: d.specimen,
       analyteId: d.suggestedAnalyteId ?? "new",
       newName: d.suggestedAnalyteName ?? d.testName,
       value: d.value ?? "",
@@ -269,6 +271,9 @@ function ReviewForm({
                 >
                   <td className="py-2 pr-2 align-top">
                     <div className="max-w-[180px]">{row.rawTestName}</div>
+                    {row.specimen && (
+                      <div className="mt-0.5 text-xs text-muted">{row.specimen}</div>
+                    )}
                   </td>
                   <td className="py-2 pr-2 align-top">
                     <Select

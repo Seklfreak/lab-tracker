@@ -120,6 +120,7 @@ type DraftResultDTO struct {
 	ReferenceLow         *float64 `json:"referenceLow"`
 	ReferenceHigh        *float64 `json:"referenceHigh"`
 	Flag                 *string  `json:"flag"`
+	Specimen             *string  `json:"specimen"`
 	SuggestedAnalyteID   *string  `json:"suggestedAnalyteId"`
 	SuggestedAnalyteName *string  `json:"suggestedAnalyteName"`
 }

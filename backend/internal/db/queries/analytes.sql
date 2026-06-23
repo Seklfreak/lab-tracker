@@ -22,6 +22,25 @@ JOIN analyte_aliases al ON al.analyte_id = a.id
 WHERE lower(btrim(al.raw_name)) = lower(btrim($1))
 LIMIT 1;
 
+-- name: MatchAliasBySpecimen :one
+SELECT a.* FROM analytes a
+JOIN analyte_aliases al ON al.analyte_id = a.id
+WHERE lower(btrim(al.raw_name)) = lower(btrim(@raw_name))
+  AND (
+    (@want_urine::bool AND a.specimen = 'urine')
+    OR (NOT @want_urine::bool AND a.specimen IS DISTINCT FROM 'urine')
+  )
+LIMIT 1;
+
+-- name: MatchAnalyteBySpecimen :one
+SELECT * FROM analytes
+WHERE lower(btrim(name)) = lower(btrim(@name))
+  AND (
+    (@want_urine::bool AND specimen = 'urine')
+    OR (NOT @want_urine::bool AND specimen IS DISTINCT FROM 'urine')
+  )
+LIMIT 1;
+
 -- name: UpsertAlias :exec
 INSERT INTO analyte_aliases (analyte_id, raw_name)
 VALUES ($1, $2)

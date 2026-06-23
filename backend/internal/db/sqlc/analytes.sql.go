@@ -15,7 +15,7 @@ import (
 const createAnalyte = `-- name: CreateAnalyte :one
 INSERT INTO analytes (name, default_unit, category)
 VALUES ($1, $2, $3)
-RETURNING id, name, default_unit, loinc, category, created_at
+RETURNING id, name, default_unit, loinc, category, created_at, specimen
 `
 
 type CreateAnalyteParams struct {
@@ -34,12 +34,13 @@ func (q *Queries) CreateAnalyte(ctx context.Context, arg CreateAnalyteParams) (A
 		&i.Loinc,
 		&i.Category,
 		&i.CreatedAt,
+		&i.Specimen,
 	)
 	return i, err
 }
 
 const getAliasByRawName = `-- name: GetAliasByRawName :one
-SELECT a.id, a.name, a.default_unit, a.loinc, a.category, a.created_at FROM analytes a
+SELECT a.id, a.name, a.default_unit, a.loinc, a.category, a.created_at, a.specimen FROM analytes a
 JOIN analyte_aliases al ON al.analyte_id = a.id
 WHERE lower(btrim(al.raw_name)) = lower(btrim($1))
 LIMIT 1
@@ -55,12 +56,13 @@ func (q *Queries) GetAliasByRawName(ctx context.Context, btrim string) (Analyte,
 		&i.Loinc,
 		&i.Category,
 		&i.CreatedAt,
+		&i.Specimen,
 	)
 	return i, err
 }
 
 const getAnalyte = `-- name: GetAnalyte :one
-SELECT id, name, default_unit, loinc, category, created_at FROM analytes
+SELECT id, name, default_unit, loinc, category, created_at, specimen FROM analytes
 WHERE id = $1
 `
 
@@ -74,12 +76,13 @@ func (q *Queries) GetAnalyte(ctx context.Context, id uuid.UUID) (Analyte, error)
 		&i.Loinc,
 		&i.Category,
 		&i.CreatedAt,
+		&i.Specimen,
 	)
 	return i, err
 }
 
 const getAnalyteByName = `-- name: GetAnalyteByName :one
-SELECT id, name, default_unit, loinc, category, created_at FROM analytes
+SELECT id, name, default_unit, loinc, category, created_at, specimen FROM analytes
 WHERE lower(btrim(name)) = lower(btrim($1))
 LIMIT 1
 `
@@ -94,12 +97,13 @@ func (q *Queries) GetAnalyteByName(ctx context.Context, btrim string) (Analyte, 
 		&i.Loinc,
 		&i.Category,
 		&i.CreatedAt,
+		&i.Specimen,
 	)
 	return i, err
 }
 
 const listAnalytes = `-- name: ListAnalytes :many
-SELECT id, name, default_unit, loinc, category, created_at FROM analytes
+SELECT id, name, default_unit, loinc, category, created_at, specimen FROM analytes
 ORDER BY category NULLS LAST, name
 `
 
@@ -119,6 +123,7 @@ func (q *Queries) ListAnalytes(ctx context.Context) ([]Analyte, error) {
 			&i.Loinc,
 			&i.Category,
 			&i.CreatedAt,
+			&i.Specimen,
 		); err != nil {
 			return nil, err
 		}
@@ -131,7 +136,7 @@ func (q *Queries) ListAnalytes(ctx context.Context) ([]Analyte, error) {
 }
 
 const listAnalytesWithDataForProfile = `-- name: ListAnalytesWithDataForProfile :many
-SELECT DISTINCT a.id, a.name, a.default_unit, a.loinc, a.category, a.created_at FROM analytes a
+SELECT DISTINCT a.id, a.name, a.default_unit, a.loinc, a.category, a.created_at, a.specimen FROM analytes a
 JOIN lab_results r ON r.analyte_id = a.id
 WHERE r.profile_id = $1
 ORDER BY a.category NULLS LAST, a.name
@@ -153,6 +158,7 @@ func (q *Queries) ListAnalytesWithDataForProfile(ctx context.Context, profileID 
 			&i.Loinc,
 			&i.Category,
 			&i.CreatedAt,
+			&i.Specimen,
 		); err != nil {
 			return nil, err
 		}
@@ -162,6 +168,67 @@ func (q *Queries) ListAnalytesWithDataForProfile(ctx context.Context, profileID 
 		return nil, err
 	}
 	return items, nil
+}
+
+const matchAliasBySpecimen = `-- name: MatchAliasBySpecimen :one
+SELECT a.id, a.name, a.default_unit, a.loinc, a.category, a.created_at, a.specimen FROM analytes a
+JOIN analyte_aliases al ON al.analyte_id = a.id
+WHERE lower(btrim(al.raw_name)) = lower(btrim($1))
+  AND (
+    ($2::bool AND a.specimen = 'urine')
+    OR (NOT $2::bool AND a.specimen IS DISTINCT FROM 'urine')
+  )
+LIMIT 1
+`
+
+type MatchAliasBySpecimenParams struct {
+	RawName   string `json:"raw_name"`
+	WantUrine bool   `json:"want_urine"`
+}
+
+func (q *Queries) MatchAliasBySpecimen(ctx context.Context, arg MatchAliasBySpecimenParams) (Analyte, error) {
+	row := q.db.QueryRow(ctx, matchAliasBySpecimen, arg.RawName, arg.WantUrine)
+	var i Analyte
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.DefaultUnit,
+		&i.Loinc,
+		&i.Category,
+		&i.CreatedAt,
+		&i.Specimen,
+	)
+	return i, err
+}
+
+const matchAnalyteBySpecimen = `-- name: MatchAnalyteBySpecimen :one
+SELECT id, name, default_unit, loinc, category, created_at, specimen FROM analytes
+WHERE lower(btrim(name)) = lower(btrim($1))
+  AND (
+    ($2::bool AND specimen = 'urine')
+    OR (NOT $2::bool AND specimen IS DISTINCT FROM 'urine')
+  )
+LIMIT 1
+`
+
+type MatchAnalyteBySpecimenParams struct {
+	Name      string `json:"name"`
+	WantUrine bool   `json:"want_urine"`
+}
+
+func (q *Queries) MatchAnalyteBySpecimen(ctx context.Context, arg MatchAnalyteBySpecimenParams) (Analyte, error) {
+	row := q.db.QueryRow(ctx, matchAnalyteBySpecimen, arg.Name, arg.WantUrine)
+	var i Analyte
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.DefaultUnit,
+		&i.Loinc,
+		&i.Category,
+		&i.CreatedAt,
+		&i.Specimen,
+	)
+	return i, err
 }
 
 const upsertAlias = `-- name: UpsertAlias :exec
