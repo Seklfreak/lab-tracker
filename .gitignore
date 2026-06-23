@@ -1,0 +1,22 @@
+# env / secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+secrets.*
+
+# Go
+/backend/server
+/backend/bin/
+
+# Node
+/frontend/node_modules/
+/frontend/dist/
+
+# OS
+.DS_Store
+
+# data
+*.pdf

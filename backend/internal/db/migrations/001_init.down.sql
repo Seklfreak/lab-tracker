@@ -1,0 +1,5 @@
+DROP TABLE IF EXISTS lab_results;
+DROP TABLE IF EXISTS lab_reports;
+DROP TABLE IF EXISTS analyte_aliases;
+DROP TABLE IF EXISTS analytes;
+DROP TABLE IF EXISTS profiles;

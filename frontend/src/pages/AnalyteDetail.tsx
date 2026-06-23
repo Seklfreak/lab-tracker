@@ -1,0 +1,156 @@
+import { useQuery } from "@tanstack/react-query";
+import { Link, useParams } from "react-router-dom";
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  ReferenceArea,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { api } from "@/lib/api";
+import { useProfile } from "@/lib/profile";
+import { Badge, Card, Spinner } from "@/components/ui";
+import { displayValue, referenceLabel, statusTone } from "@/lib/format";
+import { ArrowLeft } from "lucide-react";
+
+export function AnalyteDetail() {
+  const { analyteId } = useParams();
+  const { profileId } = useProfile();
+
+  const trend = useQuery({
+    queryKey: ["trend", profileId, analyteId],
+    queryFn: () => api.analyteTrend(profileId!, analyteId!),
+    enabled: !!profileId && !!analyteId,
+  });
+
+  if (!profileId) return <p className="text-muted">Select a profile.</p>;
+  if (trend.isLoading) return <Spinner label="Loading trend…" />;
+  if (trend.error)
+    return <p className="text-bad">Failed to load: {String(trend.error)}</p>;
+
+  const data = trend.data ?? [];
+  if (data.length === 0)
+    return (
+      <div className="space-y-4">
+        <BackLink />
+        <Card>
+          <p className="text-muted">No readings for this analyte.</p>
+        </Card>
+      </div>
+    );
+
+  const name = data[0].analyteName;
+  const unit = data.find((r) => r.unit)?.unit ?? "";
+  const refLow = data.find((r) => r.referenceLow !== null)?.referenceLow ?? null;
+  const refHigh = data.find((r) => r.referenceHigh !== null)?.referenceHigh ?? null;
+
+  const chartData = data
+    .filter((r) => r.valueNumeric !== null)
+    .map((r) => ({ date: r.observedDate ?? "", value: r.valueNumeric as number }));
+
+  return (
+    <div className="space-y-5">
+      <BackLink />
+      <div className="flex items-baseline justify-between">
+        <h1 className="text-xl font-semibold">
+          {name} {unit && <span className="text-base text-muted">({unit})</span>}
+        </h1>
+        <span className="text-sm text-muted">
+          {referenceLabel(data[data.length - 1]) ?? "no reference"}
+        </span>
+      </div>
+
+      {chartData.length > 0 && (
+        <Card>
+          <div className="h-72 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData} margin={{ top: 8, right: 16, bottom: 0, left: -8 }}>
+                <CartesianGrid stroke="#26304a" strokeDasharray="3 3" />
+                <XAxis dataKey="date" stroke="#8b97b3" fontSize={12} />
+                <YAxis stroke="#8b97b3" fontSize={12} domain={["auto", "auto"]} />
+                <Tooltip
+                  contentStyle={{
+                    background: "#121826",
+                    border: "1px solid #26304a",
+                    borderRadius: 8,
+                    color: "#e6ebf5",
+                  }}
+                />
+                {refLow !== null && refHigh !== null && (
+                  <ReferenceArea
+                    y1={refLow}
+                    y2={refHigh}
+                    fill="#3fb27f"
+                    fillOpacity={0.1}
+                    stroke="#3fb27f"
+                    strokeOpacity={0.3}
+                  />
+                )}
+                <Line
+                  type="monotone"
+                  dataKey="value"
+                  stroke="#5b9cff"
+                  strokeWidth={2}
+                  dot={{ r: 3, fill: "#5b9cff" }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+          <p className="mt-2 text-xs text-muted">
+            Shaded band shows the reference range.
+          </p>
+        </Card>
+      )}
+
+      <Card>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-muted">
+              <th className="pb-2">Date</th>
+              <th className="pb-2">Value</th>
+              <th className="pb-2">Reference</th>
+              <th className="pb-2">Flag</th>
+              <th className="pb-2">Source</th>
+            </tr>
+          </thead>
+          <tbody>
+            {[...data].reverse().map((r) => {
+              const tone = statusTone(r);
+              return (
+                <tr key={r.id} className="border-t border-border">
+                  <td className="py-2">{r.observedDate ?? "—"}</td>
+                  <td className={tone === "bad" ? "py-2 font-medium text-bad" : "py-2"}>
+                    {displayValue(r)} {r.unit}
+                  </td>
+                  <td className="py-2 text-muted">{referenceLabel(r) ?? "—"}</td>
+                  <td className="py-2">{r.flag ? <Badge tone={tone}>{r.flag}</Badge> : "—"}</td>
+                  <td className="py-2">
+                    <a
+                      href={api.pdfUrl(r.reportId)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-accent"
+                    >
+                      PDF
+                    </a>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </Card>
+    </div>
+  );
+}
+
+function BackLink() {
+  return (
+    <Link to="/" className="inline-flex items-center gap-1 text-sm text-muted hover:text-text">
+      <ArrowLeft size={16} /> Back to dashboard
+    </Link>
+  );
+}
