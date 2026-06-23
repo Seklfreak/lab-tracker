@@ -59,16 +59,20 @@ export function Combobox({
       if (triggerRef.current?.contains(t) || panelRef.current?.contains(t)) return;
       setOpen(false);
     };
-    // Any scroll (incl. the table's horizontal scroll) would misplace the
-    // fixed panel — close instead of trying to track it.
-    const onScroll = () => setOpen(false);
+    // Scrolling an outer container (e.g. the table) would misplace the fixed
+    // panel — close it. But ignore scrolls inside the panel's own option list.
+    const onScroll = (e: Event) => {
+      if (e.target instanceof Node && panelRef.current?.contains(e.target)) return;
+      setOpen(false);
+    };
+    const onResize = () => setOpen(false);
     document.addEventListener("mousedown", onDown);
     window.addEventListener("scroll", onScroll, true);
-    window.addEventListener("resize", onScroll);
+    window.addEventListener("resize", onResize);
     return () => {
       document.removeEventListener("mousedown", onDown);
       window.removeEventListener("scroll", onScroll, true);
-      window.removeEventListener("resize", onScroll);
+      window.removeEventListener("resize", onResize);
     };
   }, [open]);
 
