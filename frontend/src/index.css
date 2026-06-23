@@ -2,6 +2,38 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Colors are space-separated RGB channels so Tailwind's /opacity modifiers work
+   (rgb(var(--c-x) / <alpha-value>)). Light is the default; dark follows the OS. */
+:root {
+  --c-bg: 247 248 250;
+  --c-panel: 255 255 255;
+  --c-panel2: 238 241 246;
+  --c-border: 216 222 233;
+  --c-muted: 92 107 134;
+  --c-text: 27 35 48;
+  --c-accent: 47 111 237;
+  --c-good: 31 157 107;
+  --c-warn: 185 118 31;
+  --c-bad: 210 67 63;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --c-bg: 11 15 23;
+    --c-panel: 18 24 38;
+    --c-panel2: 26 34 52;
+    --c-border: 38 48 74;
+    --c-muted: 139 151 179;
+    --c-text: 230 235 245;
+    --c-accent: 91 156 255;
+    --c-good: 63 178 127;
+    --c-warn: 224 164 88;
+    --c-bad: 224 108 117;
+    color-scheme: dark;
+  }
+}
+
 html,
 body,
 #root {

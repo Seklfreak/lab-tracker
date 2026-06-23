@@ -14,6 +14,7 @@ import { api } from "@/lib/api";
 import { useProfile } from "@/lib/profile";
 import { Badge, Card, Spinner } from "@/components/ui";
 import { displayValue, referenceLabel, statusTone } from "@/lib/format";
+import { useThemeColors } from "@/lib/theme";
 import { ArrowLeft } from "lucide-react";
 
 export function AnalyteDetail() {
@@ -25,6 +26,8 @@ export function AnalyteDetail() {
     queryFn: () => api.analyteTrend(profileId!, analyteId!),
     enabled: !!profileId && !!analyteId,
   });
+
+  const colors = useThemeColors();
 
   if (!profileId) return <p className="text-muted">Select a profile.</p>;
   if (trend.isLoading) return <Spinner label="Loading trend…" />;
@@ -68,33 +71,33 @@ export function AnalyteDetail() {
           <div className="h-72 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData} margin={{ top: 8, right: 16, bottom: 0, left: -8 }}>
-                <CartesianGrid stroke="#26304a" strokeDasharray="3 3" />
-                <XAxis dataKey="date" stroke="#8b97b3" fontSize={12} />
-                <YAxis stroke="#8b97b3" fontSize={12} domain={["auto", "auto"]} />
+                <CartesianGrid stroke={colors.border} strokeDasharray="3 3" />
+                <XAxis dataKey="date" stroke={colors.muted} fontSize={12} />
+                <YAxis stroke={colors.muted} fontSize={12} domain={["auto", "auto"]} />
                 <Tooltip
                   contentStyle={{
-                    background: "#121826",
-                    border: "1px solid #26304a",
+                    background: colors.panel,
+                    border: `1px solid ${colors.border}`,
                     borderRadius: 8,
-                    color: "#e6ebf5",
+                    color: colors.text,
                   }}
                 />
                 {refLow !== null && refHigh !== null && (
                   <ReferenceArea
                     y1={refLow}
                     y2={refHigh}
-                    fill="#3fb27f"
+                    fill={colors.good}
                     fillOpacity={0.1}
-                    stroke="#3fb27f"
+                    stroke={colors.good}
                     strokeOpacity={0.3}
                   />
                 )}
                 <Line
                   type="monotone"
                   dataKey="value"
-                  stroke="#5b9cff"
+                  stroke={colors.accent}
                   strokeWidth={2}
-                  dot={{ r: 3, fill: "#5b9cff" }}
+                  dot={{ r: 3, fill: colors.accent }}
                 />
               </LineChart>
             </ResponsiveContainer>
