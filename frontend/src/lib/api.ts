@@ -29,6 +29,7 @@ export interface Result {
   note: string | null;
   observedDate: string | null;
   count?: number; // # of readings for this analyte (only on the dashboard "latest" list)
+  isFavorite?: boolean;
 }
 
 export interface DraftResult {
@@ -140,6 +141,11 @@ export const api = {
     req<Report[]>(`/api/profiles/${profileId}/reports`),
   confirmReport: (id: string, input: ConfirmInput) =>
     req<Report>(`/api/reports/${id}/confirm`, json(input)),
+
+  addFavorite: (profileId: string, analyteId: string) =>
+    req<void>(`/api/profiles/${profileId}/favorites`, json({ analyteId })),
+  removeFavorite: (profileId: string, analyteId: string) =>
+    req<void>(`/api/profiles/${profileId}/favorites/${analyteId}`, { method: "DELETE" }),
 
   pdfUrl: (reportId: string) => `/api/reports/${reportId}/pdf`,
 };

@@ -53,6 +53,7 @@ type ResultDTO struct {
 	Note          *string   `json:"note"`
 	ObservedDate  *string   `json:"observedDate"`
 	Count         *int      `json:"count,omitempty"`
+	IsFavorite    bool      `json:"isFavorite"`
 }
 
 func toResultDTO(r sqlc.ListResultsForProfileRow) ResultDTO {
@@ -111,6 +112,7 @@ func toResultDTOFromLatest(r sqlc.ListLatestResultsForProfileRow) ResultDTO {
 		Note:          textToPtr(r.Note),
 		ObservedDate:  dateToPtr(r.ObservedDate),
 		Count:         &count,
+		IsFavorite:    r.IsFavorite,
 	}
 }
 

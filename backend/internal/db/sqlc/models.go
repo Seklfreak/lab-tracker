@@ -26,6 +26,12 @@ type AnalyteAlias struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type Favorite struct {
+	ProfileID uuid.UUID          `json:"profile_id"`
+	AnalyteID uuid.UUID          `json:"analyte_id"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 type LabReport struct {
 	ID               uuid.UUID          `json:"id"`
 	ProfileID        uuid.UUID          `json:"profile_id"`
