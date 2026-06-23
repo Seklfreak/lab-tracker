@@ -7,6 +7,7 @@ export interface ThemeColors {
   text: string;
   accent: string;
   good: string;
+  bad: string;
 }
 
 function read(): ThemeColors {
@@ -19,6 +20,7 @@ function read(): ThemeColors {
     text: v("text"),
     accent: v("accent"),
     good: v("good"),
+    bad: v("bad"),
   };
 }
 

@@ -55,6 +55,20 @@ export function AnalyteDetail() {
     .filter((r) => r.valueNumeric !== null)
     .map((r) => ({ date: r.observedDate ?? "", value: r.valueNumeric as number }));
 
+  // Y domain padded to include the data and reference bounds, so the green
+  // (in-range) and red (out-of-range) zones are fully visible.
+  const yDomain: [number, number] = (() => {
+    const bounds = chartData.map((d) => d.value);
+    if (refLow !== null) bounds.push(refLow);
+    if (refHigh !== null) bounds.push(refHigh);
+    if (bounds.length === 0) return [0, 1];
+    const lo = Math.min(...bounds);
+    const hi = Math.max(...bounds);
+    const span = hi - lo || Math.abs(hi) || 1;
+    const pad = span * 0.15;
+    return [lo - pad, hi + pad];
+  })();
+
   return (
     <div className="space-y-5">
       <BackLink />
@@ -74,7 +88,7 @@ export function AnalyteDetail() {
               <LineChart data={chartData} margin={{ top: 8, right: 16, bottom: 0, left: -8 }}>
                 <CartesianGrid stroke={colors.border} strokeDasharray="3 3" />
                 <XAxis dataKey="date" stroke={colors.muted} fontSize={12} />
-                <YAxis stroke={colors.muted} fontSize={12} domain={["auto", "auto"]} />
+                <YAxis stroke={colors.muted} fontSize={12} domain={yDomain} allowDataOverflow />
                 <Tooltip
                   contentStyle={{
                     background: colors.panel,
@@ -83,14 +97,22 @@ export function AnalyteDetail() {
                     color: colors.text,
                   }}
                 />
-                {refLow !== null && refHigh !== null && (
+                {/* out-of-range zones (red): below low and above high */}
+                {refLow !== null && (
+                  <ReferenceArea y1={yDomain[0]} y2={refLow} fill={colors.bad} fillOpacity={0.08} />
+                )}
+                {refHigh !== null && (
+                  <ReferenceArea y1={refHigh} y2={yDomain[1]} fill={colors.bad} fillOpacity={0.08} />
+                )}
+                {/* in-range zone (green) */}
+                {(refLow !== null || refHigh !== null) && (
                   <ReferenceArea
-                    y1={refLow}
-                    y2={refHigh}
+                    y1={refLow ?? yDomain[0]}
+                    y2={refHigh ?? yDomain[1]}
                     fill={colors.good}
-                    fillOpacity={0.1}
+                    fillOpacity={0.12}
                     stroke={colors.good}
-                    strokeOpacity={0.3}
+                    strokeOpacity={0.25}
                   />
                 )}
                 <Line
@@ -104,7 +126,7 @@ export function AnalyteDetail() {
             </ResponsiveContainer>
           </div>
           <p className="mt-2 text-xs text-muted">
-            Shaded band shows the reference range.
+            Green = in range, red = out of range.
           </p>
         </Card>
       )}
