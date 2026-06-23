@@ -90,8 +90,14 @@ npm run dev                # http://localhost:5173 (proxies /api to :8080)
 ## Data model
 
 `profiles`, `analytes` (canonical tests), `analyte_aliases` (raw name → analyte),
-`lab_reports` (one PDF), `lab_results` (one dated measurement — the graph unit).
-See `backend/internal/db/migrations`.
+`lab_reports` (one PDF), `lab_results` (one dated measurement — the graph unit),
+`favorites` (per-profile pinned analytes). See `backend/internal/db/migrations`.
+
+## Testing
+
+No automated suite yet. Manual verification recipes (smoke test, analyte
+matching, specimen disambiguation, favorites, report management, etc.) are in
+[`docs/manual-testing.md`](docs/manual-testing.md).
 
 ## Not yet implemented
 
