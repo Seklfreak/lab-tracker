@@ -27,8 +27,8 @@ SELECT a.* FROM analytes a
 JOIN analyte_aliases al ON al.analyte_id = a.id
 WHERE lower(btrim(al.raw_name)) = lower(btrim(@raw_name))
   AND (
-    (@want_urine::bool AND a.specimen = 'urine')
-    OR (NOT @want_urine::bool AND a.specimen IS DISTINCT FROM 'urine')
+    (@want_urine::bool AND 'urine' = ANY(COALESCE(a.specimens, '{}')))
+    OR (NOT @want_urine::bool AND NOT ('urine' = ANY(COALESCE(a.specimens, '{}'))))
   )
 LIMIT 1;
 
@@ -36,8 +36,8 @@ LIMIT 1;
 SELECT * FROM analytes
 WHERE lower(btrim(name)) = lower(btrim(@name))
   AND (
-    (@want_urine::bool AND specimen = 'urine')
-    OR (NOT @want_urine::bool AND specimen IS DISTINCT FROM 'urine')
+    (@want_urine::bool AND 'urine' = ANY(COALESCE(specimens, '{}')))
+    OR (NOT @want_urine::bool AND NOT ('urine' = ANY(COALESCE(specimens, '{}'))))
   )
 LIMIT 1;
 

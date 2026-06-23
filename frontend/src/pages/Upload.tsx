@@ -3,7 +3,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { api, type Draft, type Report } from "@/lib/api";
 import { useProfile } from "@/lib/profile";
-import { Badge, Button, Card, Input, Select, Spinner } from "@/components/ui";
+import { Badge, Button, Card, Input, Spinner } from "@/components/ui";
+import { Combobox, type ComboOption } from "@/components/Combobox";
 import { UploadCloud, Trash2 } from "lucide-react";
 
 function parseNum(s: string): number | null {
@@ -143,6 +144,16 @@ function ReviewForm({
   const navigate = useNavigate();
   const analytes = useQuery({ queryKey: ["analytes"], queryFn: api.listAnalytes });
 
+  const baseOptions = useMemo<ComboOption[]>(
+    () =>
+      (analytes.data ?? []).map((a) => ({
+        value: a.id,
+        label: a.name,
+        hint: a.specimens && a.specimens.length > 0 ? a.specimens.join(" / ") : a.category,
+      })),
+    [analytes.data],
+  );
+
   const [sourceLab, setSourceLab] = useState(draft.labName ?? "");
   const [collectedDate, setCollectedDate] = useState(draft.collectedDate ?? "");
   const [reportedDate, setReportedDate] = useState(draft.reportedDate ?? "");
@@ -276,19 +287,15 @@ function ReviewForm({
                     )}
                   </td>
                   <td className="py-2 pr-2 align-top">
-                    <Select
-                      className="min-w-[180px]"
+                    <Combobox
+                      className="min-w-[200px]"
                       value={row.analyteId}
-                      onChange={(e) => update(i, { analyteId: e.target.value })}
-                    >
-                      <option value="new">➕ New: {row.newName}</option>
-                      {analytes.data?.map((a) => (
-                        <option key={a.id} value={a.id}>
-                          {a.name}
-                          {a.specimen ? ` · ${a.specimen}` : ""}
-                        </option>
-                      ))}
-                    </Select>
+                      onChange={(v) => update(i, { analyteId: v })}
+                      options={[
+                        { value: "new", label: `➕ New: ${row.newName}` },
+                        ...baseOptions,
+                      ]}
+                    />
                     {row.analyteId === "new" && (
                       <Input
                         className="mt-1"

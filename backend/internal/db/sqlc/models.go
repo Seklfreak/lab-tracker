@@ -16,7 +16,7 @@ type Analyte struct {
 	Loinc       pgtype.Text        `json:"loinc"`
 	Category    pgtype.Text        `json:"category"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	Specimen    pgtype.Text        `json:"specimen"`
+	Specimens   []string           `json:"specimens"`
 }
 
 type AnalyteAlias struct {
