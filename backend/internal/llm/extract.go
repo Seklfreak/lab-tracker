@@ -67,6 +67,7 @@ Extract every individual test result into JSON. Respond with ONLY a single JSON 
 Rules:
 - Include only actual analyte measurements. Skip headers, patient demographics, page footers, and narrative comments.
 - Preserve the exact printed test name; do not normalize it.
+- reference_range applies to qualitative results too: capture the expected/normal value when printed (e.g. "Negative", "Non-Reactive", "Not Detected", "Yellow", "Clear"). For these, set reference_low and reference_high to null and put the expected value in reference_range. For numeric results, also set reference_low/high from the interval where possible.
 - If a date is ambiguous, prefer the collection date for collected_date.
 - For "specimen": use the panel/section context. Urinalysis and urine dipstick or microscopic tests are "urine". CBC and hematology/differential tests are "whole blood". Most chemistry, lipid, thyroid, and immunoassay/serology tests are "serum". Use null only if genuinely unclear.
 - If no results are found, return an empty "results" array.`

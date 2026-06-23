@@ -267,6 +267,7 @@ function ReviewForm({
                 <th className="pb-2 pr-2">Unit</th>
                 <th className="pb-2 pr-2">Ref low</th>
                 <th className="pb-2 pr-2">Ref high</th>
+                <th className="pb-2 pr-2">Reference</th>
                 <th className="pb-2 pr-2">Flag</th>
                 <th className="pb-2 pr-2">Learn</th>
                 <th className="pb-2"></th>
@@ -331,6 +332,14 @@ function ReviewForm({
                       className="w-20"
                       value={row.refHigh}
                       onChange={(e) => update(i, { refHigh: e.target.value })}
+                    />
+                  </td>
+                  <td className="py-2 pr-2 align-top">
+                    <Input
+                      className="w-28"
+                      value={row.refText}
+                      onChange={(e) => update(i, { refText: e.target.value })}
+                      placeholder="e.g. Negative"
                     />
                   </td>
                   <td className="py-2 pr-2 align-top">
