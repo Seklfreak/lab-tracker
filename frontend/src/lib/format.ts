@@ -39,6 +39,25 @@ export function derivedFlag(r: Result): string | null {
   return null;
 }
 
+// chartYDomain pads the y-axis to include the data and the reference bounds so
+// the in-range/out-of-range zones are fully visible. Falls back to [0, 1] when
+// there is nothing to plot.
+export function chartYDomain(
+  values: number[],
+  refLow: number | null,
+  refHigh: number | null,
+): [number, number] {
+  const bounds = [...values];
+  if (refLow !== null) bounds.push(refLow);
+  if (refHigh !== null) bounds.push(refHigh);
+  if (bounds.length === 0) return [0, 1];
+  const lo = Math.min(...bounds);
+  const hi = Math.max(...bounds);
+  const span = hi - lo || Math.abs(hi) || 1;
+  const pad = span * 0.15;
+  return [lo - pad, hi + pad];
+}
+
 export function referenceLabel(r: Pick<Result, "referenceLow" | "referenceHigh" | "referenceText">): string | null {
   if (r.referenceText && r.referenceText.trim() !== "") return r.referenceText;
   if (r.referenceLow !== null && r.referenceHigh !== null)

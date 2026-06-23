@@ -1,9 +1,21 @@
 # Manual testing reference
 
-There is **no automated test suite** yet. This doc captures the manual checks
-used during development so they can be re-run quickly (and eventually codified —
-see "Worth codifying" at the bottom). Commands are copy-paste runnable from the
-repo root on macOS.
+Some pure logic now has unit tests; everything that touches Postgres, MinIO, or
+the live LLM is still verified manually. This doc captures those manual checks so
+they can be re-run quickly. Commands are copy-paste runnable from the repo root
+on macOS.
+
+## Automated tests (run these first)
+
+```bash
+(cd backend && go test ./...)   # internal/llm + internal/api pure-logic tests
+(cd frontend && npm test)       # src/lib/format.ts (vitest)
+```
+
+What's covered: `llm.extractJSONObject`, the pgtype conversion helpers
+(`textToPtr`/`float8ToPtr`/`dateToPtr` + their inverses, `ptrToDate`), and the
+frontend `statusTone` / `derivedFlag` / `referenceLabel` / `displayValue` /
+`chartYDomain`. Everything below is **not** yet automated.
 
 ## Prerequisites
 
@@ -206,14 +218,13 @@ docker compose exec -T postgres psql -U labtracker -d labtracker -tAc \
    note shown italic under a reading, per-point PDF links.
 6. Reports → Review / Retry / Delete actions on each row.
 
-## Worth codifying (when we add a real suite)
+## Worth codifying (remaining)
 
-- **Go pure-logic unit tests** (no DB): `llm.extractJSONObject`, the pgtype
-  conversion helpers in `internal/api/helpers.go`, `ptrToDate`.
-- **Go DB/integration tests** (Postgres via testcontainers or a CI `DATABASE_URL`):
-  run migrations, then assert §2/§3 matching and the confirm→alias-learning path.
-  This is where real regressions hide.
-- **Frontend unit tests** (Vitest): `src/lib/format.ts` (`statusTone`,
-  `derivedFlag`, `referenceLabel`) and the chart Y-domain math in `AnalyteDetail`.
-- **Seed-coverage test**: assert the printed names from real reports all resolve
-  (§2 as an automated assertion).
+- [x] **Go pure-logic unit tests** — `internal/llm/extract_test.go`,
+  `internal/api/helpers_test.go`.
+- [x] **Frontend unit tests** (Vitest) — `src/lib/format.test.ts`.
+- [ ] **Go DB/integration tests** (Postgres via testcontainers or a CI
+  `DATABASE_URL`): run migrations, then assert §2/§3 matching and the
+  confirm→alias-learning path. This is where real regressions hide.
+- [ ] **Seed-coverage test**: assert the printed names from real reports all
+  resolve (§2 as an automated assertion).

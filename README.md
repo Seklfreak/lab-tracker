@@ -95,9 +95,16 @@ npm run dev                # http://localhost:5173 (proxies /api to :8080)
 
 ## Testing
 
-No automated suite yet. Manual verification recipes (smoke test, analyte
-matching, specimen disambiguation, favorites, report management, etc.) are in
-[`docs/manual-testing.md`](docs/manual-testing.md).
+Unit tests cover the pure logic:
+
+```bash
+(cd backend && go test ./...)   # JSON extraction, pgtype conversions, dates
+(cd frontend && npm test)       # statusTone, derivedFlag, referenceLabel, chartYDomain
+```
+
+DB/integration and extraction paths are still verified manually — recipes
+(smoke test, analyte matching, specimen disambiguation, favorites, report
+management, etc.) are in [`docs/manual-testing.md`](docs/manual-testing.md).
 
 ## Not yet implemented
 

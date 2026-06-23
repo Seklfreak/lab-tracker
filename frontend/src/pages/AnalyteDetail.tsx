@@ -14,7 +14,7 @@ import {
 import { api } from "@/lib/api";
 import { useProfile } from "@/lib/profile";
 import { Badge, Card, Spinner } from "@/components/ui";
-import { derivedFlag, displayValue, referenceLabel, statusTone } from "@/lib/format";
+import { chartYDomain, derivedFlag, displayValue, referenceLabel, statusTone } from "@/lib/format";
 import { useThemeColors } from "@/lib/theme";
 import { ArrowLeft } from "lucide-react";
 
@@ -57,17 +57,7 @@ export function AnalyteDetail() {
 
   // Y domain padded to include the data and reference bounds, so the green
   // (in-range) and red (out-of-range) zones are fully visible.
-  const yDomain: [number, number] = (() => {
-    const bounds = chartData.map((d) => d.value);
-    if (refLow !== null) bounds.push(refLow);
-    if (refHigh !== null) bounds.push(refHigh);
-    if (bounds.length === 0) return [0, 1];
-    const lo = Math.min(...bounds);
-    const hi = Math.max(...bounds);
-    const span = hi - lo || Math.abs(hi) || 1;
-    const pad = span * 0.15;
-    return [lo - pad, hi + pad];
-  })();
+  const yDomain = chartYDomain(chartData.map((d) => d.value), refLow, refHigh);
 
   return (
     <div className="space-y-5">
