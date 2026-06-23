@@ -285,6 +285,7 @@ function ReviewForm({
                       {analytes.data?.map((a) => (
                         <option key={a.id} value={a.id}>
                           {a.name}
+                          {a.specimen ? ` · ${a.specimen}` : ""}
                         </option>
                       ))}
                     </Select>

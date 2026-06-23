@@ -23,6 +23,7 @@ type AnalyteDTO struct {
 	DefaultUnit *string   `json:"defaultUnit"`
 	Category    *string   `json:"category"`
 	Loinc       *string   `json:"loinc"`
+	Specimen    *string   `json:"specimen"`
 }
 
 func toAnalyteDTO(a sqlc.Analyte) AnalyteDTO {
@@ -32,6 +33,7 @@ func toAnalyteDTO(a sqlc.Analyte) AnalyteDTO {
 		DefaultUnit: textToPtr(a.DefaultUnit),
 		Category:    textToPtr(a.Category),
 		Loinc:       textToPtr(a.Loinc),
+		Specimen:    textToPtr(a.Specimen),
 	}
 }
 

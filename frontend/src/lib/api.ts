@@ -10,6 +10,7 @@ export interface Analyte {
   defaultUnit: string | null;
   category: string | null;
   loinc: string | null;
+  specimen: string | null;
 }
 
 export interface Result {
