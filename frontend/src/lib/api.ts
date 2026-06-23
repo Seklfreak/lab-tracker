@@ -141,6 +141,10 @@ export const api = {
     req<Report[]>(`/api/profiles/${profileId}/reports`),
   confirmReport: (id: string, input: ConfirmInput) =>
     req<Report>(`/api/reports/${id}/confirm`, json(input)),
+  reparseReport: (id: string) =>
+    req<Report>(`/api/reports/${id}/reparse`, { method: "POST" }),
+  deleteReport: (id: string) =>
+    req<void>(`/api/reports/${id}`, { method: "DELETE" }),
 
   addFavorite: (profileId: string, analyteId: string) =>
     req<void>(`/api/profiles/${profileId}/favorites`, json({ analyteId })),

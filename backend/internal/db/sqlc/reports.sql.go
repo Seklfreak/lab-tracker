@@ -43,6 +43,16 @@ func (q *Queries) CreateReport(ctx context.Context, arg CreateReportParams) (Lab
 	return i, err
 }
 
+const deleteReport = `-- name: DeleteReport :exec
+DELETE FROM lab_reports
+WHERE id = $1
+`
+
+func (q *Queries) DeleteReport(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteReport, id)
+	return err
+}
+
 const getReport = `-- name: GetReport :one
 SELECT id, profile_id, pdf_object_key, original_filename, source_lab, collected_date, reported_date, status, parse_error, parsed_draft, created_at FROM lab_reports
 WHERE id = $1
@@ -148,6 +158,17 @@ func (q *Queries) SetReportParsed(ctx context.Context, arg SetReportParsedParams
 		arg.CollectedDate,
 		arg.ReportedDate,
 	)
+	return err
+}
+
+const setReportParsing = `-- name: SetReportParsing :exec
+UPDATE lab_reports
+SET status = 'parsing', parse_error = NULL, parsed_draft = NULL
+WHERE id = $1
+`
+
+func (q *Queries) SetReportParsing(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, setReportParsing, id)
 	return err
 }
 

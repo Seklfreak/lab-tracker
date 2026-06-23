@@ -1,6 +1,6 @@
 import { Fragment, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { api, type Draft, type Report } from "@/lib/api";
 import { useProfile } from "@/lib/profile";
 import { Badge, Button, Card, Input, Spinner } from "@/components/ui";
@@ -16,7 +16,9 @@ function parseNum(s: string): number | null {
 
 export function Upload() {
   const { profileId } = useProfile();
-  const [reportId, setReportId] = useState<string | null>(null);
+  const [searchParams] = useSearchParams();
+  // Allow re-opening an existing report's review form via ?report=<id>.
+  const [reportId, setReportId] = useState<string | null>(() => searchParams.get("report"));
   const fileRef = useRef<HTMLInputElement>(null);
 
   const upload = useMutation({

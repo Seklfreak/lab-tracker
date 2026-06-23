@@ -150,6 +150,57 @@ func (s *Server) getReportPDF(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (s *Server) deleteReport(w http.ResponseWriter, r *http.Request) {
+	report, ok := s.requireReport(w, r)
+	if !ok {
+		return
+	}
+	// Best-effort PDF removal; proceed with the DB delete regardless.
+	if err := s.store.DeletePDF(r.Context(), report.PdfObjectKey); err != nil {
+		s.log.Warn("delete pdf object", "report", report.ID, "err", err)
+	}
+	if err := s.q.DeleteReport(r.Context(), report.ID); err != nil {
+		s.log.Error("delete report", "err", err)
+		writeError(w, http.StatusInternalServerError, "failed to delete report")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// reparseReport re-runs extraction on a report's stored PDF (e.g. to retry a
+// failed parse or re-do a discarded one).
+func (s *Server) reparseReport(w http.ResponseWriter, r *http.Request) {
+	report, ok := s.requireReport(w, r)
+	if !ok {
+		return
+	}
+	obj, err := s.store.GetPDF(r.Context(), report.PdfObjectKey)
+	if err != nil {
+		s.log.Error("get pdf for reparse", "err", err)
+		writeError(w, http.StatusInternalServerError, "failed to load PDF")
+		return
+	}
+	defer obj.Close()
+	data, err := io.ReadAll(obj)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to read PDF")
+		return
+	}
+	if err := s.q.SetReportParsing(r.Context(), report.ID); err != nil {
+		s.log.Error("set report parsing", "err", err)
+		writeError(w, http.StatusInternalServerError, "failed to reparse")
+		return
+	}
+	go s.parseReport(report.ID, data)
+
+	updated, err := s.q.GetReport(r.Context(), report.ID)
+	if err != nil {
+		writeJSON(w, http.StatusAccepted, map[string]string{"status": "parsing"})
+		return
+	}
+	writeJSON(w, http.StatusAccepted, toReportDTO(updated))
+}
+
 type confirmResult struct {
 	AnalyteID      *string  `json:"analyteId"`
 	NewAnalyteName *string  `json:"newAnalyteName"`

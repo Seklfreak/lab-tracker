@@ -56,3 +56,11 @@ func (s *Store) GetPDF(ctx context.Context, key string) (io.ReadCloser, error) {
 	}
 	return obj, nil
 }
+
+// DeletePDF removes a stored object.
+func (s *Store) DeletePDF(ctx context.Context, key string) error {
+	if err := s.client.RemoveObject(ctx, s.bucket, key, minio.RemoveObjectOptions{}); err != nil {
+		return fmt.Errorf("remove object: %w", err)
+	}
+	return nil
+}

@@ -27,6 +27,15 @@ SET status = 'error',
     parse_error = $2
 WHERE id = $1;
 
+-- name: DeleteReport :exec
+DELETE FROM lab_reports
+WHERE id = $1;
+
+-- name: SetReportParsing :exec
+UPDATE lab_reports
+SET status = 'parsing', parse_error = NULL, parsed_draft = NULL
+WHERE id = $1;
+
 -- name: SetReportSaved :exec
 UPDATE lab_reports
 SET status = 'saved',
