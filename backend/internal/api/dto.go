@@ -52,6 +52,7 @@ type ResultDTO struct {
 	ReferenceText *string   `json:"referenceText"`
 	Note          *string   `json:"note"`
 	ObservedDate  *string   `json:"observedDate"`
+	SourceLab     *string   `json:"sourceLab"`
 	Count         *int      `json:"count,omitempty"`
 	IsFavorite    bool      `json:"isFavorite"`
 }
@@ -72,6 +73,7 @@ func toResultDTO(r sqlc.ListResultsForProfileRow) ResultDTO {
 		ReferenceText: textToPtr(r.ReferenceText),
 		Note:          textToPtr(r.Note),
 		ObservedDate:  dateToPtr(r.ObservedDate),
+		SourceLab:     textToPtr(r.SourceLab),
 	}
 }
 
@@ -91,6 +93,7 @@ func toResultDTOFromAnalyte(r sqlc.ListResultsForProfileAnalyteRow) ResultDTO {
 		ReferenceText: textToPtr(r.ReferenceText),
 		Note:          textToPtr(r.Note),
 		ObservedDate:  dateToPtr(r.ObservedDate),
+		SourceLab:     textToPtr(r.SourceLab),
 	}
 }
 
@@ -111,6 +114,7 @@ func toResultDTOFromLatest(r sqlc.ListLatestResultsForProfileRow) ResultDTO {
 		ReferenceText: textToPtr(r.ReferenceText),
 		Note:          textToPtr(r.Note),
 		ObservedDate:  dateToPtr(r.ObservedDate),
+		SourceLab:     textToPtr(r.SourceLab),
 		Count:         &count,
 		IsFavorite:    r.IsFavorite,
 	}

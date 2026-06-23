@@ -28,6 +28,7 @@ export interface Result {
   referenceText: string | null;
   note: string | null;
   observedDate: string | null;
+  sourceLab: string | null;
   count?: number; // # of readings for this analyte (only on the dashboard "latest" list)
   isFavorite?: boolean;
 }

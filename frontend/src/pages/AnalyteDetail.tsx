@@ -123,13 +123,14 @@ export function AnalyteDetail() {
 
       <Card>
         <div className="overflow-x-auto">
-        <table className="w-full min-w-[420px] text-sm">
+        <table className="w-full min-w-[480px] text-sm">
           <thead>
             <tr className="text-left text-muted">
               <th className="pb-2">Date</th>
               <th className="pb-2">Value</th>
               <th className="pb-2">Reference</th>
               <th className="pb-2">Flag</th>
+              <th className="pb-2">Lab</th>
               <th className="pb-2">Source</th>
             </tr>
           </thead>
@@ -146,6 +147,7 @@ export function AnalyteDetail() {
                     </td>
                     <td className="py-2 text-muted">{referenceLabel(r) ?? "—"}</td>
                     <td className="py-2">{flag ? <Badge tone={tone}>{flag}</Badge> : "—"}</td>
+                    <td className="py-2 text-muted">{r.sourceLab ?? "—"}</td>
                     <td className="py-2">
                       <a
                         href={api.pdfUrl(r.reportId)}
@@ -159,7 +161,7 @@ export function AnalyteDetail() {
                   </tr>
                   {r.note && (
                     <tr>
-                      <td colSpan={5} className="pb-2 text-xs italic text-muted">
+                      <td colSpan={6} className="pb-2 text-xs italic text-muted">
                         {r.note}
                       </td>
                     </tr>

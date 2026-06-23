@@ -25,6 +25,7 @@ function mk(over: Partial<Result>): Result {
     referenceText: null,
     note: null,
     observedDate: "2026-01-15",
+    sourceLab: null,
     ...over,
   };
 }
