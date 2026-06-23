@@ -13,12 +13,14 @@ RETURNING *;
 
 -- name: GetAnalyteByName :one
 SELECT * FROM analytes
-WHERE name = $1;
+WHERE lower(btrim(name)) = lower(btrim($1))
+LIMIT 1;
 
 -- name: GetAliasByRawName :one
 SELECT a.* FROM analytes a
 JOIN analyte_aliases al ON al.analyte_id = a.id
-WHERE al.raw_name = $1;
+WHERE lower(btrim(al.raw_name)) = lower(btrim($1))
+LIMIT 1;
 
 -- name: UpsertAlias :exec
 INSERT INTO analyte_aliases (analyte_id, raw_name)

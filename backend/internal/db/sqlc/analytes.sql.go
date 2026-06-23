@@ -41,11 +41,12 @@ func (q *Queries) CreateAnalyte(ctx context.Context, arg CreateAnalyteParams) (A
 const getAliasByRawName = `-- name: GetAliasByRawName :one
 SELECT a.id, a.name, a.default_unit, a.loinc, a.category, a.created_at FROM analytes a
 JOIN analyte_aliases al ON al.analyte_id = a.id
-WHERE al.raw_name = $1
+WHERE lower(btrim(al.raw_name)) = lower(btrim($1))
+LIMIT 1
 `
 
-func (q *Queries) GetAliasByRawName(ctx context.Context, rawName string) (Analyte, error) {
-	row := q.db.QueryRow(ctx, getAliasByRawName, rawName)
+func (q *Queries) GetAliasByRawName(ctx context.Context, btrim string) (Analyte, error) {
+	row := q.db.QueryRow(ctx, getAliasByRawName, btrim)
 	var i Analyte
 	err := row.Scan(
 		&i.ID,
@@ -79,11 +80,12 @@ func (q *Queries) GetAnalyte(ctx context.Context, id uuid.UUID) (Analyte, error)
 
 const getAnalyteByName = `-- name: GetAnalyteByName :one
 SELECT id, name, default_unit, loinc, category, created_at FROM analytes
-WHERE name = $1
+WHERE lower(btrim(name)) = lower(btrim($1))
+LIMIT 1
 `
 
-func (q *Queries) GetAnalyteByName(ctx context.Context, name string) (Analyte, error) {
-	row := q.db.QueryRow(ctx, getAnalyteByName, name)
+func (q *Queries) GetAnalyteByName(ctx context.Context, btrim string) (Analyte, error) {
+	row := q.db.QueryRow(ctx, getAnalyteByName, btrim)
 	var i Analyte
 	err := row.Scan(
 		&i.ID,
