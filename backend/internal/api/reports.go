@@ -351,26 +351,35 @@ func (s *Server) enrichDraft(ctx context.Context, ex *llm.ExtractedReport) Draft
 			Flag:           r.Flag,
 			Specimen:       r.Specimen,
 		}
-		// Match within specimen so urine dipstick tests (e.g. "Glucose") map to
-		// the urine variant, not the serum analyte of the same name. Prefer an
-		// alias match, then an exact canonical-name match.
 		wantUrine := r.Specimen != nil && strings.EqualFold(strings.TrimSpace(*r.Specimen), "urine")
-		if a, err := s.q.MatchAliasBySpecimen(ctx, sqlc.MatchAliasBySpecimenParams{
-			RawName: r.TestName, WantUrine: wantUrine,
-		}); err == nil {
-			id := a.ID.String()
-			name := a.Name
-			row.SuggestedAnalyteID = &id
-			row.SuggestedAnalyteName = &name
-		} else if a, err := s.q.MatchAnalyteBySpecimen(ctx, sqlc.MatchAnalyteBySpecimenParams{
-			Name: r.TestName, WantUrine: wantUrine,
-		}); err == nil {
-			id := a.ID.String()
-			name := a.Name
-			row.SuggestedAnalyteID = &id
-			row.SuggestedAnalyteName = &name
-		}
+		row.SuggestedAnalyteID, row.SuggestedAnalyteName = s.suggestAnalyte(ctx, r.TestName, wantUrine)
 		draft.Results = append(draft.Results, row)
 	}
 	return draft
+}
+
+// suggestAnalyte resolves a parsed test name to a canonical analyte. It prefers
+// a specimen-specific match (so urine "Glucose" → Urine Glucose, serum
+// "Glucose" → Glucose), then falls back to a specimen-agnostic match so
+// specimen-neutral tests (e.g. a urogenital CT/NG NAAT reported on urine) still
+// map to their single canonical analyte. Returns (nil, nil) if nothing matches.
+func (s *Server) suggestAnalyte(ctx context.Context, testName string, wantUrine bool) (*string, *string) {
+	ptrs := func(a sqlc.Analyte) (*string, *string) {
+		id := a.ID.String()
+		name := a.Name
+		return &id, &name
+	}
+	if a, err := s.q.MatchAliasBySpecimen(ctx, sqlc.MatchAliasBySpecimenParams{RawName: testName, WantUrine: wantUrine}); err == nil {
+		return ptrs(a)
+	}
+	if a, err := s.q.MatchAnalyteBySpecimen(ctx, sqlc.MatchAnalyteBySpecimenParams{Name: testName, WantUrine: wantUrine}); err == nil {
+		return ptrs(a)
+	}
+	if a, err := s.q.GetAliasByRawName(ctx, testName); err == nil {
+		return ptrs(a)
+	}
+	if a, err := s.q.GetAnalyteByName(ctx, testName); err == nil {
+		return ptrs(a)
+	}
+	return nil, nil
 }
