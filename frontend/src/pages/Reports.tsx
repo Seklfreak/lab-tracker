@@ -50,77 +50,69 @@ export function Reports() {
     );
 
   return (
-    <Card>
-      <div className="overflow-x-auto">
-      <table className="w-full min-w-[560px] text-sm">
-        <thead>
-          <tr className="text-left text-muted">
-            <th className="pb-2">File</th>
-            <th className="pb-2">Lab</th>
-            <th className="pb-2">Collected</th>
-            <th className="pb-2">Status</th>
-            <th className="pb-2">PDF</th>
-            <th className="pb-2 text-right">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((r) => {
-            const hasDraft = r.status === "parsed" || r.status === "saved";
-            const busy =
-              r.status === "parsing" ||
-              (reparse.isPending && reparse.variables === r.id) ||
-              (remove.isPending && remove.variables === r.id);
-            return (
-              <tr key={r.id} className="border-t border-border">
-                <td className="py-2">{r.originalFilename ?? r.id.slice(0, 8)}</td>
-                <td className="py-2 text-muted">{r.sourceLab ?? "—"}</td>
-                <td className="py-2 text-muted">{r.collectedDate ?? "—"}</td>
-                <td className="py-2">
+    <div className="space-y-3">
+      {data.map((r) => {
+        const hasDraft = r.status === "parsed" || r.status === "saved";
+        const busy =
+          r.status === "parsing" ||
+          (reparse.isPending && reparse.variables === r.id) ||
+          (remove.isPending && remove.variables === r.id);
+        return (
+          <Card key={r.id}>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="truncate font-medium">
+                    {r.originalFilename ?? r.id.slice(0, 8)}
+                  </span>
                   <Badge tone={statusTone[r.status]}>{r.status}</Badge>
-                </td>
-                <td className="py-2">
-                  <a href={api.pdfUrl(r.id)} target="_blank" rel="noreferrer" className="text-accent">
-                    View
-                  </a>
-                </td>
-                <td className="py-2">
-                  <div className="flex items-center justify-end gap-2">
-                    {hasDraft && (
-                      <Button
-                        variant="ghost"
-                        className="px-2 py-1"
-                        onClick={() => navigate(`/upload?report=${r.id}`)}
-                      >
-                        Review
-                      </Button>
-                    )}
-                    <Button
-                      variant="ghost"
-                      className="px-2 py-1"
-                      disabled={busy}
-                      onClick={() => reparse.mutate(r.id)}
-                      title="Re-run extraction on the stored PDF"
-                    >
-                      Retry
-                    </Button>
-                    <Button
-                      variant="danger"
-                      className="px-2 py-1"
-                      disabled={busy}
-                      onClick={() => {
-                        if (confirm("Delete this report and its saved results?")) remove.mutate(r.id);
-                      }}
-                    >
-                      Delete
-                    </Button>
-                  </div>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-      </div>
-    </Card>
+                </div>
+                <div className="mt-1 text-xs text-muted">
+                  {r.sourceLab ?? "Unknown lab"} · collected {r.collectedDate ?? "—"}
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <a
+                  href={api.pdfUrl(r.id)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-2 py-1 text-sm text-accent"
+                >
+                  PDF
+                </a>
+                {hasDraft && (
+                  <Button
+                    variant="ghost"
+                    className="px-2 py-1"
+                    onClick={() => navigate(`/upload?report=${r.id}`)}
+                  >
+                    Review
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  className="px-2 py-1"
+                  disabled={busy}
+                  onClick={() => reparse.mutate(r.id)}
+                  title="Re-run extraction on the stored PDF"
+                >
+                  Retry
+                </Button>
+                <Button
+                  variant="danger"
+                  className="px-2 py-1"
+                  disabled={busy}
+                  onClick={() => {
+                    if (confirm("Delete this report and its saved results?")) remove.mutate(r.id);
+                  }}
+                >
+                  Delete
+                </Button>
+              </div>
+            </div>
+          </Card>
+        );
+      })}
+    </div>
   );
 }
