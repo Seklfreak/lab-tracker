@@ -161,7 +161,6 @@ type confirmResult struct {
 	ReferenceLow   *float64 `json:"referenceLow"`
 	ReferenceHigh  *float64 `json:"referenceHigh"`
 	ReferenceText  *string  `json:"referenceText"`
-	Flag           *string  `json:"flag"`
 	ObservedDate   *string  `json:"observedDate"`
 	LearnAlias     bool     `json:"learnAlias"`
 }
@@ -245,7 +244,6 @@ func (s *Server) confirmReport(w http.ResponseWriter, r *http.Request) {
 			ReferenceLow:  ptrToFloat8(res.ReferenceLow),
 			ReferenceHigh: ptrToFloat8(res.ReferenceHigh),
 			ReferenceText: ptrToText(res.ReferenceText),
-			Flag:          ptrToText(res.Flag),
 			ObservedDate:  obsDate,
 		}); err != nil {
 			s.log.Error("create result", "err", err)
@@ -348,7 +346,6 @@ func (s *Server) enrichDraft(ctx context.Context, ex *llm.ExtractedReport) Draft
 			ReferenceRange: r.ReferenceRange,
 			ReferenceLow:   r.ReferenceLow,
 			ReferenceHigh:  r.ReferenceHigh,
-			Flag:           r.Flag,
 			Specimen:       r.Specimen,
 		}
 		wantUrine := r.Specimen != nil && strings.EqualFold(strings.TrimSpace(*r.Specimen), "urine")

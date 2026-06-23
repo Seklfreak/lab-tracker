@@ -126,7 +126,6 @@ interface Row {
   refLow: string;
   refHigh: string;
   refText: string;
-  flag: string;
   learnAlias: boolean;
   include: boolean;
 }
@@ -169,7 +168,6 @@ function ReviewForm({
       refLow: d.referenceLow !== null ? String(d.referenceLow) : "",
       refHigh: d.referenceHigh !== null ? String(d.referenceHigh) : "",
       refText: d.referenceRange ?? "",
-      flag: d.flag ?? "",
       learnAlias: !d.suggestedAnalyteId,
       include: true,
     })),
@@ -197,7 +195,6 @@ function ReviewForm({
             referenceLow: parseNum(r.refLow),
             referenceHigh: parseNum(r.refHigh),
             referenceText: r.refText || null,
-            flag: r.flag || null,
             observedDate: null, // falls back to collectedDate server-side
             learnAlias: r.learnAlias,
           })),
@@ -268,7 +265,6 @@ function ReviewForm({
                 <th className="pb-2 pr-2">Ref low</th>
                 <th className="pb-2 pr-2">Ref high</th>
                 <th className="pb-2 pr-2">Reference</th>
-                <th className="pb-2 pr-2">Flag</th>
                 <th className="pb-2 pr-2">Learn</th>
                 <th className="pb-2"></th>
               </tr>
@@ -340,13 +336,6 @@ function ReviewForm({
                       value={row.refText}
                       onChange={(e) => update(i, { refText: e.target.value })}
                       placeholder="e.g. Negative"
-                    />
-                  </td>
-                  <td className="py-2 pr-2 align-top">
-                    <Input
-                      className="w-16"
-                      value={row.flag}
-                      onChange={(e) => update(i, { flag: e.target.value })}
                     />
                   </td>
                   <td className="py-2 pr-2 align-top">

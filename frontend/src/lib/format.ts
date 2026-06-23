@@ -12,8 +12,8 @@ const normalizeQual = (s: string) => s.trim().toLowerCase().replace(/[\s_-]+/g, 
 
 // statusTone returns "bad" when a result is out of range: for numeric results,
 // outside the reference band; for qualitative results (e.g. "Negative"),
-// different from the expected reference value. "warn" if only a lab flag is
-// present, "good" if in range, "muted" if undeterminable.
+// different from the expected reference value. "good" if in range, "muted" if
+// undeterminable.
 export function statusTone(r: Result): Tone {
   if (r.valueNumeric !== null) {
     if (r.referenceLow !== null && r.valueNumeric < r.referenceLow) return "bad";
@@ -22,8 +22,21 @@ export function statusTone(r: Result): Tone {
   } else if (r.valueText && r.referenceText) {
     return normalizeQual(r.valueText) === normalizeQual(r.referenceText) ? "good" : "bad";
   }
-  if (r.flag && r.flag.trim() !== "") return "warn";
   return "muted";
+}
+
+// derivedFlag computes the H/L/Abnormal flag from value vs reference (we don't
+// store the lab's printed flag). Returns null when in range or undeterminable.
+export function derivedFlag(r: Result): string | null {
+  if (r.valueNumeric !== null) {
+    if (r.referenceLow !== null && r.valueNumeric < r.referenceLow) return "L";
+    if (r.referenceHigh !== null && r.valueNumeric > r.referenceHigh) return "H";
+    return null;
+  }
+  if (r.valueText && r.referenceText) {
+    return normalizeQual(r.valueText) === normalizeQual(r.referenceText) ? null : "Abnormal";
+  }
+  return null;
 }
 
 export function referenceLabel(r: Pick<Result, "referenceLow" | "referenceHigh" | "referenceText">): string | null {

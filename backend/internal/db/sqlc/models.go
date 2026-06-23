@@ -52,7 +52,6 @@ type LabResult struct {
 	ReferenceLow  pgtype.Float8      `json:"reference_low"`
 	ReferenceHigh pgtype.Float8      `json:"reference_high"`
 	ReferenceText pgtype.Text        `json:"reference_text"`
-	Flag          pgtype.Text        `json:"flag"`
 	ObservedDate  pgtype.Date        `json:"observed_date"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 }

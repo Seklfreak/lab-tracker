@@ -13,7 +13,7 @@ import {
 import { api } from "@/lib/api";
 import { useProfile } from "@/lib/profile";
 import { Badge, Card, Spinner } from "@/components/ui";
-import { displayValue, referenceLabel, statusTone } from "@/lib/format";
+import { derivedFlag, displayValue, referenceLabel, statusTone } from "@/lib/format";
 import { useThemeColors } from "@/lib/theme";
 import { ArrowLeft } from "lucide-react";
 
@@ -122,6 +122,7 @@ export function AnalyteDetail() {
           <tbody>
             {[...data].reverse().map((r) => {
               const tone = statusTone(r);
+              const flag = derivedFlag(r);
               return (
                 <tr key={r.id} className="border-t border-border">
                   <td className="py-2">{r.observedDate ?? "—"}</td>
@@ -129,7 +130,7 @@ export function AnalyteDetail() {
                     {displayValue(r)} {r.unit}
                   </td>
                   <td className="py-2 text-muted">{referenceLabel(r) ?? "—"}</td>
-                  <td className="py-2">{r.flag ? <Badge tone={tone}>{r.flag}</Badge> : "—"}</td>
+                  <td className="py-2">{flag ? <Badge tone={tone}>{flag}</Badge> : "—"}</td>
                   <td className="py-2">
                     <a
                       href={api.pdfUrl(r.reportId)}

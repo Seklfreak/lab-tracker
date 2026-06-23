@@ -20,7 +20,6 @@ type ExtractedResult struct {
 	ReferenceRange *string  `json:"reference_range"`
 	ReferenceLow   *float64 `json:"reference_low"`
 	ReferenceHigh  *float64 `json:"reference_high"`
-	Flag           *string  `json:"flag"`
 	Specimen       *string  `json:"specimen"`
 }
 
@@ -58,7 +57,6 @@ Extract every individual test result into JSON. Respond with ONLY a single JSON 
       "reference_range": string | null,  // the reference interval exactly as printed, e.g. "70-99", "<150"
       "reference_low": number | null,    // numeric lower bound if present, else null
       "reference_high": number | null,   // numeric upper bound if present, else null
-      "flag": string | null,             // abnormal flag if present, e.g. "H", "L", "HIGH", null otherwise
       "specimen": string | null          // specimen type: "serum", "plasma", "whole blood", "urine", or null if unclear
     }
   ]

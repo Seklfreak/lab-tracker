@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
 import { useProfile } from "@/lib/profile";
 import { Badge, Card, Spinner } from "@/components/ui";
-import { displayValue, referenceLabel, statusTone } from "@/lib/format";
+import { derivedFlag, displayValue, referenceLabel, statusTone } from "@/lib/format";
 
 export function Dashboard() {
   const { profileId } = useProfile();
@@ -55,12 +55,13 @@ export function Dashboard() {
             {rows.map((r) => {
               const tone = statusTone(r);
               const ref = referenceLabel(r);
+              const flag = derivedFlag(r);
               return (
                 <Link key={r.id} to={`/analytes/${r.analyteId}`}>
                   <Card className="transition hover:border-accent">
                     <div className="flex items-start justify-between">
                       <div className="font-medium">{r.analyteName}</div>
-                      {r.flag && <Badge tone={tone}>{r.flag}</Badge>}
+                      {flag && <Badge tone={tone}>{flag}</Badge>}
                     </div>
                     <div className="mt-2 flex items-baseline gap-1">
                       <span
