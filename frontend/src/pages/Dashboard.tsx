@@ -1,15 +1,31 @@
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { clsx } from "clsx";
 import { Star } from "lucide-react";
 import { api, type Result } from "@/lib/api";
 import { useProfile } from "@/lib/profile";
-import { Badge, Card, Spinner } from "@/components/ui";
+import { Badge, Card, Select, Spinner } from "@/components/ui";
 import { derivedFlag, displayValue, referenceLabel, statusTone } from "@/lib/format";
+
+type SortKey = "category" | "count" | "name" | "recent";
+
+function comparator(key: SortKey): (a: Result, b: Result) => number {
+  const byName = (a: Result, b: Result) => a.analyteName.localeCompare(b.analyteName);
+  switch (key) {
+    case "count":
+      return (a, b) => (b.count ?? 1) - (a.count ?? 1) || byName(a, b);
+    case "recent":
+      return (a, b) => (b.observedDate ?? "").localeCompare(a.observedDate ?? "") || byName(a, b);
+    default:
+      return byName;
+  }
+}
 
 export function Dashboard() {
   const { profileId } = useProfile();
   const qc = useQueryClient();
+  const [sort, setSort] = useState<SortKey>("category");
 
   const results = useQuery({
     queryKey: ["latest", profileId],
@@ -55,40 +71,65 @@ export function Dashboard() {
     />
   );
 
-  const favorites = data.filter((r) => r.isFavorite);
+  const cmp = comparator(sort);
+  const favorites = [...data.filter((r) => r.isFavorite)].sort(cmp);
   const rest = data.filter((r) => !r.isFavorite);
 
-  // Group the non-favorited results by category.
-  const groups = new Map<string, Result[]>();
-  for (const r of rest) {
-    const key = r.category ?? "Other";
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key)!.push(r);
+  const sortControl = (
+    <div className="flex items-center justify-end gap-2 text-sm">
+      <span className="text-muted">Sort by</span>
+      <Select className="w-44" value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
+        <option value="category">Category</option>
+        <option value="count">Most readings</option>
+        <option value="recent">Most recent</option>
+        <option value="name">Name (A–Z)</option>
+      </Select>
+    </div>
+  );
+
+  const favSection = favorites.length > 0 && (
+    <section>
+      <h2 className="mb-3 flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wide text-warn">
+        <Star size={14} className="fill-warn" /> Favorites
+      </h2>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {favorites.map(renderCard)}
+      </div>
+    </section>
+  );
+
+  // Category sort keeps the grouped layout; any other sort flattens into one list.
+  let body;
+  if (sort === "category") {
+    const groups = new Map<string, Result[]>();
+    for (const r of rest) {
+      const key = r.category ?? "Other";
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(r);
+    }
+    body = [...groups.entries()].map(([category, rows]) => (
+      <section key={category}>
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">{category}</h2>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {[...rows].sort(cmp).map(renderCard)}
+        </div>
+      </section>
+    ));
+  } else {
+    body = (
+      <section>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {[...rest].sort(cmp).map(renderCard)}
+        </div>
+      </section>
+    );
   }
 
   return (
-    <div className="space-y-8">
-      {favorites.length > 0 && (
-        <section>
-          <h2 className="mb-3 flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wide text-warn">
-            <Star size={14} className="fill-warn" /> Favorites
-          </h2>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {favorites.map(renderCard)}
-          </div>
-        </section>
-      )}
-
-      {[...groups.entries()].map(([category, rows]) => (
-        <section key={category}>
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
-            {category}
-          </h2>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {rows.map(renderCard)}
-          </div>
-        </section>
-      ))}
+    <div className="space-y-6">
+      {sortControl}
+      {favSection}
+      {body}
     </div>
   );
 }
