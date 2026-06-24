@@ -83,6 +83,24 @@ export function derivedFlag(r: Result): string | null {
   return null;
 }
 
+// plotPoint maps a result to a chart point. Plain numbers plot as-is; bounded
+// values ("<x" / ">x") plot at their threshold with an error whisker covering
+// the range the true value could lie in (e.g. "<0.05" → from refLow/0 up to
+// 0.05). Returns null for non-plottable (purely qualitative) results.
+export function plotPoint(
+  r: Pick<Result, "valueNumeric" | "valueText" | "referenceLow" | "referenceHigh">,
+): { value: number; err: [number, number] } | null {
+  if (r.valueNumeric !== null) return { value: r.valueNumeric, err: [0, 0] };
+  const b = r.valueText ? parseBounded(r.valueText) : null;
+  if (!b) return null;
+  if (b.op === "<") {
+    const low = r.referenceLow ?? 0;
+    return { value: b.num, err: [Math.max(0, b.num - low), 0] };
+  }
+  const high = r.referenceHigh;
+  return { value: b.num, err: [0, high !== null && high > b.num ? high - b.num : 0] };
+}
+
 // chartYDomain pads the y-axis to include the data and the reference bounds so
 // the in-range/out-of-range zones are fully visible. Falls back to [0, 1] when
 // there is nothing to plot.

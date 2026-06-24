@@ -4,6 +4,7 @@ import {
   chartYDomain,
   derivedFlag,
   displayValue,
+  plotPoint,
   referenceLabel,
   statusTone,
 } from "./format";
@@ -110,6 +111,27 @@ describe("displayValue", () => {
     expect(displayValue(mk({ valueText: "NEGATIVE" }))).toBe("NEGATIVE");
     expect(displayValue(mk({ valueNumeric: 95 }))).toBe("95");
     expect(displayValue(mk({}))).toBe("—");
+  });
+});
+
+describe("plotPoint", () => {
+  it("plots plain numbers with no whisker", () => {
+    expect(plotPoint(mk({ valueNumeric: 95 }))).toEqual({ value: 95, err: [0, 0] });
+  });
+  it("plots '<x' at the threshold with a downward whisker to the low bound", () => {
+    expect(plotPoint(mk({ valueText: "<0.05", referenceLow: 0, referenceHigh: 0.05 }))).toEqual({
+      value: 0.05,
+      err: [0.05, 0],
+    });
+  });
+  it("plots '>x' with an upward whisker to the high bound", () => {
+    expect(plotPoint(mk({ valueText: ">100", referenceHigh: 150 }))).toEqual({
+      value: 100,
+      err: [0, 50],
+    });
+  });
+  it("returns null for purely qualitative values", () => {
+    expect(plotPoint(mk({ valueText: "NEGATIVE" }))).toBeNull();
   });
 });
 

@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import {
   CartesianGrid,
+  ErrorBar,
   Line,
   LineChart,
   ReferenceArea,
@@ -14,7 +15,14 @@ import {
 import { api } from "@/lib/api";
 import { useProfile } from "@/lib/profile";
 import { Badge, Card, Spinner } from "@/components/ui";
-import { chartYDomain, derivedFlag, displayValue, referenceLabel, statusTone } from "@/lib/format";
+import {
+  chartYDomain,
+  derivedFlag,
+  displayValue,
+  plotPoint,
+  referenceLabel,
+  statusTone,
+} from "@/lib/format";
 import { useThemeColors } from "@/lib/theme";
 import { ArrowLeft } from "lucide-react";
 
@@ -51,13 +59,29 @@ export function AnalyteDetail() {
   const refLow = data.find((r) => r.referenceLow !== null)?.referenceLow ?? null;
   const refHigh = data.find((r) => r.referenceHigh !== null)?.referenceHigh ?? null;
 
+  // Plain numbers plot as a dot; bounded values ("<0.05") plot as a vertical
+  // range line (via ErrorBar) covering where the true value could be.
   const chartData = data
-    .filter((r) => r.valueNumeric !== null)
-    .map((r) => ({ date: r.observedDate ?? "", value: r.valueNumeric as number }));
+    .map((r) => {
+      const p = plotPoint(r);
+      if (!p) return null;
+      return {
+        date: r.observedDate ?? "",
+        value: p.value,
+        err: p.err,
+        bounded: p.err[0] > 0 || p.err[1] > 0,
+      };
+    })
+    .filter((d): d is NonNullable<typeof d> => d !== null);
+  const hasBounded = chartData.some((d) => d.bounded);
 
-  // Y domain padded to include the data and reference bounds, so the green
-  // (in-range) and red (out-of-range) zones are fully visible.
-  const yDomain = chartYDomain(chartData.map((d) => d.value), refLow, refHigh);
+  // Y domain padded to include the data, the whisker extents, and reference
+  // bounds so the green (in-range) and red (out-of-range) zones are visible.
+  const yDomain = chartYDomain(
+    chartData.flatMap((d) => [d.value, d.value - d.err[0], d.value + d.err[1]]),
+    refLow,
+    refHigh,
+  );
 
   return (
     <div className="space-y-5">
@@ -110,13 +134,27 @@ export function AnalyteDetail() {
                   dataKey="value"
                   stroke={colors.accent}
                   strokeWidth={2}
-                  dot={{ r: 3, fill: colors.accent }}
-                />
+                  dot={(props) => {
+                    const { cx, cy, payload, index } = props;
+                    // Bounded values are shown as the range line (ErrorBar), not a dot.
+                    if (payload.bounded) return <g key={index} />;
+                    return <circle key={index} cx={cx} cy={cy} r={3} fill={colors.accent} />;
+                  }}
+                >
+                  <ErrorBar
+                    dataKey="err"
+                    direction="y"
+                    width={6}
+                    stroke={colors.accent}
+                    strokeWidth={2}
+                  />
+                </Line>
               </LineChart>
             </ResponsiveContainer>
           </div>
           <p className="mt-2 text-xs text-muted">
             Green = in range, red = out of range.
+            {hasBounded && " A vertical line shows the possible range for a bounded value (e.g. <0.05)."}
           </p>
         </Card>
       )}
