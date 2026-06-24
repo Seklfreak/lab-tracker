@@ -4,7 +4,9 @@ Self-hosted app to consolidate lab results (Quest, hospital, etc.) into one plac
 visualized over time, with separate profiles. Upload a PDF → Claude scans it →
 review/edit the parsed results → save dated values → graph trends.
 
-No authentication (yet). Personal-scale.
+Personal-scale. Authenticates via OIDC (any OpenID Connect provider, e.g.
+Authentik) — the API validates Bearer JWTs and the SPA does Authorization Code +
+PKCE; set `AUTH_DISABLED=true` to run locally without it.
 
 ## Stack
 
@@ -108,8 +110,8 @@ management, etc.) are in [`docs/manual-testing.md`](docs/manual-testing.md).
 
 ## Not yet implemented
 
-- Authentication.
 - Unit normalization across labs (mg/dL ↔ mmol/L).
+- Per-user data isolation (today any authenticated user shares all profiles).
 
 Future ideas (MCP server, iOS app, broader health record) are in
 [`docs/roadmap.md`](docs/roadmap.md).
