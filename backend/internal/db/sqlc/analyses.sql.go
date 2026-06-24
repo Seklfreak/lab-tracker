@@ -9,24 +9,8 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
-
-const countResultsForProfileAnalyte = `-- name: CountResultsForProfileAnalyte :one
-SELECT count(*) FROM lab_results
-WHERE profile_id = $1 AND analyte_id = $2
-`
-
-type CountResultsForProfileAnalyteParams struct {
-	ProfileID uuid.UUID `json:"profile_id"`
-	AnalyteID uuid.UUID `json:"analyte_id"`
-}
-
-func (q *Queries) CountResultsForProfileAnalyte(ctx context.Context, arg CountResultsForProfileAnalyteParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countResultsForProfileAnalyte, arg.ProfileID, arg.AnalyteID)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
 
 const getAnalysis = `-- name: GetAnalysis :one
 SELECT profile_id, analyte_id, content, result_count, generated_at FROM analyte_analyses
@@ -48,6 +32,30 @@ func (q *Queries) GetAnalysis(ctx context.Context, arg GetAnalysisParams) (Analy
 		&i.ResultCount,
 		&i.GeneratedAt,
 	)
+	return i, err
+}
+
+const resultStatsForProfileAnalyte = `-- name: ResultStatsForProfileAnalyte :one
+SELECT count(*)::int AS count,
+       COALESCE(max(updated_at), to_timestamp(0))::timestamptz AS last_changed
+FROM lab_results
+WHERE profile_id = $1 AND analyte_id = $2
+`
+
+type ResultStatsForProfileAnalyteParams struct {
+	ProfileID uuid.UUID `json:"profile_id"`
+	AnalyteID uuid.UUID `json:"analyte_id"`
+}
+
+type ResultStatsForProfileAnalyteRow struct {
+	Count       int32              `json:"count"`
+	LastChanged pgtype.Timestamptz `json:"last_changed"`
+}
+
+func (q *Queries) ResultStatsForProfileAnalyte(ctx context.Context, arg ResultStatsForProfileAnalyteParams) (ResultStatsForProfileAnalyteRow, error) {
+	row := q.db.QueryRow(ctx, resultStatsForProfileAnalyte, arg.ProfileID, arg.AnalyteID)
+	var i ResultStatsForProfileAnalyteRow
+	err := row.Scan(&i.Count, &i.LastChanged)
 	return i, err
 }
 

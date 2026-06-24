@@ -10,6 +10,8 @@ SET content = EXCLUDED.content,
     result_count = EXCLUDED.result_count,
     generated_at = now();
 
--- name: CountResultsForProfileAnalyte :one
-SELECT count(*) FROM lab_results
+-- name: ResultStatsForProfileAnalyte :one
+SELECT count(*)::int AS count,
+       COALESCE(max(updated_at), to_timestamp(0))::timestamptz AS last_changed
+FROM lab_results
 WHERE profile_id = $1 AND analyte_id = $2;

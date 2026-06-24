@@ -22,7 +22,8 @@ UPDATE lab_results SET
     reference_high = $7,
     reference_text = $8,
     note = $9,
-    observed_date = $10
+    observed_date = $10,
+    updated_at = now()
 WHERE id = $1;
 
 -- name: DeleteResult :exec

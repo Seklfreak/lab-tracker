@@ -34,11 +34,11 @@ func (s *Server) getAnalysis(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid analyteId")
 		return
 	}
-	current, err := s.q.CountResultsForProfileAnalyte(r.Context(), sqlc.CountResultsForProfileAnalyteParams{
+	stats, err := s.q.ResultStatsForProfileAnalyte(r.Context(), sqlc.ResultStatsForProfileAnalyteParams{
 		ProfileID: p.ID, AnalyteID: analyteID,
 	})
 	if err != nil {
-		s.log.Error("count results", "err", err)
+		s.log.Error("result stats", "err", err)
 		writeError(w, http.StatusInternalServerError, "failed to load analysis")
 		return
 	}
@@ -52,7 +52,13 @@ func (s *Server) getAnalysis(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to load analysis")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"analysis": toAnalysisDTO(stored, int(current))})
+	// Stale if the number of results changed (add/delete) or any result was
+	// changed (edited) after the analysis was generated.
+	stale := int(stats.Count) != int(stored.ResultCount)
+	if stats.LastChanged.Valid && stored.GeneratedAt.Valid && stats.LastChanged.Time.After(stored.GeneratedAt.Time) {
+		stale = true
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"analysis": toAnalysisDTO(stored, int(stats.Count), stale)})
 }
 
 // analyzeAnalyte generates (or regenerates) the analysis via the LLM and stores it.
@@ -122,7 +128,7 @@ func (s *Server) analyzeAnalyte(w http.ResponseWriter, r *http.Request) {
 	}})
 }
 
-func toAnalysisDTO(a sqlc.AnalyteAnalysis, current int) AnalysisDTO {
+func toAnalysisDTO(a sqlc.AnalyteAnalysis, current int, stale bool) AnalysisDTO {
 	gen := ""
 	if a.GeneratedAt.Valid {
 		gen = a.GeneratedAt.Time.UTC().Format(time.RFC3339)
@@ -132,7 +138,7 @@ func toAnalysisDTO(a sqlc.AnalyteAnalysis, current int) AnalysisDTO {
 		GeneratedAt:  gen,
 		BasedOnCount: int(a.ResultCount),
 		CurrentCount: current,
-		Stale:        current > int(a.ResultCount),
+		Stale:        stale,
 	}
 }
 

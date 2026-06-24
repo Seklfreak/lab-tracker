@@ -20,7 +20,7 @@ INSERT INTO lab_results (
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
 )
-RETURNING id, report_id, profile_id, analyte_id, raw_test_name, value_text, value_numeric, unit, reference_low, reference_high, reference_text, observed_date, created_at, note
+RETURNING id, report_id, profile_id, analyte_id, raw_test_name, value_text, value_numeric, unit, reference_low, reference_high, reference_text, observed_date, created_at, note, updated_at
 `
 
 type CreateResultParams struct {
@@ -69,6 +69,7 @@ func (q *Queries) CreateResult(ctx context.Context, arg CreateResultParams) (Lab
 		&i.ObservedDate,
 		&i.CreatedAt,
 		&i.Note,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -95,7 +96,7 @@ func (q *Queries) DeleteResultsForReport(ctx context.Context, reportID uuid.UUID
 
 const listLatestResultsForProfile = `-- name: ListLatestResultsForProfile :many
 SELECT DISTINCT ON (r.analyte_id)
-    r.id, r.report_id, r.profile_id, r.analyte_id, r.raw_test_name, r.value_text, r.value_numeric, r.unit, r.reference_low, r.reference_high, r.reference_text, r.observed_date, r.created_at, r.note, a.name AS analyte_name, a.category AS analyte_category,
+    r.id, r.report_id, r.profile_id, r.analyte_id, r.raw_test_name, r.value_text, r.value_numeric, r.unit, r.reference_low, r.reference_high, r.reference_text, r.observed_date, r.created_at, r.note, r.updated_at, a.name AS analyte_name, a.category AS analyte_category,
     rep.source_lab AS source_lab,
     COUNT(*) OVER (PARTITION BY r.analyte_id) AS result_count,
     (f.analyte_id IS NOT NULL)::boolean AS is_favorite
@@ -122,6 +123,7 @@ type ListLatestResultsForProfileRow struct {
 	ObservedDate    pgtype.Date        `json:"observed_date"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	Note            pgtype.Text        `json:"note"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 	AnalyteName     string             `json:"analyte_name"`
 	AnalyteCategory pgtype.Text        `json:"analyte_category"`
 	SourceLab       pgtype.Text        `json:"source_lab"`
@@ -153,6 +155,7 @@ func (q *Queries) ListLatestResultsForProfile(ctx context.Context, profileID uui
 			&i.ObservedDate,
 			&i.CreatedAt,
 			&i.Note,
+			&i.UpdatedAt,
 			&i.AnalyteName,
 			&i.AnalyteCategory,
 			&i.SourceLab,
@@ -170,7 +173,7 @@ func (q *Queries) ListLatestResultsForProfile(ctx context.Context, profileID uui
 }
 
 const listResultsForProfile = `-- name: ListResultsForProfile :many
-SELECT r.id, r.report_id, r.profile_id, r.analyte_id, r.raw_test_name, r.value_text, r.value_numeric, r.unit, r.reference_low, r.reference_high, r.reference_text, r.observed_date, r.created_at, r.note, a.name AS analyte_name, a.category AS analyte_category, rep.source_lab AS source_lab
+SELECT r.id, r.report_id, r.profile_id, r.analyte_id, r.raw_test_name, r.value_text, r.value_numeric, r.unit, r.reference_low, r.reference_high, r.reference_text, r.observed_date, r.created_at, r.note, r.updated_at, a.name AS analyte_name, a.category AS analyte_category, rep.source_lab AS source_lab
 FROM lab_results r
 JOIN analytes a ON a.id = r.analyte_id
 LEFT JOIN lab_reports rep ON rep.id = r.report_id
@@ -193,6 +196,7 @@ type ListResultsForProfileRow struct {
 	ObservedDate    pgtype.Date        `json:"observed_date"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	Note            pgtype.Text        `json:"note"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 	AnalyteName     string             `json:"analyte_name"`
 	AnalyteCategory pgtype.Text        `json:"analyte_category"`
 	SourceLab       pgtype.Text        `json:"source_lab"`
@@ -222,6 +226,7 @@ func (q *Queries) ListResultsForProfile(ctx context.Context, profileID uuid.UUID
 			&i.ObservedDate,
 			&i.CreatedAt,
 			&i.Note,
+			&i.UpdatedAt,
 			&i.AnalyteName,
 			&i.AnalyteCategory,
 			&i.SourceLab,
@@ -237,7 +242,7 @@ func (q *Queries) ListResultsForProfile(ctx context.Context, profileID uuid.UUID
 }
 
 const listResultsForProfileAnalyte = `-- name: ListResultsForProfileAnalyte :many
-SELECT r.id, r.report_id, r.profile_id, r.analyte_id, r.raw_test_name, r.value_text, r.value_numeric, r.unit, r.reference_low, r.reference_high, r.reference_text, r.observed_date, r.created_at, r.note, a.name AS analyte_name, a.category AS analyte_category, rep.source_lab AS source_lab
+SELECT r.id, r.report_id, r.profile_id, r.analyte_id, r.raw_test_name, r.value_text, r.value_numeric, r.unit, r.reference_low, r.reference_high, r.reference_text, r.observed_date, r.created_at, r.note, r.updated_at, a.name AS analyte_name, a.category AS analyte_category, rep.source_lab AS source_lab
 FROM lab_results r
 JOIN analytes a ON a.id = r.analyte_id
 LEFT JOIN lab_reports rep ON rep.id = r.report_id
@@ -265,6 +270,7 @@ type ListResultsForProfileAnalyteRow struct {
 	ObservedDate    pgtype.Date        `json:"observed_date"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	Note            pgtype.Text        `json:"note"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 	AnalyteName     string             `json:"analyte_name"`
 	AnalyteCategory pgtype.Text        `json:"analyte_category"`
 	SourceLab       pgtype.Text        `json:"source_lab"`
@@ -294,6 +300,7 @@ func (q *Queries) ListResultsForProfileAnalyte(ctx context.Context, arg ListResu
 			&i.ObservedDate,
 			&i.CreatedAt,
 			&i.Note,
+			&i.UpdatedAt,
 			&i.AnalyteName,
 			&i.AnalyteCategory,
 			&i.SourceLab,
@@ -318,7 +325,8 @@ UPDATE lab_results SET
     reference_high = $7,
     reference_text = $8,
     note = $9,
-    observed_date = $10
+    observed_date = $10,
+    updated_at = now()
 WHERE id = $1
 `
 
