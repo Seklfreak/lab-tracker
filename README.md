@@ -110,4 +110,6 @@ management, etc.) are in [`docs/manual-testing.md`](docs/manual-testing.md).
 
 - Authentication.
 - Unit normalization across labs (mg/dL ↔ mmol/L).
-- Containerized deployment (homelab k3s).
+
+Future ideas (MCP server, iOS app, broader health record) are in
+[`docs/roadmap.md`](docs/roadmap.md).
