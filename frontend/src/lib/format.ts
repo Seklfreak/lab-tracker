@@ -117,7 +117,9 @@ export function chartYDomain(
   const hi = Math.max(...bounds);
   const span = hi - lo || Math.abs(hi) || 1;
   const pad = span * 0.15;
-  return [lo - pad, hi + pad];
+  // Don't pad below zero unless a real value/bound is actually negative.
+  const lower = lo >= 0 ? Math.max(0, lo - pad) : lo - pad;
+  return [lower, hi + pad];
 }
 
 export function referenceLabel(r: Pick<Result, "referenceLow" | "referenceHigh" | "referenceText">): string | null {

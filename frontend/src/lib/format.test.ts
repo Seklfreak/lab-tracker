@@ -150,6 +150,15 @@ describe("chartYDomain", () => {
   it("falls back to [0,1] with no data", () => {
     expect(chartYDomain([], null, null)).toEqual([0, 1]);
   });
+  it("does not pad below zero for non-negative data", () => {
+    const [lo, hi] = chartYDomain([0.05, 0], 0, 0.05);
+    expect(lo).toBe(0);
+    expect(hi).toBeCloseTo(0.0575, 4);
+  });
+  it("allows a negative floor when a value is actually negative", () => {
+    const [lo] = chartYDomain([-5, 10], -10, 20);
+    expect(lo).toBeLessThan(0);
+  });
   it("pads a single flat value", () => {
     const [lo, hi] = chartYDomain([50], null, null);
     expect(lo).toBeCloseTo(42.5, 2);
