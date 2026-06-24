@@ -8,7 +8,23 @@ export function displayValue(r: Pick<Result, "valueText" | "valueNumeric">): str
 
 export type Tone = "good" | "warn" | "bad" | "muted";
 
-const normalizeQual = (s: string) => s.trim().toLowerCase().replace(/[\s_-]+/g, " ");
+// Common qualitative abbreviations, normalized to a canonical form so a value
+// matches its (often abbreviated) reference — e.g. "NEGATIVE" vs "NEG".
+const QUAL_SYNONYMS: Record<string, string> = {
+  neg: "negative",
+  pos: "positive",
+  nr: "non reactive",
+  nonreactive: "non reactive",
+  reactive: "reactive",
+  nd: "not detected",
+  notdetected: "not detected",
+  detected: "detected",
+};
+
+function normalizeQual(s: string): string {
+  const t = s.trim().toLowerCase().replace(/[\s_-]+/g, " ").trim();
+  return QUAL_SYNONYMS[t] ?? t;
+}
 
 // statusTone returns "bad" when a result is out of range: for numeric results,
 // outside the reference band; for qualitative results (e.g. "Negative"),

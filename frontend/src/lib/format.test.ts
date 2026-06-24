@@ -49,6 +49,14 @@ describe("statusTone", () => {
     expect(statusTone(mk({ valueText: "NON-REACTIVE", referenceText: "Non-Reactive" }))).toBe("good");
     expect(statusTone(mk({ valueText: "REACTIVE", referenceText: "Non-Reactive" }))).toBe("bad");
   });
+  it("matches common qualitative abbreviations", () => {
+    expect(statusTone(mk({ valueText: "NEGATIVE", referenceText: "NEG" }))).toBe("good");
+    expect(statusTone(mk({ valueText: "POSITIVE", referenceText: "POS" }))).toBe("good");
+    expect(statusTone(mk({ valueText: "NEGATIVE", referenceText: "NEG" }))).not.toBe("bad");
+    expect(derivedFlag(mk({ valueText: "NEGATIVE", referenceText: "NEG" }))).toBeNull();
+    // a real mismatch still flags
+    expect(statusTone(mk({ valueText: "POSITIVE", referenceText: "NEG" }))).toBe("bad");
+  });
   it("qualitative without a reference is muted", () => {
     expect(statusTone(mk({ valueText: "NEGATIVE" }))).toBe("muted");
   });
