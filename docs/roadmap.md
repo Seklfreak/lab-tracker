@@ -14,6 +14,28 @@ and rough notes so they aren't lost.
   analyses. The REST API already exists; the main gap is an auth story for a
   mobile client (today access is only gated by Authentik forward-auth at the
   ingress).
+  - **App Store approval (self-hosted, no shared backend):** because the app
+    points at the user's own server, plan around Apple's review guidelines so a
+    reviewer can exercise it without our infra (the "I can't give you a login"
+    problem). Strategy is "bring your own server" as a first-class, reviewable
+    flow:
+    1. **In-app demo/sandbox mode** — local seeded sample data, one tap, no
+       network. Biggest win: can't go stale or go down mid-review, fully under
+       our control. (Guards against guideline 2.1 — reviewer must be able to
+       use full functionality.)
+    2. **Pre-auth onboarding content** — explain "client for self-hosted
+       lab-tracker, connect your own server" + a server-config screen, so the
+       first screen isn't a blank login wall (guards against guideline 4.2
+       minimum-functionality rejection).
+    3. **Demo video** in App Review Notes showing the connected experience as
+       backup proof; spell out demo-mode + (optionally) a temporary review
+       server URL/creds in the notes field.
+    4. Optional temporary public review instance — nice-to-have, not required
+       if 1–3 are solid.
+    - Gotchas: Sign in with Apple only required if we add social login (our own
+      SSO/username-password doesn't trigger it); privacy nutrition labels +
+      privacy policy URL still mandatory; every app update is re-reviewed, so
+      keep demo mode in the app permanently.
 
 ## Bigger direction: a general health record (not just labs)
 
