@@ -42,6 +42,11 @@ describe("statusTone", () => {
   it("numeric without a reference is muted", () => {
     expect(statusTone(mk({ valueNumeric: 85 }))).toBe("muted");
   });
+  it("numeric value with a non-numeric reference ('See notes') is muted, not bad", () => {
+    const r = mk({ valueNumeric: 103, valueText: "103", referenceText: "See notes" });
+    expect(statusTone(r)).toBe("muted");
+    expect(derivedFlag(r)).toBeNull();
+  });
   it("one-sided reference works", () => {
     expect(statusTone(mk({ valueNumeric: 200, referenceHigh: 150 }))).toBe("bad");
     expect(statusTone(mk({ valueNumeric: 100, referenceHigh: 150 }))).toBe("good");

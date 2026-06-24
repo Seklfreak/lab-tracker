@@ -64,7 +64,9 @@ export function statusTone(r: Result): Tone {
   const range = evaluateRange(r);
   if (range === "L" || range === "H") return "bad";
   if (range === "ok") return "good";
-  if (r.valueText && r.referenceText) {
+  // Qualitative compare only for genuinely non-numeric values; a numeric value
+  // with no parseable reference (e.g. "See notes") is indeterminate, not bad.
+  if (r.valueNumeric === null && r.valueText && r.referenceText) {
     return normalizeQual(r.valueText) === normalizeQual(r.referenceText) ? "good" : "bad";
   }
   return "muted";
@@ -77,7 +79,7 @@ export function derivedFlag(r: Result): string | null {
   if (range === "L") return "L";
   if (range === "H") return "H";
   if (range === "ok") return null;
-  if (r.valueText && r.referenceText) {
+  if (r.valueNumeric === null && r.valueText && r.referenceText) {
     return normalizeQual(r.valueText) === normalizeQual(r.referenceText) ? null : "Abnormal";
   }
   return null;
