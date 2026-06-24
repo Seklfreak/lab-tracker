@@ -26,6 +26,14 @@ type AnalyteAlias struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type AnalyteAnalysis struct {
+	ProfileID   uuid.UUID          `json:"profile_id"`
+	AnalyteID   uuid.UUID          `json:"analyte_id"`
+	Content     string             `json:"content"`
+	ResultCount int32              `json:"result_count"`
+	GeneratedAt pgtype.Timestamptz `json:"generated_at"`
+}
+
 type Favorite struct {
 	ProfileID uuid.UUID          `json:"profile_id"`
 	AnalyteID uuid.UUID          `json:"analyte_id"`

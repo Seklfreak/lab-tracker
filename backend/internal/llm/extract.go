@@ -73,6 +73,27 @@ Rules:
 - For "specimen": use the panel/section context. Urinalysis and urine dipstick or microscopic tests are "urine". CBC and hematology/differential tests are "whole blood". Most chemistry, lipid, thyroid, and immunoassay/serology tests are "serum". Use null only if genuinely unclear.
 - If no results are found, return an empty "results" array.`
 
+// Complete runs a single text prompt and returns the model's text response.
+func (e *Extractor) Complete(ctx context.Context, prompt string, maxTokens int64) (string, error) {
+	msg, err := e.client.Messages.New(ctx, anthropic.MessageNewParams{
+		Model:     anthropic.ModelClaudeOpus4_8,
+		MaxTokens: maxTokens,
+		Messages: []anthropic.MessageParam{
+			anthropic.NewUserMessage(anthropic.NewTextBlock(prompt)),
+		},
+	})
+	if err != nil {
+		return "", fmt.Errorf("anthropic completion: %w", err)
+	}
+	var sb strings.Builder
+	for _, block := range msg.Content {
+		if t, ok := block.AsAny().(anthropic.TextBlock); ok {
+			sb.WriteString(t.Text)
+		}
+	}
+	return sb.String(), nil
+}
+
 // Extract parses a PDF's bytes into an ExtractedReport.
 func (e *Extractor) Extract(ctx context.Context, pdf []byte) (*ExtractedReport, error) {
 	b64 := base64.StdEncoding.EncodeToString(pdf)

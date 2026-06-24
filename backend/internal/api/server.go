@@ -62,6 +62,8 @@ func (s *Server) Router(corsOrigins []string) http.Handler {
 		r.Get("/profiles/{id}/analytes", s.listProfileAnalytes)
 		r.Post("/profiles/{id}/favorites", s.addFavorite)
 		r.Delete("/profiles/{id}/favorites/{analyteId}", s.removeFavorite)
+		r.Get("/profiles/{id}/analytes/{analyteId}/analysis", s.getAnalysis)
+		r.Post("/profiles/{id}/analytes/{analyteId}/analysis", s.analyzeAnalyte)
 
 		r.Get("/reports/{id}", s.getReport)
 		r.Post("/reports/{id}/confirm", s.confirmReport)

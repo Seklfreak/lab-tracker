@@ -1,5 +1,5 @@
 import { Fragment } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import {
   CartesianGrid,
@@ -14,7 +14,8 @@ import {
 } from "recharts";
 import { api } from "@/lib/api";
 import { useProfile } from "@/lib/profile";
-import { Badge, Card, Spinner } from "@/components/ui";
+import { Badge, Button, Card, Spinner } from "@/components/ui";
+import { Markdown } from "@/components/Markdown";
 import {
   chartYDomain,
   derivedFlag,
@@ -24,7 +25,16 @@ import {
   statusTone,
 } from "@/lib/format";
 import { useThemeColors } from "@/lib/theme";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, RotateCw, Sparkles } from "lucide-react";
+
+function formatWhen(iso: string): string {
+  const d = new Date(iso);
+  const diff = (Date.now() - d.getTime()) / 1000;
+  if (diff < 60) return "just now";
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return d.toLocaleString();
+}
 
 export function AnalyteDetail() {
   const { analyteId } = useParams();
@@ -37,6 +47,17 @@ export function AnalyteDetail() {
   });
 
   const colors = useThemeColors();
+
+  const qc = useQueryClient();
+  const analysisQ = useQuery({
+    queryKey: ["analysis", profileId, analyteId],
+    queryFn: () => api.getAnalysis(profileId!, analyteId!),
+    enabled: !!profileId && !!analyteId,
+  });
+  const generate = useMutation({
+    mutationFn: () => api.generateAnalysis(profileId!, analyteId!),
+    onSuccess: (res) => qc.setQueryData(["analysis", profileId, analyteId], res),
+  });
 
   if (!profileId) return <p className="text-muted">Select a profile.</p>;
   if (trend.isLoading) return <Spinner label="Loading trend…" />;
@@ -158,6 +179,60 @@ export function AnalyteDetail() {
           </p>
         </Card>
       )}
+
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wide text-muted">
+            <Sparkles size={14} className="text-accent" /> AI analysis
+          </h2>
+          {analysisQ.data?.analysis && !generate.isPending && (
+            <Button
+              variant="ghost"
+              className="px-2 py-1"
+              onClick={() => generate.mutate()}
+            >
+              <RotateCw size={14} /> Regenerate
+            </Button>
+          )}
+        </div>
+
+        {generate.isPending ? (
+          <div className="py-4">
+            <Spinner label="Analyzing your results…" />
+          </div>
+        ) : analysisQ.isLoading ? (
+          <div className="py-4">
+            <Spinner />
+          </div>
+        ) : analysisQ.data?.analysis ? (
+          <div className="mt-2">
+            {analysisQ.data.analysis.stale && (
+              <div className="mb-3 rounded-md border border-warn/40 bg-warn/10 px-3 py-2 text-xs text-warn">
+                New results have been added since this analysis (
+                {analysisQ.data.analysis.basedOnCount} → {analysisQ.data.analysis.currentCount}{" "}
+                readings). Regenerate to include them.
+              </div>
+            )}
+            <Markdown>{analysisQ.data.analysis.content}</Markdown>
+            <p className="mt-2 text-xs text-muted">
+              Generated {formatWhen(analysisQ.data.analysis.generatedAt)}
+            </p>
+          </div>
+        ) : (
+          <div className="py-2">
+            <p className="mb-3 text-sm text-muted">
+              Get a plain-language explanation of this analyte, an analysis of your trend over
+              time, and how related results connect.
+            </p>
+            <Button onClick={() => generate.mutate()}>
+              <Sparkles size={16} /> Generate AI analysis
+            </Button>
+          </div>
+        )}
+        {generate.error && (
+          <p className="mt-2 text-sm text-bad">{String(generate.error)}</p>
+        )}
+      </Card>
 
       <Card>
         <div className="overflow-x-auto">

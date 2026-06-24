@@ -4,6 +4,14 @@ export interface Profile {
   dateOfBirth: string | null;
 }
 
+export interface Analysis {
+  content: string;
+  generatedAt: string;
+  basedOnCount: number;
+  currentCount: number;
+  stale: boolean;
+}
+
 export interface Analyte {
   id: string;
   name: string;
@@ -147,6 +155,13 @@ export const api = {
     req<Report>(`/api/reports/${id}/reparse`, { method: "POST" }),
   deleteReport: (id: string) =>
     req<void>(`/api/reports/${id}`, { method: "DELETE" }),
+
+  getAnalysis: (profileId: string, analyteId: string) =>
+    req<{ analysis: Analysis | null }>(`/api/profiles/${profileId}/analytes/${analyteId}/analysis`),
+  generateAnalysis: (profileId: string, analyteId: string) =>
+    req<{ analysis: Analysis }>(`/api/profiles/${profileId}/analytes/${analyteId}/analysis`, {
+      method: "POST",
+    }),
 
   addFavorite: (profileId: string, analyteId: string) =>
     req<void>(`/api/profiles/${profileId}/favorites`, json({ analyteId })),
