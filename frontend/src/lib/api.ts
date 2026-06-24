@@ -93,6 +93,18 @@ export interface ConfirmResultInput {
   learnAlias: boolean;
 }
 
+export interface UpdateResultInput {
+  analyteId: string;
+  valueText: string | null;
+  valueNumeric: number | null;
+  unit: string | null;
+  referenceLow: number | null;
+  referenceHigh: number | null;
+  referenceText: string | null;
+  note: string | null;
+  observedDate: string | null;
+}
+
 export interface ConfirmInput {
   sourceLab: string | null;
   collectedDate: string | null;
@@ -155,6 +167,10 @@ export const api = {
     req<Report>(`/api/reports/${id}/reparse`, { method: "POST" }),
   deleteReport: (id: string) =>
     req<void>(`/api/reports/${id}`, { method: "DELETE" }),
+
+  updateResult: (id: string, input: UpdateResultInput) =>
+    req<void>(`/api/results/${id}`, json(input)),
+  deleteResult: (id: string) => req<void>(`/api/results/${id}`, { method: "DELETE" }),
 
   getAnalysis: (profileId: string, analyteId: string) =>
     req<{ analysis: Analysis | null }>(`/api/profiles/${profileId}/analytes/${analyteId}/analysis`),

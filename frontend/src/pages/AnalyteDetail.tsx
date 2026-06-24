@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import {
@@ -12,9 +12,10 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { api } from "@/lib/api";
+import { api, type Result } from "@/lib/api";
 import { useProfile } from "@/lib/profile";
-import { Badge, Button, Card, Spinner } from "@/components/ui";
+import { Badge, Button, Card, Input, Spinner } from "@/components/ui";
+import { Combobox, type ComboOption } from "@/components/Combobox";
 import { Markdown } from "@/components/Markdown";
 import {
   chartYDomain,
@@ -25,7 +26,25 @@ import {
   statusTone,
 } from "@/lib/format";
 import { useThemeColors } from "@/lib/theme";
-import { ArrowLeft, RotateCw, Sparkles } from "lucide-react";
+import { ArrowLeft, Pencil, RotateCw, Sparkles, Trash2 } from "lucide-react";
+
+function parseNum(s: string): number | null {
+  const t = s.trim();
+  if (t === "") return null;
+  const n = Number(t);
+  return Number.isFinite(n) ? n : null;
+}
+
+interface EditDraft {
+  analyteId: string;
+  value: string;
+  unit: string;
+  refLow: string;
+  refHigh: string;
+  refText: string;
+  date: string;
+  note: string;
+}
 
 function formatWhen(iso: string): string {
   const d = new Date(iso);
@@ -58,6 +77,65 @@ export function AnalyteDetail() {
     mutationFn: () => api.generateAnalysis(profileId!, analyteId!),
     onSuccess: (res) => qc.setQueryData(["analysis", profileId, analyteId], res),
   });
+
+  const analytes = useQuery({ queryKey: ["analytes"], queryFn: api.listAnalytes });
+  const analyteOptions: ComboOption[] = (analytes.data ?? []).map((a) => ({
+    value: a.id,
+    label: a.name,
+    hint: a.specimens && a.specimens.length > 0 ? a.specimens.join(" / ") : a.category,
+  }));
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<EditDraft | null>(null);
+
+  const invalidateResults = () => {
+    qc.invalidateQueries({ queryKey: ["trend", profileId, analyteId] });
+    qc.invalidateQueries({ queryKey: ["latest", profileId] });
+  };
+  const update = useMutation({
+    mutationFn: (vars: { id: string; input: Parameters<typeof api.updateResult>[1] }) =>
+      api.updateResult(vars.id, vars.input),
+    onSuccess: () => {
+      invalidateResults();
+      setEditingId(null);
+      setDraft(null);
+    },
+  });
+  const removeResult = useMutation({
+    mutationFn: (id: string) => api.deleteResult(id),
+    onSuccess: invalidateResults,
+  });
+
+  const startEdit = (r: Result) => {
+    setEditingId(r.id);
+    setDraft({
+      analyteId: r.analyteId,
+      value: r.valueText ?? (r.valueNumeric != null ? String(r.valueNumeric) : ""),
+      unit: r.unit ?? "",
+      refLow: r.referenceLow != null ? String(r.referenceLow) : "",
+      refHigh: r.referenceHigh != null ? String(r.referenceHigh) : "",
+      refText: r.referenceText ?? "",
+      date: r.observedDate ?? "",
+      note: r.note ?? "",
+    });
+  };
+  const saveEdit = () => {
+    if (!editingId || !draft) return;
+    update.mutate({
+      id: editingId,
+      input: {
+        analyteId: draft.analyteId,
+        valueText: draft.value || null,
+        valueNumeric: parseNum(draft.value),
+        unit: draft.unit || null,
+        referenceLow: parseNum(draft.refLow),
+        referenceHigh: parseNum(draft.refHigh),
+        referenceText: draft.refText || null,
+        note: draft.note || null,
+        observedDate: draft.date || null,
+      },
+    });
+  };
 
   if (!profileId) return <p className="text-muted">Select a profile.</p>;
   if (trend.isLoading) return <Spinner label="Loading trend…" />;
@@ -245,12 +323,14 @@ export function AnalyteDetail() {
               <th className="pb-2">Flag</th>
               <th className="pb-2">Lab</th>
               <th className="pb-2">Source</th>
+              <th className="pb-2 text-right">Edit</th>
             </tr>
           </thead>
           <tbody>
             {[...data].reverse().map((r) => {
               const tone = statusTone(r);
               const flag = derivedFlag(r);
+              const editing = editingId === r.id;
               return (
                 <Fragment key={r.id}>
                   <tr className="border-t border-border">
@@ -271,13 +351,92 @@ export function AnalyteDetail() {
                         PDF
                       </a>
                     </td>
+                    <td className="py-2">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => (editing ? setEditingId(null) : startEdit(r))}
+                          className="text-muted hover:text-accent"
+                          title="Edit"
+                        >
+                          <Pencil size={15} />
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (confirm("Delete this result?")) removeResult.mutate(r.id);
+                          }}
+                          className="text-muted hover:text-bad"
+                          title="Delete"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </td>
                   </tr>
-                  {r.note && (
+                  {editing && draft ? (
                     <tr>
-                      <td colSpan={6} className="pb-2 text-xs italic text-muted">
-                        {r.note}
+                      <td colSpan={7} className="bg-panel2/40 px-2 py-3">
+                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                          <label className="col-span-2 text-xs sm:col-span-4">
+                            <span className="mb-1 block text-muted">Analyte</span>
+                            <Combobox
+                              value={draft.analyteId}
+                              onChange={(v) => setDraft({ ...draft, analyteId: v })}
+                              options={analyteOptions}
+                            />
+                          </label>
+                          <label className="text-xs">
+                            <span className="mb-1 block text-muted">Value</span>
+                            <Input value={draft.value} onChange={(e) => setDraft({ ...draft, value: e.target.value })} />
+                          </label>
+                          <label className="text-xs">
+                            <span className="mb-1 block text-muted">Unit</span>
+                            <Input value={draft.unit} onChange={(e) => setDraft({ ...draft, unit: e.target.value })} />
+                          </label>
+                          <label className="text-xs">
+                            <span className="mb-1 block text-muted">Ref low</span>
+                            <Input value={draft.refLow} onChange={(e) => setDraft({ ...draft, refLow: e.target.value })} />
+                          </label>
+                          <label className="text-xs">
+                            <span className="mb-1 block text-muted">Ref high</span>
+                            <Input value={draft.refHigh} onChange={(e) => setDraft({ ...draft, refHigh: e.target.value })} />
+                          </label>
+                          <label className="col-span-2 text-xs">
+                            <span className="mb-1 block text-muted">Reference (text)</span>
+                            <Input value={draft.refText} onChange={(e) => setDraft({ ...draft, refText: e.target.value })} placeholder="e.g. Negative" />
+                          </label>
+                          <label className="col-span-2 text-xs">
+                            <span className="mb-1 block text-muted">Date</span>
+                            <Input type="date" value={draft.date} onChange={(e) => setDraft({ ...draft, date: e.target.value })} />
+                          </label>
+                          <label className="col-span-2 text-xs sm:col-span-4">
+                            <span className="mb-1 block text-muted">Note</span>
+                            <textarea
+                              className="w-full rounded-md border border-border bg-panel2 px-2 py-1 text-xs outline-none focus:border-accent"
+                              rows={2}
+                              value={draft.note}
+                              onChange={(e) => setDraft({ ...draft, note: e.target.value })}
+                            />
+                          </label>
+                        </div>
+                        <div className="mt-3 flex items-center justify-end gap-2">
+                          {update.error && <span className="mr-auto text-xs text-bad">{String(update.error)}</span>}
+                          <Button variant="ghost" className="px-2 py-1" onClick={() => setEditingId(null)}>
+                            Cancel
+                          </Button>
+                          <Button className="px-3 py-1" onClick={saveEdit} disabled={update.isPending || !draft.date}>
+                            {update.isPending ? "Saving…" : "Save"}
+                          </Button>
+                        </div>
                       </td>
                     </tr>
+                  ) : (
+                    r.note && (
+                      <tr>
+                        <td colSpan={7} className="pb-2 text-xs italic text-muted">
+                          {r.note}
+                        </td>
+                      </tr>
+                    )
                   )}
                 </Fragment>
               );

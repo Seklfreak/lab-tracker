@@ -73,6 +73,16 @@ func (q *Queries) CreateResult(ctx context.Context, arg CreateResultParams) (Lab
 	return i, err
 }
 
+const deleteResult = `-- name: DeleteResult :exec
+DELETE FROM lab_results
+WHERE id = $1
+`
+
+func (q *Queries) DeleteResult(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteResult, id)
+	return err
+}
+
 const deleteResultsForReport = `-- name: DeleteResultsForReport :exec
 DELETE FROM lab_results
 WHERE report_id = $1
@@ -296,4 +306,47 @@ func (q *Queries) ListResultsForProfileAnalyte(ctx context.Context, arg ListResu
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateResult = `-- name: UpdateResult :exec
+UPDATE lab_results SET
+    analyte_id = $2,
+    value_text = $3,
+    value_numeric = $4,
+    unit = $5,
+    reference_low = $6,
+    reference_high = $7,
+    reference_text = $8,
+    note = $9,
+    observed_date = $10
+WHERE id = $1
+`
+
+type UpdateResultParams struct {
+	ID            uuid.UUID     `json:"id"`
+	AnalyteID     uuid.UUID     `json:"analyte_id"`
+	ValueText     pgtype.Text   `json:"value_text"`
+	ValueNumeric  pgtype.Float8 `json:"value_numeric"`
+	Unit          pgtype.Text   `json:"unit"`
+	ReferenceLow  pgtype.Float8 `json:"reference_low"`
+	ReferenceHigh pgtype.Float8 `json:"reference_high"`
+	ReferenceText pgtype.Text   `json:"reference_text"`
+	Note          pgtype.Text   `json:"note"`
+	ObservedDate  pgtype.Date   `json:"observed_date"`
+}
+
+func (q *Queries) UpdateResult(ctx context.Context, arg UpdateResultParams) error {
+	_, err := q.db.Exec(ctx, updateResult,
+		arg.ID,
+		arg.AnalyteID,
+		arg.ValueText,
+		arg.ValueNumeric,
+		arg.Unit,
+		arg.ReferenceLow,
+		arg.ReferenceHigh,
+		arg.ReferenceText,
+		arg.Note,
+		arg.ObservedDate,
+	)
+	return err
 }

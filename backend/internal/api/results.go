@@ -1,10 +1,78 @@
 package api
 
 import (
+	"encoding/json"
 	"net/http"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/winkler/lab-tracker/backend/internal/db/sqlc"
 )
+
+type updateResultReq struct {
+	AnalyteID     string   `json:"analyteId"`
+	ValueText     *string  `json:"valueText"`
+	ValueNumeric  *float64 `json:"valueNumeric"`
+	Unit          *string  `json:"unit"`
+	ReferenceLow  *float64 `json:"referenceLow"`
+	ReferenceHigh *float64 `json:"referenceHigh"`
+	ReferenceText *string  `json:"referenceText"`
+	Note          *string  `json:"note"`
+	ObservedDate  *string  `json:"observedDate"`
+}
+
+func (s *Server) updateResult(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseUUID(chi.URLParam(r, "id"))
+	if !ok {
+		writeError(w, http.StatusBadRequest, "invalid id")
+		return
+	}
+	var req updateResultReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	analyteID, ok := parseUUID(req.AnalyteID)
+	if !ok {
+		writeError(w, http.StatusBadRequest, "invalid analyteId")
+		return
+	}
+	obs := ptrToDate(req.ObservedDate)
+	if !obs.Valid {
+		writeError(w, http.StatusBadRequest, "an observed date is required")
+		return
+	}
+	if err := s.q.UpdateResult(r.Context(), sqlc.UpdateResultParams{
+		ID:            id,
+		AnalyteID:     analyteID,
+		ValueText:     ptrToText(req.ValueText),
+		ValueNumeric:  ptrToFloat8(req.ValueNumeric),
+		Unit:          ptrToText(req.Unit),
+		ReferenceLow:  ptrToFloat8(req.ReferenceLow),
+		ReferenceHigh: ptrToFloat8(req.ReferenceHigh),
+		ReferenceText: ptrToText(req.ReferenceText),
+		Note:          ptrToText(req.Note),
+		ObservedDate:  obs,
+	}); err != nil {
+		s.log.Error("update result", "err", err)
+		writeError(w, http.StatusInternalServerError, "failed to update result")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) deleteResult(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseUUID(chi.URLParam(r, "id"))
+	if !ok {
+		writeError(w, http.StatusBadRequest, "invalid id")
+		return
+	}
+	if err := s.q.DeleteResult(r.Context(), id); err != nil {
+		s.log.Error("delete result", "err", err)
+		writeError(w, http.StatusInternalServerError, "failed to delete result")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
 
 // listResults returns all results for a profile, or just one analyte's trend
 // when ?analyte_id= is supplied.

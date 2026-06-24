@@ -12,6 +12,23 @@ RETURNING *;
 DELETE FROM lab_results
 WHERE report_id = $1;
 
+-- name: UpdateResult :exec
+UPDATE lab_results SET
+    analyte_id = $2,
+    value_text = $3,
+    value_numeric = $4,
+    unit = $5,
+    reference_low = $6,
+    reference_high = $7,
+    reference_text = $8,
+    note = $9,
+    observed_date = $10
+WHERE id = $1;
+
+-- name: DeleteResult :exec
+DELETE FROM lab_results
+WHERE id = $1;
+
 -- name: ListResultsForProfile :many
 SELECT r.*, a.name AS analyte_name, a.category AS analyte_category, rep.source_lab AS source_lab
 FROM lab_results r
