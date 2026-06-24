@@ -37,6 +37,10 @@ const QUAL_PLACEHOLDERS = new Set([
 // can't be settled by a text match.
 function qualitativeStatus(r: Result): "good" | "bad" | null {
   if (r.valueNumeric !== null || !r.valueText || !r.referenceText) return null;
+  // A bounded numeric value ("<150") is never a qualitative term — only the
+  // numeric path applies; comparing it to a text reference (often a stray unit
+  // like "DDU ng/ml") is meaningless.
+  if (parseBounded(r.valueText)) return null;
   const v = normalizeQual(r.valueText);
   if (!v || QUAL_PLACEHOLDERS.has(v)) return null;
   if (/\d/.test(r.referenceText)) return null;

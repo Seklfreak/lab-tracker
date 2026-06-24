@@ -55,6 +55,12 @@ describe("statusTone", () => {
     // and a placeholder against a text reference is also muted
     expect(statusTone(mk({ valueText: "Not Reported", referenceText: "Negative" }))).toBe("muted");
   });
+  it("bounded value with a non-numeric reference (stray unit) is muted, not bad", () => {
+    // D-Dimer: value "<150", reference column held the unit "DDU ng/ml"
+    const r = mk({ valueText: "<150", referenceText: "DDU ng/ml" });
+    expect(statusTone(r)).toBe("muted");
+    expect(derivedFlag(r)).toBeNull();
+  });
   it("one-sided reference works", () => {
     expect(statusTone(mk({ valueNumeric: 200, referenceHigh: 150 }))).toBe("bad");
     expect(statusTone(mk({ valueNumeric: 100, referenceHigh: 150 }))).toBe("good");
