@@ -57,6 +57,19 @@ describe("statusTone", () => {
     // a real mismatch still flags
     expect(statusTone(mk({ valueText: "POSITIVE", referenceText: "NEG" }))).toBe("bad");
   });
+  it("evaluates bounded values (<x / >x) against the range", () => {
+    // "<0.05" within 0.00–0.05 is in range
+    const tni = { valueText: "<0.05", referenceLow: 0, referenceHigh: 0.05 };
+    expect(statusTone(mk(tni))).toBe("good");
+    expect(derivedFlag(mk(tni))).toBeNull();
+    // "<5" below a low bound of 10 is low
+    expect(statusTone(mk({ valueText: "<5", referenceLow: 10, referenceHigh: 20 }))).toBe("bad");
+    expect(derivedFlag(mk({ valueText: "<5", referenceLow: 10, referenceHigh: 20 }))).toBe("L");
+    // ">200" above a high bound of 150 is high
+    expect(derivedFlag(mk({ valueText: ">200", referenceHigh: 150 }))).toBe("H");
+    // ">90" with only a low bound is in range
+    expect(statusTone(mk({ valueText: ">90", referenceLow: 60 }))).toBe("good");
+  });
   it("qualitative without a reference is muted", () => {
     expect(statusTone(mk({ valueText: "NEGATIVE" }))).toBe("muted");
   });

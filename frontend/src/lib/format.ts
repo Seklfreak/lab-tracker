@@ -26,16 +26,45 @@ function normalizeQual(s: string): string {
   return QUAL_SYNONYMS[t] ?? t;
 }
 
-// statusTone returns "bad" when a result is out of range: for numeric results,
-// outside the reference band; for qualitative results (e.g. "Negative"),
+// parseBounded extracts a leading comparison operator + number from a value like
+// "<0.05" or ">90". Returns null for plain or non-numeric values.
+function parseBounded(s: string): { op: "<" | ">"; num: number } | null {
+  const m = s.trim().match(/^([<>]=?|≤|≥)\s*(-?\d+(?:\.\d+)?)/);
+  if (!m) return null;
+  const num = parseFloat(m[2]);
+  if (!Number.isFinite(num)) return null;
+  return { op: m[1][0] === "<" || m[1] === "≤" ? "<" : ">", num };
+}
+
+// evaluateRange returns "L"/"H" when out of range, "ok" when in range against a
+// numeric reference, or null when it can't be decided numerically. Handles plain
+// numeric values and bounded values ("<0.05", ">90").
+function evaluateRange(r: Result): "L" | "H" | "ok" | null {
+  const hasRef = r.referenceLow !== null || r.referenceHigh !== null;
+  if (r.valueNumeric !== null) {
+    if (r.referenceLow !== null && r.valueNumeric < r.referenceLow) return "L";
+    if (r.referenceHigh !== null && r.valueNumeric > r.referenceHigh) return "H";
+    return hasRef ? "ok" : null;
+  }
+  const b = r.valueText ? parseBounded(r.valueText) : null;
+  if (b && hasRef) {
+    // "<x": the value is below x. Only "low" if x is at/below the lower bound.
+    if (b.op === "<") return r.referenceLow !== null && b.num <= r.referenceLow ? "L" : "ok";
+    // ">x": the value is above x. Only "high" if x is at/above the upper bound.
+    return r.referenceHigh !== null && b.num >= r.referenceHigh ? "H" : "ok";
+  }
+  return null;
+}
+
+// statusTone returns "bad" when a result is out of range: for numeric/bounded
+// results, outside the reference band; for qualitative results (e.g. "Negative"),
 // different from the expected reference value. "good" if in range, "muted" if
 // undeterminable.
 export function statusTone(r: Result): Tone {
-  if (r.valueNumeric !== null) {
-    if (r.referenceLow !== null && r.valueNumeric < r.referenceLow) return "bad";
-    if (r.referenceHigh !== null && r.valueNumeric > r.referenceHigh) return "bad";
-    if (r.referenceLow !== null || r.referenceHigh !== null) return "good";
-  } else if (r.valueText && r.referenceText) {
+  const range = evaluateRange(r);
+  if (range === "L" || range === "H") return "bad";
+  if (range === "ok") return "good";
+  if (r.valueText && r.referenceText) {
     return normalizeQual(r.valueText) === normalizeQual(r.referenceText) ? "good" : "bad";
   }
   return "muted";
@@ -44,11 +73,10 @@ export function statusTone(r: Result): Tone {
 // derivedFlag computes the H/L/Abnormal flag from value vs reference (we don't
 // store the lab's printed flag). Returns null when in range or undeterminable.
 export function derivedFlag(r: Result): string | null {
-  if (r.valueNumeric !== null) {
-    if (r.referenceLow !== null && r.valueNumeric < r.referenceLow) return "L";
-    if (r.referenceHigh !== null && r.valueNumeric > r.referenceHigh) return "H";
-    return null;
-  }
+  const range = evaluateRange(r);
+  if (range === "L") return "L";
+  if (range === "H") return "H";
+  if (range === "ok") return null;
   if (r.valueText && r.referenceText) {
     return normalizeQual(r.valueText) === normalizeQual(r.referenceText) ? null : "Abnormal";
   }
