@@ -1,6 +1,5 @@
-import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { clsx } from "clsx";
 import { Star } from "lucide-react";
 import { api, type Result } from "@/lib/api";
@@ -8,7 +7,8 @@ import { useProfile } from "@/lib/profile";
 import { Badge, Card, Select, Spinner } from "@/components/ui";
 import { derivedFlag, displayValue, referenceLabel, statusTone } from "@/lib/format";
 
-type SortKey = "category" | "count" | "name" | "recent";
+const SORT_KEYS = ["category", "count", "name", "recent"] as const;
+type SortKey = (typeof SORT_KEYS)[number];
 
 function comparator(key: SortKey): (a: Result, b: Result) => number {
   const byName = (a: Result, b: Result) => a.analyteName.localeCompare(b.analyteName);
@@ -25,7 +25,23 @@ function comparator(key: SortKey): (a: Result, b: Result) => number {
 export function Dashboard() {
   const { profileId } = useProfile();
   const qc = useQueryClient();
-  const [sort, setSort] = useState<SortKey>("category");
+
+  // Persist the sort in the URL (?sort=) so it survives navigation / browser back.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const sortParam = searchParams.get("sort");
+  const sort: SortKey = SORT_KEYS.includes(sortParam as SortKey)
+    ? (sortParam as SortKey)
+    : "category";
+  const setSort = (value: SortKey) =>
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (value === "category") next.delete("sort");
+        else next.set("sort", value);
+        return next;
+      },
+      { replace: true },
+    );
 
   const results = useQuery({
     queryKey: ["latest", profileId],
