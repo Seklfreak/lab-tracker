@@ -72,14 +72,13 @@ export function Reports() {
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <a
-                  href={api.pdfUrl(r.id)}
-                  target="_blank"
-                  rel="noreferrer"
+                <button
+                  type="button"
+                  onClick={() => void api.openPdf(r.id)}
                   className="px-2 py-1 text-sm text-accent"
                 >
                   PDF
-                </a>
+                </button>
                 {hasDraft && (
                   <Button
                     variant="ghost"

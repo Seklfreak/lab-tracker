@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
@@ -20,15 +21,17 @@ type Server struct {
 	store     *storage.Store
 	extractor *llm.Extractor
 	log       *slog.Logger
+	verifier  *oidc.IDTokenVerifier // nil when AUTH_DISABLED
 }
 
-func NewServer(pool *pgxpool.Pool, store *storage.Store, extractor *llm.Extractor, log *slog.Logger) *Server {
+func NewServer(pool *pgxpool.Pool, store *storage.Store, extractor *llm.Extractor, log *slog.Logger, verifier *oidc.IDTokenVerifier) *Server {
 	return &Server{
 		pool:      pool,
 		q:         sqlc.New(pool),
 		store:     store,
 		extractor: extractor,
 		log:       log,
+		verifier:  verifier,
 	}
 }
 
@@ -42,7 +45,7 @@ func (s *Server) Router(corsOrigins []string) http.Handler {
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   corsOrigins,
 		AllowedMethods:   []string{"GET", "POST", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Content-Type"},
+		AllowedHeaders:   []string{"Accept", "Content-Type", "Authorization"},
 		AllowCredentials: false,
 		MaxAge:           300,
 	}))
@@ -52,6 +55,8 @@ func (s *Server) Router(corsOrigins []string) http.Handler {
 	})
 
 	r.Route("/api", func(r chi.Router) {
+		r.Use(s.authMiddleware)
+
 		r.Get("/profiles", s.listProfiles)
 		r.Post("/profiles", s.createProfile)
 		r.Delete("/profiles/{id}", s.deleteProfile)

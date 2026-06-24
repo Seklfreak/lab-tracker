@@ -342,14 +342,13 @@ export function AnalyteDetail() {
                     <td className="py-2">{flag ? <Badge tone={tone}>{flag}</Badge> : "—"}</td>
                     <td className="py-2 text-muted">{r.sourceLab ?? "—"}</td>
                     <td className="py-2">
-                      <a
-                        href={api.pdfUrl(r.reportId)}
-                        target="_blank"
-                        rel="noreferrer"
+                      <button
+                        type="button"
+                        onClick={() => void api.openPdf(r.reportId)}
                         className="text-accent"
                       >
                         PDF
-                      </a>
+                      </button>
                     </td>
                     <td className="py-2">
                       <div className="flex items-center justify-end gap-2">

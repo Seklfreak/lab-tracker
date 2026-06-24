@@ -222,14 +222,13 @@ function ReviewForm({
         <h1 className="text-xl font-semibold">Review extracted results</h1>
         <p className="text-sm text-muted">
           Check the values, map each test to an analyte, then save.{" "}
-          <a
-            href={api.pdfUrl(report.id)}
-            target="_blank"
-            rel="noreferrer"
+          <button
+            type="button"
+            onClick={() => void api.openPdf(report.id)}
             className="text-accent"
           >
             View source PDF
-          </a>
+          </button>
         </p>
       </div>
 

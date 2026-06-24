@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/winkler/lab-tracker/backend/internal/api"
 	"github.com/winkler/lab-tracker/backend/internal/config"
 	"github.com/winkler/lab-tracker/backend/internal/db"
@@ -45,7 +46,19 @@ func main() {
 
 	extractor := llm.NewExtractor(cfg.AnthropicKey)
 
-	srv := api.NewServer(pool, store, extractor, log)
+	var verifier *oidc.IDTokenVerifier
+	if cfg.AuthDisabled {
+		log.Warn("AUTH_DISABLED set — API is unauthenticated")
+	} else {
+		verifier, err = api.NewVerifier(ctx, cfg.OIDCIssuer, cfg.OIDCClientID)
+		if err != nil {
+			log.Error("oidc verifier", "err", err)
+			os.Exit(1)
+		}
+		log.Info("oidc auth enabled", "issuer", cfg.OIDCIssuer)
+	}
+
+	srv := api.NewServer(pool, store, extractor, log, verifier)
 	handler := srv.Router(cfg.CORSOrigins)
 
 	httpServer := &http.Server{

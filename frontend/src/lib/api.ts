@@ -1,3 +1,5 @@
+import { getAccessToken, handleUnauthorized } from "./auth";
+
 export interface Profile {
   id: string;
   name: string;
@@ -113,7 +115,16 @@ export interface ConfirmInput {
 }
 
 async function req<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, init);
+  const token = getAccessToken();
+  const headers: HeadersInit = {
+    ...(init?.headers ?? {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+  const res = await fetch(url, { ...init, headers });
+  if (res.status === 401) {
+    handleUnauthorized(); // expired/missing token → re-login
+    throw new Error("unauthorized");
+  }
   if (!res.ok) {
     let msg = res.statusText;
     try {
@@ -185,4 +196,28 @@ export const api = {
     req<void>(`/api/profiles/${profileId}/favorites/${analyteId}`, { method: "DELETE" }),
 
   pdfUrl: (reportId: string) => `/api/reports/${reportId}/pdf`,
+
+  // Opens the report PDF in a new tab, attaching the auth token (a plain
+  // <a href> can't send the Bearer header). Opens the tab synchronously to
+  // dodge popup blockers, then points it at the fetched blob.
+  openPdf: async (reportId: string) => {
+    const win = window.open("about:blank", "_blank");
+    try {
+      const token = getAccessToken();
+      const res = await fetch(`/api/reports/${reportId}/pdf`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) {
+        if (res.status === 401) handleUnauthorized();
+        throw new Error("failed to open PDF");
+      }
+      const url = URL.createObjectURL(await res.blob());
+      if (win) win.location.href = url;
+      else window.open(url, "_blank");
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (e) {
+      win?.close();
+      throw e;
+    }
+  },
 };

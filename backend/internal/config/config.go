@@ -18,6 +18,12 @@ type Config struct {
 	MinioUseSSL    bool
 	Port           string
 	CORSOrigins    []string
+
+	// OIDC auth. When AuthDisabled is true (dev), the API skips token checks.
+	// Otherwise OIDCIssuer + OIDCClientID are required to validate Bearer JWTs.
+	OIDCIssuer   string
+	OIDCClientID string
+	AuthDisabled bool
 }
 
 // Load reads configuration from the environment. If a .env file exists in the
@@ -37,6 +43,9 @@ func Load() (*Config, error) {
 		MinioUseSSL:    os.Getenv("MINIO_USE_SSL") == "true",
 		Port:           getenvDefault("PORT", "8080"),
 		CORSOrigins:    splitCSV(getenvDefault("CORS_ORIGINS", "http://localhost:5173")),
+		OIDCIssuer:     os.Getenv("OIDC_ISSUER"),
+		OIDCClientID:   os.Getenv("OIDC_CLIENT_ID"),
+		AuthDisabled:   os.Getenv("AUTH_DISABLED") == "true",
 	}
 
 	var missing []string
@@ -48,6 +57,14 @@ func Load() (*Config, error) {
 	}
 	if cfg.MinioEndpoint == "" {
 		missing = append(missing, "MINIO_ENDPOINT")
+	}
+	if !cfg.AuthDisabled {
+		if cfg.OIDCIssuer == "" {
+			missing = append(missing, "OIDC_ISSUER (or set AUTH_DISABLED=true)")
+		}
+		if cfg.OIDCClientID == "" {
+			missing = append(missing, "OIDC_CLIENT_ID (or set AUTH_DISABLED=true)")
+		}
 	}
 	if len(missing) > 0 {
 		return nil, fmt.Errorf("missing required env vars: %s", strings.Join(missing, ", "))
