@@ -47,6 +47,14 @@ describe("statusTone", () => {
     expect(statusTone(r)).toBe("muted");
     expect(derivedFlag(r)).toBeNull();
   });
+  it("placeholder value against a numeric reference is muted, not bad", () => {
+    // e.g. BUN/Creatinine ratio: value "SEE NOTE", reference "6-22"
+    const r = mk({ valueText: "SEE NOTE", referenceText: "6-22", referenceLow: 6, referenceHigh: 22 });
+    expect(statusTone(r)).toBe("muted");
+    expect(derivedFlag(r)).toBeNull();
+    // and a placeholder against a text reference is also muted
+    expect(statusTone(mk({ valueText: "Not Reported", referenceText: "Negative" }))).toBe("muted");
+  });
   it("one-sided reference works", () => {
     expect(statusTone(mk({ valueNumeric: 200, referenceHigh: 150 }))).toBe("bad");
     expect(statusTone(mk({ valueNumeric: 100, referenceHigh: 150 }))).toBe("good");

@@ -26,6 +26,23 @@ function normalizeQual(s: string): string {
   return QUAL_SYNONYMS[t] ?? t;
 }
 
+// Non-result placeholders — a value of these conveys no result to evaluate.
+const QUAL_PLACEHOLDERS = new Set([
+  "see note", "see notes", "not reported", "n/a", "na", "tnp", "pending", "none", "", "-", "—",
+]);
+
+// qualitativeStatus compares a genuinely qualitative value to a qualitative
+// reference. Returns null (indeterminate) when the value is numeric, a
+// placeholder, missing, or when the reference is numeric (has digits) — those
+// can't be settled by a text match.
+function qualitativeStatus(r: Result): "good" | "bad" | null {
+  if (r.valueNumeric !== null || !r.valueText || !r.referenceText) return null;
+  const v = normalizeQual(r.valueText);
+  if (!v || QUAL_PLACEHOLDERS.has(v)) return null;
+  if (/\d/.test(r.referenceText)) return null;
+  return v === normalizeQual(r.referenceText) ? "good" : "bad";
+}
+
 // parseBounded extracts a leading comparison operator + number from a value like
 // "<0.05" or ">90". Returns null for plain or non-numeric values.
 function parseBounded(s: string): { op: "<" | ">"; num: number } | null {
@@ -64,11 +81,8 @@ export function statusTone(r: Result): Tone {
   const range = evaluateRange(r);
   if (range === "L" || range === "H") return "bad";
   if (range === "ok") return "good";
-  // Qualitative compare only for genuinely non-numeric values; a numeric value
-  // with no parseable reference (e.g. "See notes") is indeterminate, not bad.
-  if (r.valueNumeric === null && r.valueText && r.referenceText) {
-    return normalizeQual(r.valueText) === normalizeQual(r.referenceText) ? "good" : "bad";
-  }
+  const q = qualitativeStatus(r);
+  if (q) return q;
   return "muted";
 }
 
@@ -79,10 +93,7 @@ export function derivedFlag(r: Result): string | null {
   if (range === "L") return "L";
   if (range === "H") return "H";
   if (range === "ok") return null;
-  if (r.valueNumeric === null && r.valueText && r.referenceText) {
-    return normalizeQual(r.valueText) === normalizeQual(r.referenceText) ? null : "Abnormal";
-  }
-  return null;
+  return qualitativeStatus(r) === "bad" ? "Abnormal" : null;
 }
 
 // plotPoint maps a result to a chart point. Plain numbers plot as-is; bounded
