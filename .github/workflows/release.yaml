@@ -1,9 +1,10 @@
 name: Release
 
-# Auto-cut a patch release on every green commit to main (including direct pushes):
-# Test must pass first, then tag the next vX.Y.(Z+1) and trigger the image build for
-# that exact commit. Manual minor/major tags (git tag vX.Y.0) still work — the auto
-# bumper just continues from whatever the highest tag is.
+# Auto-cut a release on every green commit to main (including direct pushes): Test must
+# pass first, then Claude decides the semver bump (major/minor/patch) and writes the
+# release notes from the commits since the last tag. We tag the version, publish a GitHub
+# Release with those notes, and trigger the image build for that exact commit.
+# (No ANTHROPIC_API_KEY secret -> the AI step falls back to a patch bump + commit list.)
 on:
   workflow_run:
     workflows: ["Test"]
@@ -11,11 +12,11 @@ on:
     branches: [main]
 
 permissions:
-  contents: write # push the tag
+  contents: write # push tag + create release
   actions: write # dispatch the build workflow
 
 jobs:
-  tag:
+  release:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
@@ -25,19 +26,40 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
-      - name: Tag next patch version and trigger build
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install --quiet anthropic
+
+      - name: Decide bump + notes (Claude)
+        id: ai
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          last=$(git tag -l 'v*.*.*' | sort -V | tail -1)
+          bump=$(python scripts/propose_release.py "$last")
+          echo "bump=$bump" >> "$GITHUB_OUTPUT"
+          echo "last=${last:-v0.0.0}" >> "$GITHUB_OUTPUT"
+          echo "Proposed bump: $bump (from ${last:-none})"
+
+      - name: Tag, publish release, build
         env:
           GH_TOKEN: ${{ github.token }}
           SHA: ${{ github.event.workflow_run.head_sha }}
+          BUMP: ${{ steps.ai.outputs.bump }}
+          LAST: ${{ steps.ai.outputs.last }}
         run: |
-          latest=$(git tag -l 'v*.*.*' | sort -V | tail -1)
-          latest=${latest:-v0.0.0}
-          ver=${latest#v}
-          IFS=. read -r major minor patch <<< "$ver"
-          new="v${major}.${minor}.$((patch + 1))"
-          echo "Latest tag: $latest -> new release: $new (commit ${SHA:0:7})"
+          ver=${LAST#v}; IFS=. read -r ma mi pa <<< "$ver"
+          case "$BUMP" in
+            major) new="v$((ma + 1)).0.0" ;;
+            minor) new="v${ma}.$((mi + 1)).0" ;;
+            *)     new="v${ma}.$((mi)).$((pa + 1))" ;;
+          esac
+          echo "Releasing $new (bump=$BUMP) at ${SHA:0:7}"
+          jq -r .notes release.json > notes.md
           git tag "$new" "$SHA"
           git push origin "$new"
-          # A GITHUB_TOKEN-pushed tag does not trigger workflows, so dispatch the
-          # build explicitly: build the tagged commit, tag images with the version.
+          gh release create "$new" --target "$SHA" --title "$new" --notes-file notes.md
+          # GITHUB_TOKEN tag pushes don't trigger workflows, so dispatch the build.
           gh workflow run build.yaml --ref "$new" -f version="${new#v}"
