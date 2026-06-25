@@ -8,9 +8,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/winkler/lab-tracker/backend/internal/db/sqlc"
-	"github.com/winkler/lab-tracker/backend/internal/llmtest"
-	"github.com/winkler/lab-tracker/backend/internal/sqlctest"
+	"github.com/Seklfreak/lab-tracker/backend/internal/db/sqlc"
+	"github.com/Seklfreak/lab-tracker/backend/internal/llmtest"
+	"github.com/Seklfreak/lab-tracker/backend/internal/sqlctest"
 )
 
 func TestGenerate(t *testing.T) {

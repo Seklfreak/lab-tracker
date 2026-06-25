@@ -14,10 +14,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/winkler/lab-tracker/backend/internal/db/sqlc"
-	"github.com/winkler/lab-tracker/backend/internal/llm"
-	"github.com/winkler/lab-tracker/backend/internal/llmtest"
-	"github.com/winkler/lab-tracker/backend/internal/sqlctest"
+	"github.com/Seklfreak/lab-tracker/backend/internal/db/sqlc"
+	"github.com/Seklfreak/lab-tracker/backend/internal/llm"
+	"github.com/Seklfreak/lab-tracker/backend/internal/llmtest"
+	"github.com/Seklfreak/lab-tracker/backend/internal/sqlctest"
 )
 
 // router builds the real chi router over a fake Querier (auth disabled: verifier nil).
@@ -44,7 +44,7 @@ func do(t *testing.T, h http.Handler, method, path, body string) *httptest.Respo
 func TestListProfiles(t *testing.T) {
 	q := &sqlctest.FakeQuerier{
 		ListProfilesFn: func(context.Context) ([]sqlc.Profile, error) {
-			return []sqlc.Profile{{ID: uuid.New(), Name: "Sebastian"}}, nil
+			return []sqlc.Profile{{ID: uuid.New(), Name: "Alice"}}, nil
 		},
 	}
 	rec := do(t, router(q, nil), http.MethodGet, "/api/profiles", "")
@@ -55,7 +55,7 @@ func TestListProfiles(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
 		t.Fatal(err)
 	}
-	if len(got) != 1 || got[0].Name != "Sebastian" {
+	if len(got) != 1 || got[0].Name != "Alice" {
 		t.Errorf("body = %+v", got)
 	}
 }

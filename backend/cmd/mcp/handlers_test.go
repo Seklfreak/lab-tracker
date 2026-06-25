@@ -12,10 +12,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/winkler/lab-tracker/backend/internal/db/sqlc"
-	"github.com/winkler/lab-tracker/backend/internal/llm"
-	"github.com/winkler/lab-tracker/backend/internal/llmtest"
-	"github.com/winkler/lab-tracker/backend/internal/sqlctest"
+	"github.com/Seklfreak/lab-tracker/backend/internal/db/sqlc"
+	"github.com/Seklfreak/lab-tracker/backend/internal/llm"
+	"github.com/Seklfreak/lab-tracker/backend/internal/llmtest"
+	"github.com/Seklfreak/lab-tracker/backend/internal/sqlctest"
 )
 
 // connect wires a client to a server backed by the given fake Querier.
@@ -57,8 +57,8 @@ func TestListProfilesHandler(t *testing.T) {
 	q := &sqlctest.FakeQuerier{
 		ListProfilesFn: func(context.Context) ([]sqlc.Profile, error) {
 			return []sqlc.Profile{
-				{ID: uuid.New(), Name: "Sebastian"},
-				{ID: uuid.New(), Name: "Wife"},
+				{ID: uuid.New(), Name: "Alice"},
+				{ID: uuid.New(), Name: "Bob"},
 			}, nil
 		},
 	}
@@ -73,7 +73,7 @@ func TestListProfilesHandler(t *testing.T) {
 	}
 	var out listProfilesOut
 	reJSON(t, res.StructuredContent, &out)
-	if len(out.Profiles) != 2 || out.Profiles[0].Name != "Sebastian" {
+	if len(out.Profiles) != 2 || out.Profiles[0].Name != "Alice" {
 		t.Errorf("profiles = %+v", out.Profiles)
 	}
 }

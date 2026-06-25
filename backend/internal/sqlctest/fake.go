@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/winkler/lab-tracker/backend/internal/db/sqlc"
+	"github.com/Seklfreak/lab-tracker/backend/internal/db/sqlc"
 )
 
 type FakeQuerier struct {

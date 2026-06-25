@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/anthropics/anthropic-sdk-go/option"
-	"github.com/winkler/lab-tracker/backend/internal/llm"
+	"github.com/Seklfreak/lab-tracker/backend/internal/llm"
 )
 
 // MockExtractor returns an Extractor whose model always responds with modelText.

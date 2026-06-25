@@ -10,9 +10,9 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/winkler/lab-tracker/backend/internal/db/sqlc"
-	"github.com/winkler/lab-tracker/backend/internal/llm"
-	"github.com/winkler/lab-tracker/backend/internal/storage"
+	"github.com/Seklfreak/lab-tracker/backend/internal/db/sqlc"
+	"github.com/Seklfreak/lab-tracker/backend/internal/llm"
+	"github.com/Seklfreak/lab-tracker/backend/internal/storage"
 )
 
 type Server struct {

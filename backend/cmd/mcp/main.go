@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/winkler/lab-tracker/backend/internal/db"
-	"github.com/winkler/lab-tracker/backend/internal/db/sqlc"
-	"github.com/winkler/lab-tracker/backend/internal/llm"
+	"github.com/Seklfreak/lab-tracker/backend/internal/db"
+	"github.com/Seklfreak/lab-tracker/backend/internal/db/sqlc"
+	"github.com/Seklfreak/lab-tracker/backend/internal/llm"
 )
 
 func main() {

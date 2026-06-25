@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/winkler/lab-tracker/backend/internal/api"
-	"github.com/winkler/lab-tracker/backend/internal/config"
-	"github.com/winkler/lab-tracker/backend/internal/db"
-	"github.com/winkler/lab-tracker/backend/internal/llm"
-	"github.com/winkler/lab-tracker/backend/internal/storage"
+	"github.com/Seklfreak/lab-tracker/backend/internal/api"
+	"github.com/Seklfreak/lab-tracker/backend/internal/config"
+	"github.com/Seklfreak/lab-tracker/backend/internal/db"
+	"github.com/Seklfreak/lab-tracker/backend/internal/llm"
+	"github.com/Seklfreak/lab-tracker/backend/internal/storage"
 )
 
 func main() {

@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
-	"github.com/winkler/lab-tracker/backend/internal/db/sqlc"
+	"github.com/Seklfreak/lab-tracker/backend/internal/db/sqlc"
 )
 
 func (s *Server) listProfiles(w http.ResponseWriter, r *http.Request) {

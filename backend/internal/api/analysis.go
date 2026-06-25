@@ -7,8 +7,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
-	"github.com/winkler/lab-tracker/backend/internal/analysis"
-	"github.com/winkler/lab-tracker/backend/internal/db/sqlc"
+	"github.com/Seklfreak/lab-tracker/backend/internal/analysis"
+	"github.com/Seklfreak/lab-tracker/backend/internal/db/sqlc"
 )
 
 type AnalysisDTO struct {

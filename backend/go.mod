@@ -1,4 +1,4 @@
-module github.com/winkler/lab-tracker/backend
+module github.com/Seklfreak/lab-tracker/backend
 
 go 1.26
 
