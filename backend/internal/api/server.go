@@ -17,7 +17,7 @@ import (
 
 type Server struct {
 	pool      *pgxpool.Pool
-	q         *sqlc.Queries
+	q         sqlc.Querier
 	store     *storage.Store
 	extractor *llm.Extractor
 	log       *slog.Logger

@@ -248,7 +248,7 @@ func (s *Server) confirmReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback(ctx)
-	qtx := s.q.WithTx(tx)
+	qtx := sqlc.New(tx) // tx-scoped queries (the Querier interface has no WithTx)
 
 	// Re-confirming replaces any previously saved results for this report.
 	if err := qtx.DeleteResultsForReport(ctx, report.ID); err != nil {

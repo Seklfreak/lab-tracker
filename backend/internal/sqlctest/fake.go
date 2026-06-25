@@ -23,6 +23,31 @@ type FakeQuerier struct {
 	ResultStatsForProfileAnalyteFn   func(context.Context, sqlc.ResultStatsForProfileAnalyteParams) (sqlc.ResultStatsForProfileAnalyteRow, error)
 	GetAnalysisFn                    func(context.Context, sqlc.GetAnalysisParams) (sqlc.AnalyteAnalysis, error)
 	UpsertAnalysisFn                 func(context.Context, sqlc.UpsertAnalysisParams) error
+	CreateProfileFn                  func(context.Context, sqlc.CreateProfileParams) (sqlc.Profile, error)
+	ListResultsForProfileFn          func(context.Context, uuid.UUID) ([]sqlc.ListResultsForProfileRow, error)
+	UpdateResultFn                   func(context.Context, sqlc.UpdateResultParams) error
+	AddFavoriteFn                    func(context.Context, sqlc.AddFavoriteParams) error
+	RemoveFavoriteFn                 func(context.Context, sqlc.RemoveFavoriteParams) error
+}
+
+func (f *FakeQuerier) CreateProfile(ctx context.Context, arg sqlc.CreateProfileParams) (sqlc.Profile, error) {
+	return f.CreateProfileFn(ctx, arg)
+}
+
+func (f *FakeQuerier) ListResultsForProfile(ctx context.Context, profileID uuid.UUID) ([]sqlc.ListResultsForProfileRow, error) {
+	return f.ListResultsForProfileFn(ctx, profileID)
+}
+
+func (f *FakeQuerier) UpdateResult(ctx context.Context, arg sqlc.UpdateResultParams) error {
+	return f.UpdateResultFn(ctx, arg)
+}
+
+func (f *FakeQuerier) AddFavorite(ctx context.Context, arg sqlc.AddFavoriteParams) error {
+	return f.AddFavoriteFn(ctx, arg)
+}
+
+func (f *FakeQuerier) RemoveFavorite(ctx context.Context, arg sqlc.RemoveFavoriteParams) error {
+	return f.RemoveFavoriteFn(ctx, arg)
 }
 
 func (f *FakeQuerier) GetProfile(ctx context.Context, id uuid.UUID) (sqlc.Profile, error) {
