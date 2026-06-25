@@ -37,8 +37,11 @@ type Extractor struct {
 	client anthropic.Client
 }
 
-func NewExtractor(apiKey string) *Extractor {
-	return &Extractor{client: anthropic.NewClient(option.WithAPIKey(apiKey))}
+// NewExtractor builds an Extractor. Extra request options (e.g. a custom base
+// URL or HTTP client) can be supplied — tests use this to point at a mock server.
+func NewExtractor(apiKey string, opts ...option.RequestOption) *Extractor {
+	all := append([]option.RequestOption{option.WithAPIKey(apiKey)}, opts...)
+	return &Extractor{client: anthropic.NewClient(all...)}
 }
 
 const instructions = `You are a clinical lab report parser. The attached PDF is a laboratory results report.
