@@ -1,4 +1,4 @@
-import { User, type UserManagerSettings } from "oidc-client-ts";
+import { type UserManagerSettings } from "oidc-client-ts";
 
 // Runtime config is injected via /config.js (window.__APP_CONFIG__) so the
 // OIDC provider URL lives in the deployment, not the image/source.
@@ -30,17 +30,14 @@ export const oidcConfig: UserManagerSettings & { onSigninCallback?: () => void }
   },
 };
 
-// getAccessToken reads the current token from oidc-client-ts storage so the
-// non-React API client can attach it. (Storage key per oidc-client-ts default.)
+// Current access token, kept in sync from React (see AuthGate) so the non-React
+// API client can attach it synchronously without guessing the oidc storage key.
+let currentAccessToken: string | null = null;
+export function setAccessToken(token: string | null) {
+  currentAccessToken = token;
+}
 export function getAccessToken(): string | null {
-  if (!authEnabled) return null;
-  const raw = localStorage.getItem(`oidc.user:${authority}:${clientId}`);
-  if (!raw) return null;
-  try {
-    return User.fromStorageString(raw).access_token ?? null;
-  } catch {
-    return null;
-  }
+  return currentAccessToken;
 }
 
 // Bridge so the non-React API client can trigger a re-login on 401.

@@ -5,7 +5,7 @@ import { useAuth } from "react-oidc-context";
 import { Activity, LayoutGrid, Upload as UploadIcon, FileText, LogOut } from "lucide-react";
 import { ProfileSwitcher } from "@/components/ProfileSwitcher";
 import { Spinner } from "@/components/ui";
-import { authEnabled, setUnauthorizedHandler } from "@/lib/auth";
+import { authEnabled, setAccessToken, setUnauthorizedHandler } from "@/lib/auth";
 import { Dashboard } from "@/pages/Dashboard";
 import { AnalyteDetail } from "@/pages/AnalyteDetail";
 import { Upload } from "@/pages/Upload";
@@ -19,6 +19,10 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 
 function AuthGate({ children }: { children: React.ReactNode }) {
   const auth = useAuth();
+
+  // Keep the API client's token in sync. Set synchronously during render so it's
+  // available before child components fire their first request.
+  setAccessToken(auth.isAuthenticated ? (auth.user?.access_token ?? null) : null);
 
   // Let the API client trigger a re-login on 401.
   useEffect(() => {
