@@ -3,6 +3,7 @@ name: Build and Push Images
 on:
   push:
     branches: [main]
+    tags: ["v*.*.*"]
   workflow_dispatch:
 
 env:
@@ -35,7 +36,8 @@ jobs:
       - name: Build matrices
         id: matrix
         env:
-          DISPATCH: ${{ github.event_name == 'workflow_dispatch' }}
+          # A tag push (release) has no path diff, so build everything — same as dispatch.
+          ALL: ${{ github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/') }}
           BACKEND: ${{ steps.changes.outputs.backend }}
           FRONTEND: ${{ steps.changes.outputs.frontend }}
         run: |
@@ -46,11 +48,11 @@ jobs:
             done
             merge+=("{\"name\":\"$1\"}")
           }
-          if [ "$DISPATCH" = "true" ] || [ "$BACKEND" = "true" ]; then
+          if [ "$ALL" = "true" ] || [ "$BACKEND" = "true" ]; then
             add backend ./backend ./backend/Dockerfile
             add mcp ./backend ./backend/Dockerfile.mcp
           fi
-          if [ "$DISPATCH" = "true" ] || [ "$FRONTEND" = "true" ]; then
+          if [ "$ALL" = "true" ] || [ "$FRONTEND" = "true" ]; then
             add frontend ./frontend ./frontend/Dockerfile
           fi
           b=$(IFS=,; echo "${build[*]}"); m=$(IFS=,; echo "${merge[*]}")
@@ -154,6 +156,8 @@ jobs:
         with:
           images: ${{ env.IMAGE }}
           tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha,prefix={{branch}}-
 
