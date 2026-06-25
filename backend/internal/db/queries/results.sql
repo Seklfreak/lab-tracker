@@ -39,10 +39,12 @@ WHERE r.profile_id = $1
 ORDER BY r.observed_date DESC, a.name;
 
 -- name: ListResultsForProfileAnalyte :many
-SELECT r.*, a.name AS analyte_name, a.category AS analyte_category, rep.source_lab AS source_lab
+SELECT r.*, a.name AS analyte_name, a.category AS analyte_category, rep.source_lab AS source_lab,
+    (f.analyte_id IS NOT NULL)::boolean AS is_favorite
 FROM lab_results r
 JOIN analytes a ON a.id = r.analyte_id
 LEFT JOIN lab_reports rep ON rep.id = r.report_id
+LEFT JOIN favorites f ON f.profile_id = r.profile_id AND f.analyte_id = r.analyte_id
 WHERE r.profile_id = $1 AND r.analyte_id = $2
 ORDER BY r.observed_date;
 

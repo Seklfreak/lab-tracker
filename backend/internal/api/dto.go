@@ -94,6 +94,7 @@ func toResultDTOFromAnalyte(r sqlc.ListResultsForProfileAnalyteRow) ResultDTO {
 		Note:          textToPtr(r.Note),
 		ObservedDate:  dateToPtr(r.ObservedDate),
 		SourceLab:     textToPtr(r.SourceLab),
+		IsFavorite:    r.IsFavorite,
 	}
 }
 

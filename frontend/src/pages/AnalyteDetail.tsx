@@ -26,7 +26,7 @@ import {
   statusTone,
 } from "@/lib/format";
 import { useThemeColors } from "@/lib/theme";
-import { ArrowLeft, Pencil, RotateCw, Sparkles, Trash2 } from "lucide-react";
+import { ArrowLeft, Pencil, RotateCw, Sparkles, Star, Trash2 } from "lucide-react";
 
 function parseNum(s: string): number | null {
   const t = s.trim();
@@ -76,6 +76,17 @@ export function AnalyteDetail() {
   const generate = useMutation({
     mutationFn: () => api.generateAnalysis(profileId!, analyteId!),
     onSuccess: (res) => qc.setQueryData(["analysis", profileId, analyteId], res),
+  });
+
+  const toggleFav = useMutation({
+    mutationFn: (isFav: boolean) =>
+      isFav
+        ? api.removeFavorite(profileId!, analyteId!)
+        : api.addFavorite(profileId!, analyteId!),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["trend", profileId, analyteId] });
+      qc.invalidateQueries({ queryKey: ["latest", profileId] });
+    },
   });
 
   const analytes = useQuery({ queryKey: ["analytes"], queryFn: api.listAnalytes });
@@ -154,6 +165,7 @@ export function AnalyteDetail() {
     );
 
   const name = data[0].analyteName;
+  const isFav = !!data[0].isFavorite;
   const unit = data.find((r) => r.unit)?.unit ?? "";
   const refLow = data.find((r) => r.referenceLow !== null)?.referenceLow ?? null;
   const refHigh = data.find((r) => r.referenceHigh !== null)?.referenceHigh ?? null;
@@ -186,8 +198,20 @@ export function AnalyteDetail() {
     <div className="space-y-5">
       <BackLink />
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="text-xl font-semibold">
-          {name} {unit && <span className="text-base text-muted">({unit})</span>}
+        <h1 className="flex items-center gap-2 text-xl font-semibold">
+          <span>
+            {name} {unit && <span className="text-base font-normal text-muted">({unit})</span>}
+          </span>
+          <button
+            type="button"
+            onClick={() => toggleFav.mutate(isFav)}
+            disabled={toggleFav.isPending}
+            title={isFav ? "Remove from favorites" : "Add to favorites"}
+            aria-pressed={isFav}
+            className={isFav ? "text-warn" : "text-muted hover:text-warn"}
+          >
+            <Star size={18} className={isFav ? "fill-warn" : ""} />
+          </button>
         </h1>
         <span className="text-sm text-muted">
           {referenceLabel(data[data.length - 1]) ?? "no reference"}
