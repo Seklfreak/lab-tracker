@@ -18,12 +18,12 @@ import (
 )
 
 type deps struct {
-	q         *sqlc.Queries
+	q         sqlc.Querier
 	extractor *llm.Extractor
 	log       *slog.Logger
 }
 
-func newMCPServer(q *sqlc.Queries, extractor *llm.Extractor, log *slog.Logger) *mcp.Server {
+func newMCPServer(q sqlc.Querier, extractor *llm.Extractor, log *slog.Logger) *mcp.Server {
 	d := &deps{q: q, extractor: extractor, log: log}
 	s := mcp.NewServer(&mcp.Implementation{Name: "lab-tracker", Version: "0.1.0"}, nil)
 

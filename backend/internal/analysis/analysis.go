@@ -24,7 +24,7 @@ var ErrNoResults = errors.New("no results to analyze")
 
 // Generate runs the LLM analysis for a profile's analyte and stores it.
 // Returns the markdown content and the number of results it was based on.
-func Generate(ctx context.Context, q *sqlc.Queries, ex *llm.Extractor, profileID, analyteID uuid.UUID) (string, int, error) {
+func Generate(ctx context.Context, q sqlc.Querier, ex *llm.Extractor, profileID, analyteID uuid.UUID) (string, int, error) {
 	profile, err := q.GetProfile(ctx, profileID)
 	if err != nil {
 		return "", 0, err
