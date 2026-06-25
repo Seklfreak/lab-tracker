@@ -1,6 +1,6 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+/* Keep the existing JS theme (custom color tokens) under Tailwind v4. */
+@config "../tailwind.config.js";
 
 /* Colors are space-separated RGB channels so Tailwind's /opacity modifiers work
    (rgb(var(--c-x) / <alpha-value>)). Light is the default; dark follows the OS. */
