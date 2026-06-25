@@ -9,23 +9,56 @@ env:
   REGISTRY: ghcr.io
 
 jobs:
+  # Decide which images to build. backend/** drives backend + mcp (same module);
+  # frontend/** drives frontend. workflow_dispatch builds everything.
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.value }}
+      any: ${{ steps.matrix.outputs.any }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Detect changed paths
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+            frontend:
+              - 'frontend/**'
+
+      - name: Build matrix
+        id: matrix
+        env:
+          DISPATCH: ${{ github.event_name == 'workflow_dispatch' }}
+          BACKEND: ${{ steps.changes.outputs.backend }}
+          FRONTEND: ${{ steps.changes.outputs.frontend }}
+        run: |
+          items=()
+          if [ "$DISPATCH" = "true" ] || [ "$BACKEND" = "true" ]; then
+            items+=('{"name":"backend","context":"./backend","dockerfile":"./backend/Dockerfile"}')
+            items+=('{"name":"mcp","context":"./backend","dockerfile":"./backend/Dockerfile.mcp"}')
+          fi
+          if [ "$DISPATCH" = "true" ] || [ "$FRONTEND" = "true" ]; then
+            items+=('{"name":"frontend","context":"./frontend","dockerfile":"./frontend/Dockerfile"}')
+          fi
+          joined=$(IFS=,; echo "${items[*]}")
+          echo "value={\"include\":[$joined]}" >> "$GITHUB_OUTPUT"
+          if [ ${#items[@]} -gt 0 ]; then echo "any=true" >> "$GITHUB_OUTPUT"; else echo "any=false" >> "$GITHUB_OUTPUT"; fi
+          echo "Will build: ${items[*]:-<none>}"
+
   build-and-push:
+    needs: detect
+    if: needs.detect.outputs.any == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
     strategy:
-      matrix:
-        include:
-          - name: backend
-            context: ./backend
-            dockerfile: ./backend/Dockerfile
-          - name: frontend
-            context: ./frontend
-            dockerfile: ./frontend/Dockerfile
-          - name: mcp
-            context: ./backend
-            dockerfile: ./backend/Dockerfile.mcp
+      matrix: ${{ fromJSON(needs.detect.outputs.matrix) }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -58,6 +91,7 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Per-image cache scope so the matrix jobs don't evict each other.
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
           platforms: linux/amd64,linux/arm64
