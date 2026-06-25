@@ -75,7 +75,7 @@ jobs:
 
       - name: Extract metadata for Docker
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           # metadata-action lowercases the image reference for ghcr.
           images: ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.name }}
