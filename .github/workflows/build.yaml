@@ -11,10 +11,12 @@ env:
 jobs:
   # Decide which images to build. backend/** drives backend + mcp (same module);
   # frontend/** drives frontend. workflow_dispatch builds everything.
+  # Emits a per-(image,platform) build matrix and a per-image merge matrix.
   detect:
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.matrix.outputs.value }}
+      build: ${{ steps.matrix.outputs.build }}
+      merge: ${{ steps.matrix.outputs.merge }}
       any: ${{ steps.matrix.outputs.any }}
     steps:
       - name: Checkout repository
@@ -30,36 +32,52 @@ jobs:
             frontend:
               - 'frontend/**'
 
-      - name: Build matrix
+      - name: Build matrices
         id: matrix
         env:
           DISPATCH: ${{ github.event_name == 'workflow_dispatch' }}
           BACKEND: ${{ steps.changes.outputs.backend }}
           FRONTEND: ${{ steps.changes.outputs.frontend }}
         run: |
-          items=()
+          build=(); merge=()
+          add() { # name context dockerfile
+            for plat in linux/amd64 linux/arm64; do
+              build+=("{\"name\":\"$1\",\"context\":\"$2\",\"dockerfile\":\"$3\",\"platform\":\"$plat\"}")
+            done
+            merge+=("{\"name\":\"$1\"}")
+          }
           if [ "$DISPATCH" = "true" ] || [ "$BACKEND" = "true" ]; then
-            items+=('{"name":"backend","context":"./backend","dockerfile":"./backend/Dockerfile"}')
-            items+=('{"name":"mcp","context":"./backend","dockerfile":"./backend/Dockerfile.mcp"}')
+            add backend ./backend ./backend/Dockerfile
+            add mcp ./backend ./backend/Dockerfile.mcp
           fi
           if [ "$DISPATCH" = "true" ] || [ "$FRONTEND" = "true" ]; then
-            items+=('{"name":"frontend","context":"./frontend","dockerfile":"./frontend/Dockerfile"}')
+            add frontend ./frontend ./frontend/Dockerfile
           fi
-          joined=$(IFS=,; echo "${items[*]}")
-          echo "value={\"include\":[$joined]}" >> "$GITHUB_OUTPUT"
-          if [ ${#items[@]} -gt 0 ]; then echo "any=true" >> "$GITHUB_OUTPUT"; else echo "any=false" >> "$GITHUB_OUTPUT"; fi
-          echo "Will build: ${items[*]:-<none>}"
+          b=$(IFS=,; echo "${build[*]}"); m=$(IFS=,; echo "${merge[*]}")
+          echo "build={\"include\":[$b]}" >> "$GITHUB_OUTPUT"
+          echo "merge={\"include\":[$m]}" >> "$GITHUB_OUTPUT"
+          if [ ${#merge[@]} -gt 0 ]; then echo "any=true" >> "$GITHUB_OUTPUT"; else echo "any=false" >> "$GITHUB_OUTPUT"; fi
+          echo "Will build: ${merge[*]:-<none>}"
 
-  build-and-push:
+  # Build each image+arch on its NATIVE runner (no QEMU), push by digest.
+  build:
     needs: detect
     if: needs.detect.outputs.any == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.platform == 'linux/arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
     permissions:
       contents: read
       packages: write
     strategy:
-      matrix: ${{ fromJSON(needs.detect.outputs.matrix) }}
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.detect.outputs.build) }}
     steps:
+      - name: Prepare
+        run: |
+          image="${REGISTRY}/${GITHUB_REPOSITORY}/${{ matrix.name }}"
+          echo "IMAGE=${image,,}" >> "$GITHUB_ENV"
+          platform="${{ matrix.platform }}"
+          echo "PLATFORM_PAIR=${platform//\//-}" >> "$GITHUB_ENV"
+
       - name: Checkout repository
         uses: actions/checkout@v7
 
@@ -73,25 +91,78 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata for Docker
-        id: meta
-        uses: docker/metadata-action@v6
-        with:
-          # metadata-action lowercases the image reference for ghcr.
-          images: ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.name }}
-          tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=sha,prefix={{branch}}-
-
-      - name: Build and push ${{ matrix.name }}
+      - name: Build and push by digest
+        id: build
         uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          # Per-image cache scope so the matrix jobs don't evict each other.
-          cache-from: type=gha,scope=${{ matrix.name }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ matrix.platform }}
+          cache-from: type=gha,scope=${{ matrix.name }}-${{ env.PLATFORM_PAIR }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}-${{ env.PLATFORM_PAIR }}
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+
+      - name: Export digest
+        run: |
+          mkdir -p "${{ runner.temp }}/digests"
+          digest="${{ steps.build.outputs.digest }}"
+          touch "${{ runner.temp }}/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ matrix.name }}-${{ env.PLATFORM_PAIR }}
+          path: ${{ runner.temp }}/digests/*
+          retention-days: 1
+
+  # Stitch the per-arch digests into a multi-arch manifest list per image.
+  merge:
+    needs: [detect, build]
+    if: needs.detect.outputs.any == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix: ${{ fromJSON(needs.detect.outputs.merge) }}
+    steps:
+      - name: Prepare
+        run: |
+          image="${REGISTRY}/${GITHUB_REPOSITORY}/${{ matrix.name }}"
+          echo "IMAGE=${image,,}" >> "$GITHUB_ENV"
+
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-${{ matrix.name }}-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix={{branch}}-
+
+      - name: Create manifest list and push
+        working-directory: ${{ runner.temp }}/digests
+        run: |
+          docker buildx imagetools create \
+            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf '${{ env.IMAGE }}@sha256:%s ' *)
+
+      - name: Inspect
+        run: docker buildx imagetools inspect ${{ env.IMAGE }}:${{ steps.meta.outputs.version }}
