@@ -108,6 +108,24 @@ DB/integration and extraction paths are still verified manually — recipes
 (smoke test, analyte matching, specimen disambiguation, favorites, report
 management, etc.) are in [`docs/manual-testing.md`](docs/manual-testing.md).
 
+## Releases
+
+Container images are versioned with semver. CI builds `latest` + a commit-sha tag
+on every push to `main` (for dev), and **`vX.Y.Z` → `X.Y.Z` + `X.Y` image tags** on git
+tags. The homelab deploys pin an explicit version (not `latest`), so what's running is
+always reproducible.
+
+Cut a release:
+
+```bash
+git tag v0.2.0 && git push origin v0.2.0   # CI builds backend/frontend/mcp :0.2.0
+```
+
+Deploy it (homelab repo): bump the image tag on the `lab-tracker` deployments
+(`apps/lab-tracker/lab-tracker.yaml` api+web, `apps/mcp/lab-tracker-mcp.yaml` mcp) to
+`:0.2.0` and commit — Flux rolls it out. **Roll back** by pointing those tags at a prior
+version and committing.
+
 ## Not yet implemented
 
 - Unit normalization across labs (mg/dL ↔ mmol/L).
