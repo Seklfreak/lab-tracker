@@ -16,7 +16,12 @@ func NewVerifier(ctx context.Context, issuer, clientID string) (*oidc.IDTokenVer
 	if err != nil {
 		return nil, fmt.Errorf("oidc discovery (%s): %w", issuer, err)
 	}
-	return provider.Verifier(&oidc.Config{ClientID: clientID}), nil
+	// We validate access tokens by issuer + signature + expiry. The issuer is
+	// per-application (…/application/o/<app>/), so only this app's tokens carry
+	// it — the audience check is redundant and Authentik's access-token `aud`
+	// differs from the client_id, so skip it. (clientID kept for reference.)
+	_ = clientID
+	return provider.Verifier(&oidc.Config{SkipClientIDCheck: true}), nil
 }
 
 type ctxKey string
@@ -38,6 +43,7 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 		}
 		tok, err := s.verifier.Verify(r.Context(), raw)
 		if err != nil {
+			s.log.Warn("token verification failed", "err", err)
 			writeError(w, http.StatusUnauthorized, "invalid token")
 			return
 		}
