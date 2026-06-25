@@ -3,6 +3,13 @@
 A scratchpad of where this could go. Nothing here is committed work — just ideas
 and rough notes so they aren't lost.
 
+## Done
+
+- [x] **App-level OIDC auth** (2026-06-25) — Authentik OIDC: backend validates
+  Bearer JWTs on `/api` (by issuer), SPA does Authorization Code + PKCE via
+  react-oidc-context. Forward-auth removed. Gate-only (all logged-in allowed-group
+  users share all profiles). The API is now token-auth and mobile-ready.
+
 ## Near-term
 
 - [ ] **MCP server** — expose lab data over the Model Context Protocol so Claude
@@ -11,9 +18,11 @@ and rough notes so they aren't lost.
   the same queries) or be a thin separate service hitting the existing API.
 - [ ] **iOS app** — native client (or a PWA) for: uploading PDFs from the phone
   (share sheet / camera scan), browsing analytes and trends, and reading AI
-  analyses. The REST API already exists; the main gap is an auth story for a
-  mobile client (today access is only gated by Authentik forward-auth at the
-  ingress).
+  analyses. The REST API already exists and is token-auth ready: do the OIDC
+  Authorization Code + PKCE flow against Authentik (e.g. `ASWebAuthenticationSession`),
+  send the access token as `Bearer`. The only server-side step is adding the app's
+  redirect URI (e.g. `labtracker://auth/callback`) to the existing `lab-tracker`
+  OIDC client — backend JWT validation already covers it.
   - **App Store approval (self-hosted, no shared backend):** because the app
     points at the user's own server, plan around Apple's review guidelines so a
     reviewer can exercise it without our infra (the "I can't give you a login"
@@ -58,7 +67,9 @@ This could grow from "lab results" into a personal health chart / mini-EHR:
   analyte + result shape (numeric/qualitative value, unit, reference, date).
   Vaccinations and procedures are *events*, not measurements — probably a
   separate "events" model rather than forcing them into results.
-- **Auth / multi-user:** still no in-app auth (Authentik gates the deployment).
-  A broader record probably needs real per-user accounts + sharing.
+- **Auth / multi-user:** app-level OIDC is in place, but it's gate-only — every
+  authenticated user shares all profiles. A broader record likely needs per-user
+  ownership + sharing (a `users` table keyed on the OIDC `sub`, profile owners,
+  query scoping). Deferred until actually needed.
 - **Privacy:** this is health PII — keep it self-hosted, consider
   encryption-at-rest, and provide export/delete.
