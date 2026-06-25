@@ -4,7 +4,6 @@
     "config:recommended",
     "group:allNonMajor"
   ],
-  "schedule": ["before 6am on monday"],
   "packageRules": [
     {
       "description": "Auto-merge non-major updates once the test workflow passes.",
