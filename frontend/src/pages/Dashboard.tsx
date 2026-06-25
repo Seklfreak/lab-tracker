@@ -1,10 +1,11 @@
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 import { clsx } from "clsx";
 import { Star } from "lucide-react";
 import { api, type Result } from "@/lib/api";
 import { useProfile } from "@/lib/profile";
-import { Badge, Card, Select, Spinner } from "@/components/ui";
+import { Badge, Card, Input, Select, Spinner } from "@/components/ui";
 import { derivedFlag, displayValue, referenceLabel, statusTone } from "@/lib/format";
 
 const SORT_KEYS = ["category", "count", "name", "recent"] as const;
@@ -25,6 +26,7 @@ function comparator(key: SortKey): (a: Result, b: Result) => number {
 export function Dashboard() {
   const { profileId } = useProfile();
   const qc = useQueryClient();
+  const [query, setQuery] = useState("");
 
   // Persist the sort in the URL (?sort=) so it survives navigation / browser back.
   const [searchParams, setSearchParams] = useSearchParams();
@@ -87,19 +89,34 @@ export function Dashboard() {
     />
   );
 
-  const cmp = comparator(sort);
-  const favorites = [...data.filter((r) => r.isFavorite)].sort(cmp);
-  const rest = data.filter((r) => !r.isFavorite);
+  const q = query.trim().toLowerCase();
+  const filtered = q ? data.filter((r) => r.analyteName.toLowerCase().includes(q)) : data;
 
-  const sortControl = (
-    <div className="flex items-center justify-end gap-2 text-sm">
-      <span className="text-muted">Sort by</span>
-      <Select className="w-44" value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
-        <option value="category">Category</option>
-        <option value="count">Most readings</option>
-        <option value="recent">Most recent</option>
-        <option value="name">Name (A–Z)</option>
-      </Select>
+  const cmp = comparator(sort);
+  const favorites = [...filtered.filter((r) => r.isFavorite)].sort(cmp);
+  const rest = filtered.filter((r) => !r.isFavorite);
+
+  const controls = (
+    <div className="flex flex-wrap items-center gap-3">
+      <Input
+        type="search"
+        placeholder="Search analytes…"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        className="w-full sm:max-w-xs"
+      />
+      <div className="flex items-center gap-2 text-sm sm:ml-auto">
+        <span className="shrink-0 text-muted">Sort by</span>
+        {/* Select forces w-full; constrain it via a fixed-width wrapper. */}
+        <div className="w-44">
+          <Select value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
+            <option value="category">Category</option>
+            <option value="count">Most readings</option>
+            <option value="recent">Most recent</option>
+            <option value="name">Name (A–Z)</option>
+          </Select>
+        </div>
+      </div>
     </div>
   );
 
@@ -143,9 +160,15 @@ export function Dashboard() {
 
   return (
     <div className="space-y-6">
-      {sortControl}
-      {favSection}
-      {body}
+      {controls}
+      {q && filtered.length === 0 ? (
+        <p className="text-sm text-muted">No analytes match “{query}”.</p>
+      ) : (
+        <>
+          {favSection}
+          {body}
+        </>
+      )}
     </div>
   );
 }
