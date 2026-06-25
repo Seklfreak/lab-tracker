@@ -110,21 +110,17 @@ management, etc.) are in [`docs/manual-testing.md`](docs/manual-testing.md).
 
 ## Releases
 
-Container images are versioned with semver. CI builds `latest` + a commit-sha tag
-on every push to `main` (for dev), and **`vX.Y.Z` → `X.Y.Z` + `X.Y` image tags** on git
-tags. The homelab deploys pin an explicit version (not `latest`), so what's running is
-always reproducible.
+Container images are versioned with semver. Releases are **cut automatically**: every
+commit on `main` that passes the Test workflow gets a patch bump — the `release.yaml`
+workflow tags the next `vX.Y.(Z+1)`, builds `backend`/`frontend`/`mcp` images tagged
+`X.Y.Z` + `X.Y` + `latest`, for that exact commit. The homelab deploys pin an explicit
+version (not `latest`), so what's running is always reproducible.
 
-Cut a release:
-
-```bash
-git tag v0.2.0 && git push origin v0.2.0   # CI builds backend/frontend/mcp :0.2.0
-```
-
-Deploy it (homelab repo): bump the image tag on the `lab-tracker` deployments
-(`apps/lab-tracker/lab-tracker.yaml` api+web, `apps/mcp/lab-tracker-mcp.yaml` mcp) to
-`:0.2.0` and commit — Flux rolls it out. **Roll back** by pointing those tags at a prior
-version and committing.
+- **Minor / major release:** tag it yourself — `git tag v0.2.0 && git push origin v0.2.0`.
+  The auto-bumper continues from the highest tag (next auto release would be `v0.2.1`).
+- **Deploy a release** (homelab repo): bump the image tag on the `lab-tracker` deployments
+  (`apps/lab-tracker/lab-tracker.yaml` api+web, `apps/mcp/lab-tracker-mcp.yaml` mcp) and
+  commit — Flux rolls it out. **Roll back** by pointing those tags at a prior version.
 
 ## Not yet implemented
 

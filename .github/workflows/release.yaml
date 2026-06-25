@@ -1,0 +1,43 @@
+name: Release
+
+# Auto-cut a patch release on every green commit to main (including direct pushes):
+# Test must pass first, then tag the next vX.Y.(Z+1) and trigger the image build for
+# that exact commit. Manual minor/major tags (git tag vX.Y.0) still work — the auto
+# bumper just continues from whatever the highest tag is.
+on:
+  workflow_run:
+    workflows: ["Test"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: write # push the tag
+  actions: write # dispatch the build workflow
+
+jobs:
+  tag:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Tag next patch version and trigger build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          latest=$(git tag -l 'v*.*.*' | sort -V | tail -1)
+          latest=${latest:-v0.0.0}
+          ver=${latest#v}
+          IFS=. read -r major minor patch <<< "$ver"
+          new="v${major}.${minor}.$((patch + 1))"
+          echo "Latest tag: $latest -> new release: $new (commit ${SHA:0:7})"
+          git tag "$new" "$SHA"
+          git push origin "$new"
+          # A GITHUB_TOKEN-pushed tag does not trigger workflows, so dispatch the
+          # build explicitly: build the tagged commit, tag images with the version.
+          gh workflow run build.yaml --ref "$new" -f version="${new#v}"

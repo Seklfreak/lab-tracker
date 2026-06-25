@@ -2,9 +2,13 @@ name: Build and Push Images
 
 on:
   push:
-    branches: [main]
     tags: ["v*.*.*"]
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Image version to tag (e.g. 0.1.2). Blank = latest only."
+        required: false
+        default: ""
 
 env:
   REGISTRY: ghcr.io
@@ -155,11 +159,14 @@ jobs:
         uses: docker/metadata-action@v6
         with:
           images: ${{ env.IMAGE }}
+          # Builds run on tag pushes (semver from the ref) or on dispatch with an
+          # explicit version (the auto-release path, which dispatches by SHA). latest
+          # tracks the newest build either way.
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=sha,prefix={{branch}}-,enable={{is_default_branch}}
+            type=raw,value=${{ inputs.version }},enable=${{ inputs.version != '' }}
+            type=raw,value=latest
 
       - name: Create manifest list and push
         working-directory: ${{ runner.temp }}/digests
