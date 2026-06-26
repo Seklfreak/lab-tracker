@@ -2,7 +2,17 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { clsx } from "clsx";
-import { AlertTriangle, Download, LineChart, Printer, RotateCw, Sparkles, Star } from "lucide-react";
+import {
+  AlertTriangle,
+  ChevronDown,
+  ChevronRight,
+  Download,
+  LineChart,
+  Printer,
+  RotateCw,
+  Sparkles,
+  Star,
+} from "lucide-react";
 import { api, type Result } from "@/lib/api";
 import { useProfile } from "@/lib/profile";
 import { Badge, Button, Card, Input, Select, Spinner } from "@/components/ui";
@@ -282,48 +292,57 @@ function PanelSummaryCard({ profileId, currentCount }: { profileId: string; curr
   });
 
   const stale = summary != null && summary.basedOnCount !== currentCount;
+  // Collapsed by default — it's a big block; expand on demand.
+  const [open, setOpen] = useState(false);
 
   return (
     <Card>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wide text-muted">
+        <button
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          className="flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wide text-muted hover:text-text"
+        >
+          {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
           <Sparkles size={14} className="text-accent" /> Health snapshot
-        </h2>
-        {summary && !gen.isPending && (
+          {!open && stale && <span className="h-1.5 w-1.5 rounded-full bg-warn" title="Out of date" />}
+        </button>
+        {open && summary && !gen.isPending && (
           <Button variant="ghost" className="px-2 py-1" onClick={() => gen.mutate()}>
             <RotateCw size={14} /> Regenerate
           </Button>
         )}
       </div>
 
-      {gen.isPending ? (
-        <div className="py-4">
-          <Spinner label="Summarizing your latest panel…" />
-        </div>
-      ) : summary ? (
-        <div className="mt-2">
-          {stale && (
-            <div className="mb-3 rounded-md border border-warn/40 bg-warn/10 px-3 py-2 text-xs text-warn">
-              Your results have changed since this snapshot. Regenerate to refresh.
-            </div>
-          )}
-          <Markdown>{summary.content}</Markdown>
-          <p className="mt-2 text-xs text-muted">
-            Generated {new Date(summary.generatedAt).toLocaleString()}
-          </p>
-        </div>
-      ) : (
-        <div className="py-2">
-          <p className="mb-3 text-sm text-muted">
-            An AI overview of your latest panel — what’s out of range, what looks good, and what to
-            keep an eye on.
-          </p>
-          <Button onClick={() => gen.mutate()}>
-            <Sparkles size={16} /> Generate health snapshot
-          </Button>
-        </div>
-      )}
-      {gen.error && <p className="mt-2 text-sm text-bad">{String(gen.error)}</p>}
+      {open &&
+        (gen.isPending ? (
+          <div className="py-4">
+            <Spinner label="Summarizing your latest panel…" />
+          </div>
+        ) : summary ? (
+          <div className="mt-2">
+            {stale && (
+              <div className="mb-3 rounded-md border border-warn/40 bg-warn/10 px-3 py-2 text-xs text-warn">
+                Your results have changed since this snapshot. Regenerate to refresh.
+              </div>
+            )}
+            <Markdown>{summary.content}</Markdown>
+            <p className="mt-2 text-xs text-muted">
+              Generated {new Date(summary.generatedAt).toLocaleString()}
+            </p>
+          </div>
+        ) : (
+          <div className="py-2">
+            <p className="mb-3 text-sm text-muted">
+              An AI overview of your latest panel — what’s out of range, what looks good, and what to
+              keep an eye on.
+            </p>
+            <Button onClick={() => gen.mutate()}>
+              <Sparkles size={16} /> Generate health snapshot
+            </Button>
+          </div>
+        ))}
+      {open && gen.error && <p className="mt-2 text-sm text-bad">{String(gen.error)}</p>}
     </Card>
   );
 }
