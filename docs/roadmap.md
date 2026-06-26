@@ -52,14 +52,18 @@ and rough notes so they aren't lost.
 
 ## Near-term
 
-- [ ] **iOS app** — native client (or a PWA) for: uploading PDFs from the phone
-  (share sheet / camera scan), browsing analytes and trends, and reading AI
-  analyses. The REST API already exists and is token-auth ready: do the OIDC
-  Authorization Code + PKCE flow against Authentik (e.g. `ASWebAuthenticationSession`),
-  send the access token as `Bearer`. The only server-side step is adding the app's
-  redirect URI (e.g. `labtracker://auth/callback`) to the existing `lab-tracker`
-  OIDC client — backend JWT validation already covers it.
-  - **App Store approval (self-hosted, no shared backend):** because the app
+- [~] **iOS app** — native SwiftUI client in [`ios/`](../ios/README.md).
+  - **MVP shipped (2026-06-26):** configurable server URL → profiles → dashboard
+    (latest value per analyte, grouped, color-coded) → analyte detail (Swift
+    Charts trend + readings + the stored AI analysis, markdown-rendered).
+    Verified in the simulator against the live API. xcodegen project, no
+    hand-edited `.xcodeproj`.
+  - [ ] **OIDC sign-in** — Authorization Code + PKCE via
+    `ASWebAuthenticationSession` against Authentik (`labtracker://auth/callback`
+    URL scheme already declared; register it on the `lab-tracker` OIDC client).
+    Until then the app uses a pasted Bearer token or a local AUTH_DISABLED server.
+  - [ ] **PDF upload** from the phone (share sheet / camera scan).
+  - [ ] **App Store approval (self-hosted, no shared backend):** because the app
     points at the user's own server, plan around Apple's review guidelines so a
     reviewer can exercise it without our infra (the "I can't give you a login"
     problem). Strategy is "bring your own server" as a first-class, reviewable

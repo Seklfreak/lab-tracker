@@ -14,6 +14,7 @@ super-user admin area (`ADMIN_EMAILS`) lists every user and their profile counts
 
 - **Backend:** Go, chi, Postgres (pgx + sqlc), golang-migrate, MinIO (S3), Anthropic SDK (`claude-opus-4-8`).
 - **Frontend:** React + TypeScript + Vite, Tailwind, Recharts, TanStack Query, React Router.
+- **iOS:** native SwiftUI client (browse profiles, trends, AI analyses) — see [`ios/`](ios/README.md).
 - **Infra (dev):** Postgres + MinIO via Docker Compose.
 
 ## How it works
