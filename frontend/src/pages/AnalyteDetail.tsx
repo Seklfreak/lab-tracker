@@ -26,7 +26,8 @@ import {
   statusTone,
 } from "@/lib/format";
 import { useThemeColors } from "@/lib/theme";
-import { ArrowLeft, Pencil, RotateCw, Sparkles, Star, Trash2 } from "lucide-react";
+import { downloadCsv } from "@/lib/csv";
+import { ArrowLeft, Download, Pencil, Printer, RotateCw, Sparkles, Star, Trash2 } from "lucide-react";
 
 function parseNum(s: string): number | null {
   const t = s.trim();
@@ -170,6 +171,21 @@ export function AnalyteDetail() {
   const refLow = data.find((r) => r.referenceLow !== null)?.referenceLow ?? null;
   const refHigh = data.find((r) => r.referenceHigh !== null)?.referenceHigh ?? null;
 
+  const exportCsv = () =>
+    downloadCsv(
+      `${name.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-history.csv`,
+      ["Date", "Value", "Unit", "Reference", "Flag"],
+      [...data]
+        .sort((a, b) => (a.observedDate ?? "").localeCompare(b.observedDate ?? ""))
+        .map((r) => [
+          r.observedDate ?? "",
+          displayValue(r),
+          r.unit ?? "",
+          referenceLabel(r) ?? "",
+          derivedFlag(r) ?? "Normal",
+        ]),
+    );
+
   // Plain numbers plot as a dot; bounded values ("<0.05") plot as a vertical
   // range line (via ErrorBar) covering where the true value could be.
   const chartData = data
@@ -213,9 +229,22 @@ export function AnalyteDetail() {
             <Star size={18} className={isFav ? "fill-warn" : ""} />
           </button>
         </h1>
-        <span className="text-sm text-muted">
-          {referenceLabel(data[data.length - 1]) ?? "no reference"}
-        </span>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" className="px-2 py-1" onClick={exportCsv} title="Export CSV">
+            <Download size={14} /> CSV
+          </Button>
+          <Button
+            variant="ghost"
+            className="px-2 py-1"
+            onClick={() => window.print()}
+            title="Print / Save as PDF"
+          >
+            <Printer size={14} /> Print
+          </Button>
+          <span className="text-sm text-muted">
+            {referenceLabel(data[data.length - 1]) ?? "no reference"}
+          </span>
+        </div>
       </div>
 
       {chartData.length > 0 && (

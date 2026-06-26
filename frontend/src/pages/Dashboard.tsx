@@ -2,11 +2,12 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 import { clsx } from "clsx";
-import { AlertTriangle, RotateCw, Sparkles, Star } from "lucide-react";
+import { AlertTriangle, Download, Printer, RotateCw, Sparkles, Star } from "lucide-react";
 import { api, type Result } from "@/lib/api";
 import { useProfile } from "@/lib/profile";
 import { Badge, Button, Card, Input, Select, Spinner } from "@/components/ui";
 import { Markdown } from "@/components/Markdown";
+import { downloadCsv } from "@/lib/csv";
 import { derivedFlag, displayValue, referenceLabel, statusTone } from "@/lib/format";
 
 const SORT_KEYS = ["category", "count", "name", "recent"] as const;
@@ -100,6 +101,23 @@ export function Dashboard() {
   const favorites = [...filtered.filter((r) => r.isFavorite)].sort(cmp);
   const rest = filtered.filter((r) => !r.isFavorite);
 
+  // Export the current view (respects search / needs-attention filters).
+  const exportCsv = () =>
+    downloadCsv(
+      `lab-panel-${new Date().toISOString().slice(0, 10)}.csv`,
+      ["Analyte", "Value", "Unit", "Reference", "Date", "Flag"],
+      [...filtered]
+        .sort((a, b) => a.analyteName.localeCompare(b.analyteName))
+        .map((r) => [
+          r.analyteName,
+          displayValue(r),
+          r.unit ?? "",
+          referenceLabel(r) ?? "",
+          r.observedDate ?? "",
+          derivedFlag(r) ?? "Normal",
+        ]),
+    );
+
   const controls = (
     <div className="flex flex-wrap items-center gap-3">
       <Input
@@ -127,6 +145,17 @@ export function Dashboard() {
         </button>
       )}
       <div className="flex items-center gap-2 text-sm sm:ml-auto">
+        <Button variant="ghost" className="px-2 py-1.5" onClick={exportCsv} title="Export CSV">
+          <Download size={14} /> CSV
+        </Button>
+        <Button
+          variant="ghost"
+          className="px-2 py-1.5"
+          onClick={() => window.print()}
+          title="Print / Save as PDF"
+        >
+          <Printer size={14} /> Print
+        </Button>
         <span className="shrink-0 text-muted">Sort by</span>
         {/* Select forces w-full; constrain it via a fixed-width wrapper. */}
         <div className="w-44">
