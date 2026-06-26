@@ -10,8 +10,6 @@ settings:
     CURRENT_PROJECT_VERSION: "1"
     SWIFT_VERSION: "5.0"
     GENERATE_INFOPLIST_FILE: NO
-    CODE_SIGNING_ALLOWED: NO
-    CODE_SIGN_IDENTITY: ""
 targets:
   LabTracker:
     type: application
@@ -22,3 +20,6 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.winkler.labtracker
         INFOPLIST_FILE: LabTracker/Info.plist
+        # Device builds: pick your team in Xcode (Signing & Capabilities) or
+        # set DEVELOPMENT_TEAM. Simulator CLI builds pass CODE_SIGNING_ALLOWED=NO.
+        CODE_SIGN_STYLE: Automatic

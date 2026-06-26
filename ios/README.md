@@ -20,16 +20,30 @@ open LabTracker.xcodeproj      # or build from the CLI (below)
 
 ## Run
 
-In the app, tap the gear → set the **server URL**:
+The only thing you configure is the **server URL** (gear → Settings):
 
 - **Local dev:** `http://localhost:8080` (the default). Run the backend with
-  `AUTH_DISABLED=true`; the simulator reaches the host's localhost and no token
-  is needed.
-- **A real server:** its https URL, then **Sign in** under the OIDC section
-  (issuer + client ID default to the Authentik `lab-tracker` app). This runs
-  Authorization Code + PKCE via `ASWebAuthenticationSession` and stores the
-  tokens in the Keychain, refreshing automatically. A pasted Bearer token still
-  works as an alternative.
+  `AUTH_DISABLED=true`; the simulator reaches the host's localhost and no auth is
+  needed.
+- **A real server:** its https URL, then tap **Sign in**. The app reads the
+  server's published OIDC config from `{serverURL}/config.js` (the same one the
+  web app uses — nothing hardcoded), runs Authorization Code + PKCE via
+  `ASWebAuthenticationSession`, and stores the tokens in the Keychain (auto-
+  refresh). A pasted Bearer token works as an alternative.
+
+## Run on your iPhone
+
+CLI provisioning needs an interactive Apple ID login, so use Xcode:
+
+1. `xcodegen generate && open LabTracker.xcodeproj`
+2. Select the **LabTracker** target → **Signing & Capabilities** → check
+   *Automatically manage signing* and pick your **Team** (re-sign in to your
+   Apple ID under Xcode ▸ Settings ▸ Accounts if prompted).
+3. Plug in the iPhone (trust it), select it as the run destination, **Run** (⌘R).
+4. On the phone, first run only: Settings ▸ General ▸ VPN & Device Management ▸
+   trust your developer certificate.
+5. In the app, set the server URL to your https server and **Sign in**.
+   (`localhost` won't work from a physical phone — use the real server.)
 
 CLI build + run on a simulator:
 

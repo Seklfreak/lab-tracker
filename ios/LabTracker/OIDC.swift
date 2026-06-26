@@ -46,7 +46,9 @@ private struct TokenResponse: Decodable {
 @MainActor
 @Observable
 final class AuthSession: NSObject, ASWebAuthenticationPresentationContextProviding {
-    var config: OIDCConfig
+    /// Discovered from the server (see signIn(serverURL:)) and cached so refreshes
+    /// survive a restart.
+    private(set) var config: OIDCConfig
 
     private(set) var accessToken: String?
     private var refreshToken: String?
@@ -55,8 +57,12 @@ final class AuthSession: NSObject, ASWebAuthenticationPresentationContextProvidi
 
     var isSignedIn: Bool { refreshToken != nil || accessToken != nil }
 
-    init(config: OIDCConfig) {
-        self.config = config
+    override init() {
+        let d = UserDefaults.standard
+        self.config = OIDCConfig(
+            issuer: d.string(forKey: "oidc_issuer") ?? "",
+            clientID: d.string(forKey: "oidc_client_id") ?? "lab-tracker"
+        )
         super.init()
         accessToken = Keychain.get("access_token")
         refreshToken = Keychain.get("refresh_token")
@@ -65,7 +71,16 @@ final class AuthSession: NSObject, ASWebAuthenticationPresentationContextProvidi
         }
     }
 
-    func signIn() async throws {
+    /// The only thing a user configures is the server URL: fetch the server's
+    /// published OIDC config (`/config.js`), cache it, then run the flow.
+    func signIn(serverURL: String) async throws {
+        config = try await Self.fetchConfig(serverURL: serverURL)
+        UserDefaults.standard.set(config.issuer, forKey: "oidc_issuer")
+        UserDefaults.standard.set(config.clientID, forKey: "oidc_client_id")
+        try await signIn()
+    }
+
+    private func signIn() async throws {
         guard config.isConfigured else { throw OIDCError.notConfigured }
         let disco = try await discover()
 
@@ -149,6 +164,29 @@ final class AuthSession: NSObject, ASWebAuthenticationPresentationContextProvidi
         Keychain.set(accessToken, for: "access_token")
         Keychain.set(refreshToken, for: "refresh_token")
         Keychain.set(expiresAt.map { String($0.timeIntervalSince1970) }, for: "expires_at")
+    }
+
+    /// Reads the OIDC authority + client id the server publishes for its web app
+    /// at `{serverURL}/config.js` (a `window.__APP_CONFIG__ = { … }` snippet).
+    static func fetchConfig(serverURL: String) async throws -> OIDCConfig {
+        var base = serverURL.trimmingCharacters(in: .whitespaces)
+        if base.hasSuffix("/") { base = String(base.dropLast()) }
+        guard let url = URL(string: base + "/config.js") else { throw OIDCError.notConfigured }
+        let (data, resp) = try await URLSession.shared.data(from: url)
+        guard (resp as? HTTPURLResponse)?.statusCode == 200 else { throw OIDCError.discovery }
+        let js = String(decoding: data, as: UTF8.self)
+        guard let issuer = jsString("oidcAuthority", in: js), !issuer.isEmpty,
+              let clientID = jsString("oidcClientId", in: js) else {
+            throw OIDCError.token("the server didn’t publish an OIDC config (no auth configured?)")
+        }
+        return OIDCConfig(issuer: issuer, clientID: clientID)
+    }
+
+    private static func jsString(_ key: String, in js: String) -> String? {
+        guard let re = try? NSRegularExpression(pattern: "\(key)\\s*:\\s*\"([^\"]*)\"") else { return nil }
+        let range = NSRange(js.startIndex..., in: js)
+        guard let m = re.firstMatch(in: js, range: range), let g = Range(m.range(at: 1), in: js) else { return nil }
+        return String(js[g])
     }
 
     private func discover() async throws -> DiscoveryDoc {
