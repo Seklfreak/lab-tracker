@@ -9,13 +9,19 @@ and rough notes so they aren't lost.
   Bearer JWTs on `/api` (by issuer), SPA does Authorization Code + PKCE via
   react-oidc-context. Forward-auth removed. Gate-only (all logged-in allowed-group
   users share all profiles). The API is now token-auth and mobile-ready.
+- [x] **MCP server** (2026-06-25) — `cmd/mcp` exposes lab data over the Model
+  Context Protocol (Streamable HTTP): list profiles, latest results, analyte trends,
+  search, and read/generate the stored AI analyses. DB-direct (reuses the sqlc
+  queries). Deployed as a claude.ai connector via Cloudflare Access Managed OAuth in
+  the `mcp` namespace.
+- [x] **Versioned releases + CI/CD** (2026-06-26) — multi-arch images build on
+  native arm64/amd64 runners (no QEMU). Every green commit to `main` auto-cuts a
+  semver release: Claude (Haiku) picks the bump — or skips non-shipping (docs/CI)
+  changes — and writes the GitHub release notes; deploys pin explicit versions
+  (off `:latest`). Renovate keeps dependencies current with auto-merge.
 
 ## Near-term
 
-- [ ] **MCP server** — expose lab data over the Model Context Protocol so Claude
-  (and other MCP clients) can query results, trends, and the stored AI analyses,
-  and maybe trigger uploads/analysis. Could live alongside the Go backend (reuse
-  the same queries) or be a thin separate service hitting the existing API.
 - [ ] **iOS app** — native client (or a PWA) for: uploading PDFs from the phone
   (share sheet / camera scan), browsing analytes and trends, and reading AI
   analyses. The REST API already exists and is token-auth ready: do the OIDC
