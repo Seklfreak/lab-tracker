@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { clsx } from "clsx";
-import { AlertTriangle, Download, Printer, RotateCw, Sparkles, Star } from "lucide-react";
+import { AlertTriangle, Download, LineChart, Printer, RotateCw, Sparkles, Star } from "lucide-react";
 import { api, type Result } from "@/lib/api";
 import { useProfile } from "@/lib/profile";
 import { Badge, Button, Card, Input, Select, Spinner } from "@/components/ui";
@@ -28,8 +28,13 @@ function comparator(key: SortKey): (a: Result, b: Result) => number {
 export function Dashboard() {
   const { profileId } = useProfile();
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [onlyAbnormal, setOnlyAbnormal] = useState(false);
+  // Analytes selected (via card checkboxes) to overlay on the Compare view.
+  const [sel, setSel] = useState<string[]>([]);
+  const toggleSel = (id: string) =>
+    setSel((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
 
   // Persist the sort in the URL (?sort=) so it survives navigation / browser back.
   const [searchParams, setSearchParams] = useSearchParams();
@@ -86,6 +91,8 @@ export function Dashboard() {
     <ResultCard
       key={r.id}
       r={r}
+      selected={sel.includes(r.analyteId)}
+      onToggleSelect={() => toggleSel(r.analyteId)}
       onToggleFav={() =>
         toggleFav.mutate({ analyteId: r.analyteId, isFav: !!r.isFavorite })
       }
@@ -212,6 +219,24 @@ export function Dashboard() {
     <div className="space-y-6">
       <PanelSummaryCard key={profileId} profileId={profileId} currentCount={data.length} />
       {controls}
+      {sel.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-accent/40 bg-accent/5 px-3 py-2 text-sm">
+          <span>{sel.length} selected to compare</span>
+          <div className="ml-auto flex gap-2">
+            <Button variant="ghost" className="px-2 py-1" onClick={() => setSel([])}>
+              Clear
+            </Button>
+            <Button
+              className="px-2 py-1"
+              disabled={sel.length < 2}
+              onClick={() => navigate(`/compare?ids=${sel.join(",")}`)}
+              title={sel.length < 2 ? "Select at least 2 analytes" : "Compare selected"}
+            >
+              <LineChart size={14} /> Compare
+            </Button>
+          </div>
+        </div>
+      )}
       {filtered.length === 0 ? (
         <p className="text-sm text-muted">
           {onlyAbnormal ? "Nothing is out of range. 🎉" : `No analytes match “${query}”.`}
@@ -302,15 +327,41 @@ function PanelSummaryCard({ profileId, currentCount }: { profileId: string; curr
   );
 }
 
-function ResultCard({ r, onToggleFav }: { r: Result; onToggleFav: () => void }) {
+function ResultCard({
+  r,
+  selected,
+  onToggleSelect,
+  onToggleFav,
+}: {
+  r: Result;
+  selected: boolean;
+  onToggleSelect: () => void;
+  onToggleFav: () => void;
+}) {
   const tone = statusTone(r);
   const ref = referenceLabel(r);
   const flag = derivedFlag(r);
   return (
     <Link to={`/analytes/${r.analyteId}`}>
-      <Card className="transition hover:border-accent">
+      <Card className={clsx("transition hover:border-accent", selected && "border-accent")}>
         <div className="flex items-start justify-between gap-2">
-          <div className="font-medium">{r.analyteName}</div>
+          <div className="flex items-start gap-2">
+            <input
+              type="checkbox"
+              checked={selected}
+              // preventDefault stops the Link nav + native toggle; we toggle manually
+              // so the controlled checkbox stays in sync.
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onToggleSelect();
+              }}
+              onChange={() => {}}
+              title="Select to compare"
+              className="mt-1 cursor-pointer"
+            />
+            <div className="font-medium">{r.analyteName}</div>
+          </div>
           <div className="flex shrink-0 items-center gap-1.5">
             {flag && <Badge tone={tone}>{flag}</Badge>}
             <button

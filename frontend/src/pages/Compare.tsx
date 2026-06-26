@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { clsx } from "clsx";
 import {
@@ -41,7 +42,12 @@ export function Compare() {
     enabled: !!profileId,
   });
 
-  const [selected, setSelected] = useState<string[]>([]);
+  // Initial selection comes from the dashboard via ?ids=a,b,c; the chips below
+  // let you adjust it.
+  const [params] = useSearchParams();
+  const [selected, setSelected] = useState<string[]>(() =>
+    (params.get("ids") ?? "").split(",").filter(Boolean).slice(0, MAX),
+  );
   const toggle = (id: string) =>
     setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : s.length >= MAX ? s : [...s, id]));
 
@@ -112,7 +118,10 @@ export function Compare() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-semibold">Compare analytes</h1>
+        <Link to="/" className="text-sm text-accent">
+          ← Dashboard
+        </Link>
+        <h1 className="mt-1 text-xl font-semibold">Compare analytes</h1>
         <p className="text-sm text-muted">
           Pick up to {MAX} analytes. Each is plotted relative to its reference range — 0 = low end,
           1 = high end; the shaded band is normal, points outside it are out of range.
