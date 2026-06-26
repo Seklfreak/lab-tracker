@@ -26,7 +26,7 @@ func (s *Server) uploadReport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	r.Body = http.MaxBytesReader(w, r.Body, maxUploadBytes)
-	if err := r.ParseMultipartForm(maxUploadBytes); err != nil {
+	if err := r.ParseMultipartForm(maxUploadBytes); err != nil { //nolint:gosec // body bounded by MaxBytesReader above
 		writeError(w, http.StatusBadRequest, "could not parse upload (max 25MB)")
 		return
 	}
@@ -62,7 +62,7 @@ func (s *Server) uploadReport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Parse asynchronously; the frontend polls GET /reports/{id} for status.
-	go s.parseReport(report.ID, data)
+	go s.parseReport(report.ID, data) //nolint:gosec // background task intentionally outlives the request
 
 	writeJSON(w, http.StatusAccepted, toReportDTO(report))
 }
@@ -191,7 +191,7 @@ func (s *Server) reparseReport(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to reparse")
 		return
 	}
-	go s.parseReport(report.ID, data)
+	go s.parseReport(report.ID, data) //nolint:gosec // background task intentionally outlives the request
 
 	updated, err := s.q.GetReport(r.Context(), report.ID)
 	if err != nil {

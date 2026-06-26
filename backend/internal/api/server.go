@@ -60,7 +60,7 @@ func (s *Server) Router(corsOrigins []string) http.Handler {
 		MaxAge:           300,
 	}))
 
-	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+	r.Get("/health", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 

@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"github.com/golang-migrate/migrate/v4"
+	// Registers the pgx/v5 database driver with golang-migrate (used via the
+	// "pgx5://" URL scheme in Migrate).
 	_ "github.com/golang-migrate/migrate/v4/database/pgx/v5"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/jackc/pgx/v5/pgxpool"

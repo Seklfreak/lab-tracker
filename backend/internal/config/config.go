@@ -98,7 +98,7 @@ func splitCSV(s string) []string {
 // loadDotEnv parses a simple KEY=value .env file. Lines starting with # are
 // ignored. Existing environment variables are not overridden.
 func loadDotEnv(path string) {
-	f, err := os.Open(path)
+	f, err := os.Open(path) //nolint:gosec // fixed .env path, not user input
 	if err != nil {
 		return
 	}

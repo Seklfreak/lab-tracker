@@ -8,9 +8,17 @@ linters:
     - bodyclose # HTTP response bodies get closed
     - misspell # typos in comments/strings
     - unconvert # redundant type conversions
+    - errorlint # correct error wrapping/comparison (errors.Is / %w)
+    - gosec # common security issues
+    - revive # style / complexity
   exclusions:
     rules:
       # Deferred cleanup (Close / tx.Rollback) is idiomatically fire-and-forget.
       - linters:
           - errcheck
         source: 'defer .*\.(Close|Rollback)\('
+      # Doc-comment-on-every-export is low value for internal app packages; keep
+      # the rest of revive (unused params, blank imports, complexity, …).
+      - linters:
+          - revive
+        text: '^(exported|package-comments):'

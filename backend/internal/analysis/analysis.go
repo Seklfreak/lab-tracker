@@ -57,7 +57,7 @@ func Generate(ctx context.Context, q sqlc.Querier, ex *llm.Extractor, profileID,
 		ProfileID:   profileID,
 		AnalyteID:   analyteID,
 		Content:     content,
-		ResultCount: int32(len(series)),
+		ResultCount: int32(len(series)), //nolint:gosec // result count is small, never overflows int32
 	}); err != nil {
 		return "", 0, err
 	}
