@@ -27,7 +27,21 @@ import {
 } from "@/lib/format";
 import { useThemeColors } from "@/lib/theme";
 import { downloadCsv } from "@/lib/csv";
+import { unitFactor } from "@/lib/units";
 import { ArrowLeft, Download, Pencil, Printer, RotateCw, Sparkles, Star, Trash2 } from "lucide-react";
+
+function mostCommonUnit(rows: { unit: string | null }[]): string | undefined {
+  const counts = new Map<string, number>();
+  for (const r of rows) if (r.unit) counts.set(r.unit, (counts.get(r.unit) ?? 0) + 1);
+  let best: string | undefined;
+  let max = 0;
+  for (const [u, c] of counts)
+    if (c > max) {
+      best = u;
+      max = c;
+    }
+  return best;
+}
 
 function parseNum(s: string): number | null {
   const t = s.trim();
@@ -168,8 +182,34 @@ export function AnalyteDetail() {
   const name = data[0].analyteName;
   const isFav = !!data[0].isFavorite;
   const unit = data.find((r) => r.unit)?.unit ?? "";
-  const refLow = data.find((r) => r.referenceLow !== null)?.referenceLow ?? null;
-  const refHigh = data.find((r) => r.referenceHigh !== null)?.referenceHigh ?? null;
+  // Unit normalization (chart only): when the series mixes units, convert the
+  // numeric points + reference bounds to one target unit so the trend is
+  // comparable. The history table below keeps each reading's original value/unit.
+  const seriesUnits = [...new Set(data.map((r) => r.unit).filter((u): u is string => !!u))];
+  const targetUnit = mostCommonUnit(data) ?? unit;
+  const factorFor = (u: string | null) => (!u || u === targetUnit ? 1 : unitFactor(u, targetUnit, name));
+  const normalizing =
+    seriesUnits.length > 1 &&
+    data.every(
+      (r) => !r.unit || r.unit === targetUnit || (r.valueNumeric !== null && factorFor(r.unit) !== null),
+    );
+  const mixedUnconvertible = seriesUnits.length > 1 && !normalizing;
+  const chartRows = normalizing
+    ? data.map((r) => {
+        const f = factorFor(r.unit) ?? 1;
+        if (f === 1) return r;
+        return {
+          ...r,
+          unit: targetUnit,
+          valueNumeric: r.valueNumeric === null ? null : r.valueNumeric * f,
+          referenceLow: r.referenceLow === null ? null : r.referenceLow * f,
+          referenceHigh: r.referenceHigh === null ? null : r.referenceHigh * f,
+        };
+      })
+    : data;
+  const chartUnit = normalizing ? targetUnit : unit;
+  const refLow = chartRows.find((r) => r.referenceLow !== null)?.referenceLow ?? null;
+  const refHigh = chartRows.find((r) => r.referenceHigh !== null)?.referenceHigh ?? null;
 
   const exportCsv = () =>
     downloadCsv(
@@ -188,7 +228,7 @@ export function AnalyteDetail() {
 
   // Plain numbers plot as a dot; bounded values ("<0.05") plot as a vertical
   // range line (via ErrorBar) covering where the true value could be.
-  const chartData = data
+  const chartData = chartRows
     .map((r) => {
       const p = plotPoint(r);
       if (!p) return null;
@@ -249,6 +289,15 @@ export function AnalyteDetail() {
 
       {chartData.length > 0 && (
         <Card>
+          {normalizing && (
+            <p className="mb-2 text-xs text-muted">Chart normalized to {chartUnit}.</p>
+          )}
+          {mixedUnconvertible && (
+            <p className="mb-2 text-xs text-warn">
+              This trend mixes units ({seriesUnits.join(", ")}); values may not be directly
+              comparable.
+            </p>
+          )}
           <div className="h-72 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData} margin={{ top: 8, right: 16, bottom: 0, left: -8 }}>
