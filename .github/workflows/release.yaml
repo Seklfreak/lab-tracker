@@ -50,6 +50,10 @@ jobs:
           BUMP: ${{ steps.ai.outputs.bump }}
           LAST: ${{ steps.ai.outputs.last }}
         run: |
+          if [ "$BUMP" = "none" ]; then
+            echo "AI decided these changes don't warrant a release; skipping."
+            exit 0
+          fi
           ver=${LAST#v}; IFS=. read -r ma mi pa <<< "$ver"
           case "$BUMP" in
             major) new="v$((ma + 1)).0.0" ;;

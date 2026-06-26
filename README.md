@@ -115,9 +115,10 @@ commit on `main` that passes the Test workflow is released — `release.yaml` as
 (Haiku) to pick the bump (major/minor/patch) and write release notes from the commits
 since the last tag, then tags the new version, publishes a GitHub Release with those
 notes, and builds `backend`/`frontend`/`mcp` images tagged `X.Y.Z` + `X.Y` + `latest`
-for that exact commit. (No API key → it falls back to a patch bump + commit list.) The
-homelab deploys pin an explicit version (not `latest`), so what's running is always
-reproducible.
+for that exact commit. Claude may also decide a commit needs **no release** (docs/markdown
+or CI-only changes), in which case nothing is tagged. (No API key → it falls back to a
+patch bump, or skips when only non-shipping paths changed.) The homelab deploys pin an
+explicit version (not `latest`), so what's running is always reproducible.
 
 - **Minor / major release:** tag it yourself — `git tag v0.2.0 && git push origin v0.2.0`.
   The auto-bumper continues from the highest tag (next auto release would be `v0.2.1`).

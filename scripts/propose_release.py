@@ -9,6 +9,7 @@ Usage: propose_release.py <previous-tag>   (env: ANTHROPIC_API_KEY, HEAD_SHA)
 """
 import json
 import os
+import re
 import subprocess
 import sys
 
@@ -23,6 +24,11 @@ def git(*args: str) -> str:
 
 commits = git("log", RANGE, "--no-merges", "--pretty=format:- %s")
 stat = git("diff", "--stat", f"{PREV}..{HEAD}") if PREV else git("show", "--stat", "--oneline", HEAD)
+files = [f for f in (git("diff", "--name-only", f"{PREV}..{HEAD}") if PREV else
+                     git("show", "--name-only", "--pretty=format:", HEAD)).splitlines() if f]
+
+# Non-shipping paths: changes touching only these don't warrant a release.
+NON_SHIPPING = re.compile(r"(\.md$)|(^\.github/)|(^docs/)|(^scripts/)|(^LICENSE)|(^\.gitignore$)")
 
 
 def write(bump: str, notes: str) -> None:
@@ -31,6 +37,12 @@ def write(bump: str, notes: str) -> None:
 
 
 def fallback(reason: str) -> None:
+    # Without the AI, skip releases for changes that touch only non-shipping paths
+    # (docs/markdown, CI workflows); otherwise default to a patch release.
+    if files and all(NON_SHIPPING.search(f) for f in files):
+        sys.stderr.write(f"AI step skipped ({reason}); non-shipping changes -> no release.\n")
+        write("none", "")
+        return
     sys.stderr.write(f"AI step skipped ({reason}); defaulting to patch bump.\n")
     body = commits or "Maintenance release."
     write("patch", f"## Changes\n\n{body}\n")
@@ -49,11 +61,12 @@ try:
         "input_schema": {
             "type": "object",
             "properties": {
-                "bump": {"type": "string", "enum": ["major", "minor", "patch"]},
+                "bump": {"type": "string", "enum": ["major", "minor", "patch", "none"]},
                 "notes": {
                     "type": "string",
-                    "description": "User-facing markdown release notes. Group into sections "
-                    "(e.g. Features / Fixes / Maintenance) as relevant; omit empty sections; be concise.",
+                    "description": "User-facing markdown release notes (empty when bump is none). "
+                    "Group into sections (e.g. Features / Fixes / Maintenance) as relevant; "
+                    "omit empty sections; be concise.",
                 },
             },
             "required": ["bump", "notes"],
@@ -63,7 +76,10 @@ try:
 a self-hosted lab-results tracker (Go API + React frontend + MCP server). It is pre-1.0 (0.x).
 
 Choose the bump:
-- patch: bug fixes, refactors, chores, docs, CI, dependency bumps.
+- none: SKIP the release entirely when the changes don't affect the shipped app —
+  e.g. documentation/markdown only, GitHub Actions/CI workflow changes only, comments,
+  or formatting. When genuinely in doubt, prefer patch over none.
+- patch: bug fixes, refactors, chores, dependency bumps that affect the app.
 - minor: new user-facing features or notable backwards-compatible enhancements.
 - major: only genuinely breaking changes to the API, data model, or deploy contract.
   Pre-1.0, strongly prefer minor over major unless clearly breaking.
@@ -88,7 +104,7 @@ Call propose_release with the bump and concise, user-facing markdown notes."""
         messages=[{"role": "user", "content": prompt}],
     )
     result = next(b.input for b in msg.content if b.type == "tool_use")
-    bump = result["bump"] if result.get("bump") in ("major", "minor", "patch") else "patch"
-    write(bump, result.get("notes") or (commits or "Maintenance release."))
+    bump = result["bump"] if result.get("bump") in ("major", "minor", "patch", "none") else "patch"
+    write(bump, "" if bump == "none" else (result.get("notes") or commits or "Maintenance release."))
 except Exception as e:  # noqa: BLE001 — never block a release on the AI step
     fallback(f"API error: {e}")
