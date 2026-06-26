@@ -14,6 +14,12 @@ export interface Analysis {
   stale: boolean;
 }
 
+export interface PanelSummary {
+  content: string;
+  generatedAt: string;
+  basedOnCount: number;
+}
+
 export interface Analyte {
   id: string;
   name: string;
@@ -189,6 +195,9 @@ export const api = {
     req<{ analysis: Analysis }>(`/api/profiles/${profileId}/analytes/${analyteId}/analysis`, {
       method: "POST",
     }),
+
+  generatePanelSummary: (profileId: string) =>
+    req<PanelSummary>(`/api/profiles/${profileId}/summary`, { method: "POST" }),
 
   addFavorite: (profileId: string, analyteId: string) =>
     req<void>(`/api/profiles/${profileId}/favorites`, json({ analyteId })),

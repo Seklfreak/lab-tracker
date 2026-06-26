@@ -2,10 +2,11 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 import { clsx } from "clsx";
-import { Star } from "lucide-react";
+import { AlertTriangle, RotateCw, Sparkles, Star } from "lucide-react";
 import { api, type Result } from "@/lib/api";
 import { useProfile } from "@/lib/profile";
-import { Badge, Card, Input, Select, Spinner } from "@/components/ui";
+import { Badge, Button, Card, Input, Select, Spinner } from "@/components/ui";
+import { Markdown } from "@/components/Markdown";
 import { derivedFlag, displayValue, referenceLabel, statusTone } from "@/lib/format";
 
 const SORT_KEYS = ["category", "count", "name", "recent"] as const;
@@ -27,6 +28,7 @@ export function Dashboard() {
   const { profileId } = useProfile();
   const qc = useQueryClient();
   const [query, setQuery] = useState("");
+  const [onlyAbnormal, setOnlyAbnormal] = useState(false);
 
   // Persist the sort in the URL (?sort=) so it survives navigation / browser back.
   const [searchParams, setSearchParams] = useSearchParams();
@@ -90,7 +92,9 @@ export function Dashboard() {
   );
 
   const q = query.trim().toLowerCase();
-  const filtered = q ? data.filter((r) => r.analyteName.toLowerCase().includes(q)) : data;
+  const abnormalCount = data.filter((r) => derivedFlag(r)).length;
+  let filtered = q ? data.filter((r) => r.analyteName.toLowerCase().includes(q)) : data;
+  if (onlyAbnormal) filtered = filtered.filter((r) => derivedFlag(r));
 
   const cmp = comparator(sort);
   const favorites = [...filtered.filter((r) => r.isFavorite)].sort(cmp);
@@ -105,6 +109,23 @@ export function Dashboard() {
         onChange={(e) => setQuery(e.target.value)}
         className="w-full sm:max-w-xs"
       />
+      {abnormalCount > 0 && (
+        <button
+          onClick={() => setOnlyAbnormal((v) => !v)}
+          aria-pressed={onlyAbnormal}
+          className={clsx(
+            "flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-sm transition",
+            onlyAbnormal
+              ? "border-bad/50 bg-bad/15 text-bad"
+              : "border-border bg-panel2 text-muted hover:text-text",
+          )}
+        >
+          <AlertTriangle size={14} /> Needs attention
+          <span className="rounded-full bg-bad/20 px-1.5 text-xs font-semibold text-bad">
+            {abnormalCount}
+          </span>
+        </button>
+      )}
       <div className="flex items-center gap-2 text-sm sm:ml-auto">
         <span className="shrink-0 text-muted">Sort by</span>
         {/* Select forces w-full; constrain it via a fixed-width wrapper. */}
@@ -160,9 +181,12 @@ export function Dashboard() {
 
   return (
     <div className="space-y-6">
+      <PanelSummaryCard key={profileId} profileId={profileId} currentCount={data.length} />
       {controls}
-      {q && filtered.length === 0 ? (
-        <p className="text-sm text-muted">No analytes match “{query}”.</p>
+      {filtered.length === 0 ? (
+        <p className="text-sm text-muted">
+          {onlyAbnormal ? "Nothing is out of range. 🎉" : `No analytes match “${query}”.`}
+        </p>
       ) : (
         <>
           {favSection}
@@ -170,6 +194,82 @@ export function Dashboard() {
         </>
       )}
     </div>
+  );
+}
+
+type CachedSummary = { content: string; generatedAt: string; basedOnCount: number };
+
+// PanelSummaryCard shows an on-demand whole-panel AI summary. The result is cached
+// in localStorage per profile (the backend doesn't store it), with a staleness hint
+// when the number of latest results has changed since it was generated.
+function PanelSummaryCard({ profileId, currentCount }: { profileId: string; currentCount: number }) {
+  const storageKey = `panel-summary:${profileId}`;
+  const [summary, setSummary] = useState<CachedSummary | null>(() => {
+    try {
+      const s = localStorage.getItem(storageKey);
+      return s ? (JSON.parse(s) as CachedSummary) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const gen = useMutation({
+    mutationFn: () => api.generatePanelSummary(profileId),
+    onSuccess: (s) => {
+      const cached = { content: s.content, generatedAt: s.generatedAt, basedOnCount: s.basedOnCount };
+      setSummary(cached);
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(cached));
+      } catch {
+        /* ignore quota / private-mode errors */
+      }
+    },
+  });
+
+  const stale = summary != null && summary.basedOnCount !== currentCount;
+
+  return (
+    <Card>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wide text-muted">
+          <Sparkles size={14} className="text-accent" /> Health snapshot
+        </h2>
+        {summary && !gen.isPending && (
+          <Button variant="ghost" className="px-2 py-1" onClick={() => gen.mutate()}>
+            <RotateCw size={14} /> Regenerate
+          </Button>
+        )}
+      </div>
+
+      {gen.isPending ? (
+        <div className="py-4">
+          <Spinner label="Summarizing your latest panel…" />
+        </div>
+      ) : summary ? (
+        <div className="mt-2">
+          {stale && (
+            <div className="mb-3 rounded-md border border-warn/40 bg-warn/10 px-3 py-2 text-xs text-warn">
+              Your results have changed since this snapshot. Regenerate to refresh.
+            </div>
+          )}
+          <Markdown>{summary.content}</Markdown>
+          <p className="mt-2 text-xs text-muted">
+            Generated {new Date(summary.generatedAt).toLocaleString()}
+          </p>
+        </div>
+      ) : (
+        <div className="py-2">
+          <p className="mb-3 text-sm text-muted">
+            An AI overview of your latest panel — what’s out of range, what looks good, and what to
+            keep an eye on.
+          </p>
+          <Button onClick={() => gen.mutate()}>
+            <Sparkles size={16} /> Generate health snapshot
+          </Button>
+        </div>
+      )}
+      {gen.error && <p className="mt-2 text-sm text-bad">{String(gen.error)}</p>}
+    </Card>
   );
 }
 

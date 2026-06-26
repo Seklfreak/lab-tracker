@@ -64,6 +64,28 @@ func Generate(ctx context.Context, q sqlc.Querier, ex *llm.Extractor, profileID,
 	return content, len(series), nil
 }
 
+// GeneratePanel produces a one-shot, whole-panel summary across a profile's latest
+// results (all analytes). Generated on demand; not stored server-side. Returns the
+// markdown content and the number of analytes summarized.
+func GeneratePanel(ctx context.Context, q sqlc.Querier, ex *llm.Extractor, profileID uuid.UUID) (string, int, error) {
+	profile, err := q.GetProfile(ctx, profileID)
+	if err != nil {
+		return "", 0, err
+	}
+	latest, err := q.ListLatestResultsForProfile(ctx, profileID)
+	if err != nil {
+		return "", 0, err
+	}
+	if len(latest) == 0 {
+		return "", 0, ErrNoResults
+	}
+	content, err := ex.Complete(ctx, buildPanelPrompt(profile, latest), 2000)
+	if err != nil {
+		return "", 0, err
+	}
+	return strings.TrimSpace(content), len(latest), nil
+}
+
 // IsStale reports whether a stored analysis is out of date: either the result
 // count changed (add/delete) or a result was edited after it was generated.
 func IsStale(stored sqlc.AnalyteAnalysis, stats sqlc.ResultStatsForProfileAnalyteRow) bool {
@@ -134,6 +156,39 @@ func buildAnalysisPrompt(p sqlc.Profile, a sqlc.Analyte, series []sqlc.ListResul
 	}
 
 	return fmt.Sprintf(analysisInstructions, b.String(), a.Name)
+}
+
+const panelInstructions = `You are a knowledgeable lab assistant helping a layperson understand THEIR OWN latest lab panel. This is educational, not medical advice or diagnosis.
+
+%s
+
+Write a concise markdown summary with these sections (use ## headings):
+## Overview
+One or two sentences on the overall picture.
+## Needs attention
+Bullet the values outside their reference range (or otherwise notable), each with the value, its reference, and a brief plain-language note on what it may indicate. Omit this section entirely if everything is within range.
+## Looking good
+Briefly summarize the in-range / reassuring results (group them; don't list every single one).
+## Suggested follow-ups
+Optional and non-alarmist: what to keep an eye on or raise with a provider. Omit if nothing stands out.
+
+Keep it concise (~200-350 words), specific to the values above, and free of hedging filler. Do not diagnose or prescribe. End with one italic line reminding the reader to discuss results with their healthcare provider.`
+
+func buildPanelPrompt(p sqlc.Profile, latest []sqlc.ListLatestResultsForProfileRow) string {
+	var b strings.Builder
+	if age := ageYears(p.DateOfBirth); age > 0 {
+		fmt.Fprintf(&b, "Patient age: %d years.\n", age)
+	}
+	b.WriteString("\nLatest result per analyte (value, reference range, date):\n")
+	for _, r := range latest {
+		fmt.Fprintf(&b, "- %s: %s%s (reference %s, %s)\n",
+			r.AnalyteName,
+			resultValue(r.ValueText, r.ValueNumeric),
+			unitSuffix(r.Unit),
+			refRange(r.ReferenceLow, r.ReferenceHigh, r.ReferenceText),
+			dateStr(r.ObservedDate))
+	}
+	return fmt.Sprintf(panelInstructions, b.String())
 }
 
 func resultValue(vt pgtype.Text, vn pgtype.Float8) string {

@@ -87,6 +87,30 @@ func (s *Server) analyzeAnalyte(w http.ResponseWriter, r *http.Request) {
 	}})
 }
 
+// generatePanelSummary produces an on-demand, whole-panel AI summary of the
+// profile's latest results (not stored; the client caches it).
+func (s *Server) generatePanelSummary(w http.ResponseWriter, r *http.Request) {
+	p, ok := s.requireProfile(w, r)
+	if !ok {
+		return
+	}
+	content, count, err := analysis.GeneratePanel(r.Context(), s.q, s.extractor, p.ID)
+	switch {
+	case errors.Is(err, analysis.ErrNoResults):
+		writeError(w, http.StatusBadRequest, "no results to summarize")
+		return
+	case err != nil:
+		s.log.Error("panel summary", "err", err)
+		writeError(w, http.StatusBadGateway, "summary failed")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"content":      content,
+		"generatedAt":  time.Now().UTC().Format(time.RFC3339),
+		"basedOnCount": count,
+	})
+}
+
 func toAnalysisDTO(a sqlc.AnalyteAnalysis, current int, stale bool) AnalysisDTO {
 	gen := ""
 	if a.GeneratedAt.Valid {
