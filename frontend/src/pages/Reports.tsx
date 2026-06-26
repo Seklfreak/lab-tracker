@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { api, type Report, type ReportStatus } from "@/lib/api";
 import { useProfile } from "@/lib/profile";
 import { Badge, Button, Card, Spinner } from "@/components/ui";
+import { ReportDiff } from "@/components/ReportDiff";
 
 const statusTone: Record<ReportStatus, "good" | "warn" | "bad" | "muted"> = {
   parsing: "warn",
@@ -15,6 +17,7 @@ export function Reports() {
   const { profileId } = useProfile();
   const qc = useQueryClient();
   const navigate = useNavigate();
+  const [openDiff, setOpenDiff] = useState<string | null>(null);
 
   const reports = useQuery({
     queryKey: ["reports", profileId],
@@ -79,6 +82,15 @@ export function Reports() {
                 >
                   PDF
                 </button>
+                {r.status === "saved" && (
+                  <Button
+                    variant="ghost"
+                    className="px-2 py-1"
+                    onClick={() => setOpenDiff(openDiff === r.id ? null : r.id)}
+                  >
+                    What changed
+                  </Button>
+                )}
                 {hasDraft && (
                   <Button
                     variant="ghost"
@@ -109,6 +121,11 @@ export function Reports() {
                 </Button>
               </div>
             </div>
+            {openDiff === r.id && (
+              <div className="mt-3 border-t border-border pt-3">
+                <ReportDiff reportId={r.id} profileId={profileId} />
+              </div>
+            )}
           </Card>
         );
       })}

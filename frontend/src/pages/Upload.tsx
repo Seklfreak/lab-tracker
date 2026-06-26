@@ -1,12 +1,12 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { api, type Draft, type Report, type Result } from "@/lib/api";
+import { api, type Draft, type Report } from "@/lib/api";
 import { useProfile } from "@/lib/profile";
 import { Badge, Button, Card, Input, Spinner } from "@/components/ui";
 import { Combobox, type ComboOption } from "@/components/Combobox";
-import { derivedFlag, displayValue, referenceLabel, statusTone } from "@/lib/format";
-import { UploadCloud, Trash2, ArrowUp, ArrowDown } from "lucide-react";
+import { ReportDiff } from "@/components/ReportDiff";
+import { UploadCloud, Trash2 } from "lucide-react";
 
 function parseNum(s: string): number | null {
   const t = s.trim();
@@ -28,20 +28,6 @@ function dupKey(analyteId: string, date: string, vKey: string): string | null {
   return `${analyteId}|${date}|${vKey}`;
 }
 
-function labelFor(analyteId: string, options: ComboOption[], fallback: string): string {
-  return options.find((o) => o.value === analyteId)?.label ?? fallback;
-}
-
-interface SavedRow {
-  analyteId: string; // uuid or "new"
-  name: string;
-  value: string;
-  valueNumeric: number | null;
-  unit: string;
-  refLow: number | null;
-  refHigh: number | null;
-  refText: string;
-}
 
 export function Upload() {
   const { profileId } = useProfile();
@@ -239,20 +225,7 @@ function ReviewForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [existing.data]);
 
-  const [saved, setSaved] = useState<SavedRow[] | null>(null);
-  const buildSnapshot = (): SavedRow[] =>
-    rows
-      .filter((r) => r.include)
-      .map((r) => ({
-        analyteId: r.analyteId,
-        name: r.analyteId === "new" ? r.newName || r.rawTestName : labelFor(r.analyteId, baseOptions, r.rawTestName),
-        value: r.value,
-        valueNumeric: parseNum(r.value),
-        unit: r.unit,
-        refLow: parseNum(r.refLow),
-        refHigh: parseNum(r.refHigh),
-        refText: r.refText,
-      }));
+  const [saved, setSaved] = useState(false);
 
   const confirm = useMutation({
     mutationFn: () =>
@@ -279,21 +252,27 @@ function ReviewForm({
           })),
       }),
     onSuccess: () => {
-      setSaved(buildSnapshot());
       qc.invalidateQueries({ queryKey: ["latest"] });
+      qc.invalidateQueries({ queryKey: ["all-results", report.profileId] });
       qc.invalidateQueries({ queryKey: ["report", report.id] });
+      setSaved(true);
     },
   });
 
   if (saved) {
     return (
-      <SaveSummary
-        rows={saved}
-        prior={existing.data ?? []}
-        reportId={report.id}
-        collectedDate={collectedDate}
-        onDone={() => navigate("/")}
-      />
+      <div className="space-y-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-xl font-semibold">Saved</h1>
+            <p className="text-sm text-muted">Here’s what changed.</p>
+          </div>
+          <Button onClick={() => navigate("/")}>Go to dashboard</Button>
+        </div>
+        <Card>
+          <ReportDiff reportId={report.id} profileId={report.profileId} />
+        </Card>
+      </div>
     );
   }
 
@@ -497,136 +476,6 @@ function ReviewForm({
         </div>
       </div>
       {confirm.error && <p className="text-sm text-bad">{String(confirm.error)}</p>}
-    </div>
-  );
-}
-
-function toResult(row: SavedRow): Result {
-  return {
-    valueText: row.value || null,
-    valueNumeric: row.valueNumeric,
-    unit: row.unit || null,
-    referenceLow: row.refLow,
-    referenceHigh: row.refHigh,
-    referenceText: row.refText || null,
-  } as Result;
-}
-
-const fmtNum = (n: number) => String(Math.round(n * 1000) / 1000);
-
-// SaveSummary shows "what changed" right after a report is saved: out-of-range
-// results, changes vs the previous reading per analyte, and first-time readings.
-function SaveSummary({
-  rows,
-  prior,
-  reportId,
-  collectedDate,
-  onDone,
-}: {
-  rows: SavedRow[];
-  prior: Result[];
-  reportId: string;
-  collectedDate: string;
-  onDone: () => void;
-}) {
-  // Most recent earlier reading per analyte (excluding this report).
-  const priorByAnalyte = new Map<string, Result>();
-  for (const r of prior) {
-    if (r.reportId === reportId) continue;
-    if ((r.observedDate ?? "") >= collectedDate) continue;
-    const cur = priorByAnalyte.get(r.analyteId);
-    if (!cur || (r.observedDate ?? "") > (cur.observedDate ?? "")) priorByAnalyte.set(r.analyteId, r);
-  }
-
-  const enriched = rows.map((row) => {
-    const cur = toResult(row);
-    const prev = row.analyteId !== "new" ? priorByAnalyte.get(row.analyteId) : undefined;
-    const numericDelta =
-      prev && row.valueNumeric !== null && prev.valueNumeric !== null
-        ? row.valueNumeric - prev.valueNumeric
-        : null;
-    return { row, cur, flag: derivedFlag(cur), prev, numericDelta };
-  });
-
-  const outOfRange = enriched.filter((e) => e.flag);
-  const changed = enriched.filter((e) => e.numericDelta !== null && e.numericDelta !== 0);
-  const firstReadings = enriched.filter((e) => !e.prev && e.row.analyteId !== "new");
-  const nothing = outOfRange.length === 0 && changed.length === 0;
-
-  return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold">Saved {rows.length} result{rows.length === 1 ? "" : "s"}</h1>
-          <p className="text-sm text-muted">Here’s what changed.</p>
-        </div>
-        <Button onClick={onDone}>Go to dashboard</Button>
-      </div>
-
-      {nothing && (
-        <Card>
-          <p className="text-sm text-muted">
-            Everything is within range and unchanged from your previous readings. 🎉
-          </p>
-        </Card>
-      )}
-
-      {outOfRange.length > 0 && (
-        <Card>
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-bad">
-            Out of range ({outOfRange.length})
-          </h2>
-          <ul className="space-y-1.5 text-sm">
-            {outOfRange.map((e, i) => (
-              <li key={i} className="flex flex-wrap items-center justify-between gap-2">
-                <span className="font-medium">{e.row.name}</span>
-                <span className="flex items-center gap-2 text-muted">
-                  {displayValue(e.cur)} {e.row.unit}
-                  <span className="text-xs">({referenceLabel(e.cur) ?? "no ref"})</span>
-                  <Badge tone={statusTone(e.cur)}>{e.flag}</Badge>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </Card>
-      )}
-
-      {changed.length > 0 && (
-        <Card>
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
-            Changed since last reading ({changed.length})
-          </h2>
-          <ul className="space-y-1.5 text-sm">
-            {changed.map((e, i) => {
-              const up = (e.numericDelta ?? 0) > 0;
-              return (
-                <li key={i} className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="font-medium">{e.row.name}</span>
-                  <span className="flex items-center gap-1.5 text-muted">
-                    <span>{e.prev ? displayValue(e.prev) : "—"}</span>
-                    <span>→</span>
-                    <span className="text-text">{displayValue(e.cur)}</span>
-                    <span className="text-xs">{e.row.unit}</span>
-                    <span className={up ? "flex items-center text-warn" : "flex items-center text-good"}>
-                      {up ? <ArrowUp size={13} /> : <ArrowDown size={13} />}
-                      {fmtNum(Math.abs(e.numericDelta ?? 0))}
-                    </span>
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        </Card>
-      )}
-
-      {firstReadings.length > 0 && (
-        <Card>
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">
-            First-time readings ({firstReadings.length})
-          </h2>
-          <p className="text-sm text-muted">{firstReadings.map((e) => e.row.name).join(", ")}</p>
-        </Card>
-      )}
     </div>
   );
 }
