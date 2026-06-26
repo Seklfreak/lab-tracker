@@ -21,11 +21,10 @@ type deps struct {
 	q         sqlc.Querier
 	extractor *llm.Extractor
 	log       *slog.Logger
-	userID    *uuid.UUID // when set, all access is scoped to this user
 }
 
-func newMCPServer(q sqlc.Querier, extractor *llm.Extractor, log *slog.Logger, userID *uuid.UUID) *mcp.Server {
-	d := &deps{q: q, extractor: extractor, log: log, userID: userID}
+func newMCPServer(q sqlc.Querier, extractor *llm.Extractor, log *slog.Logger) *mcp.Server {
+	d := &deps{q: q, extractor: extractor, log: log}
 	s := mcp.NewServer(&mcp.Implementation{Name: "lab-tracker", Version: "0.1.0"}, nil)
 
 	mcp.AddTool(s, &mcp.Tool{
@@ -131,13 +130,15 @@ type analysisOut struct {
 
 // ---- handlers ----
 
-// requireProfileAccess enforces the connector's user scope: when scoped, the
-// profile must be owned by or shared with that user. A no-op when unscoped.
+// requireProfileAccess enforces the caller's user scope: when a user identity is
+// present on the request (Cloudflare Access), the profile must be owned by or
+// shared with that user. A no-op when unscoped (dev / no identity).
 func (d *deps) requireProfileAccess(ctx context.Context, pid uuid.UUID) error {
-	if d.userID == nil {
+	uid := userIDFromContext(ctx)
+	if uid == nil {
 		return nil
 	}
-	if _, err := d.q.GetProfileForUser(ctx, sqlc.GetProfileForUserParams{ID: pid, UserID: d.userID}); err != nil {
+	if _, err := d.q.GetProfileForUser(ctx, sqlc.GetProfileForUserParams{ID: pid, UserID: uid}); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fmt.Errorf("profile not found")
 		}
@@ -149,8 +150,8 @@ func (d *deps) requireProfileAccess(ctx context.Context, pid uuid.UUID) error {
 func (d *deps) listProfiles(ctx context.Context, _ *mcp.CallToolRequest, _ emptyIn) (*mcp.CallToolResult, listProfilesOut, error) {
 	var rows []sqlc.Profile
 	var err error
-	if d.userID != nil {
-		rows, err = d.q.ListProfilesForUser(ctx, d.userID)
+	if uid := userIDFromContext(ctx); uid != nil {
+		rows, err = d.q.ListProfilesForUser(ctx, uid)
 	} else {
 		rows, err = d.q.ListProfiles(ctx)
 	}

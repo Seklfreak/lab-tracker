@@ -15,7 +15,7 @@ import (
 // so nil queries/extractor are fine — this checks the wiring + schemas).
 func TestServerListsTools(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	srv := newMCPServer(nil, nil, logger, nil)
+	srv := newMCPServer(nil, nil, logger)
 
 	ct, st := mcp.NewInMemoryTransports()
 	ctx := context.Background()

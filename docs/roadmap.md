@@ -69,9 +69,12 @@ and rough notes so they aren't lost.
   - **Sharing:** owner-only `GET/POST/DELETE /api/profiles/{id}/members`; share
     by email (target must have logged in once). Frontend Share dialog +
     owned/shared badge.
-  - **MCP identity:** scoped to one configured user via `MCP_USER_SUB`
-    (resolves the `sub` to a user; tools see only that user's profiles). Unset =
-    unscoped, logged loudly.
+  - **MCP identity:** per-request, derived from the Cloudflare Access identity
+    JWT (`Cf-Access-Jwt-Assertion`) that Access injects after the connector
+    OAuth login. The MCP server validates it against the team certs, maps the
+    email to a user, and scopes every tool to that user. Set
+    `CF_ACCESS_TEAM_DOMAIN` (+ `CF_ACCESS_AUD` to pin the app audience); unset =
+    unscoped (local dev).
 
 ## Bigger direction: a general health record (not just labs)
 

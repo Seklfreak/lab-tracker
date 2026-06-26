@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/Seklfreak/lab-tracker/backend/internal/db"
 	"github.com/Seklfreak/lab-tracker/backend/internal/db/sqlc"
@@ -44,33 +43,29 @@ func main() {
 
 	q := sqlc.New(pool)
 
-	// Scope the connector to a single user (MCP is DB-direct behind Cloudflare
-	// Access, so it carries no per-request identity). When MCP_USER_SUB is set,
-	// all tools see only that user's owned/shared profiles; unset means
-	// unscoped (every profile), logged loudly.
-	var userID *uuid.UUID
-	if sub := strings.TrimSpace(os.Getenv("MCP_USER_SUB")); sub != "" {
-		u, err := q.GetUserBySub(ctx, sub)
-		if err != nil {
-			log.Error("resolve MCP_USER_SUB (user must have logged into the web app at least once)", "sub", sub, "err", err)
-			os.Exit(1)
-		}
-		userID = &u.ID
-		log.Info("mcp scoped to user", "sub", sub, "userId", u.ID)
-	} else {
-		log.Warn("MCP_USER_SUB not set — connector exposes ALL profiles")
-	}
-
-	srv := newMCPServer(q, extractor, log, userID)
+	srv := newMCPServer(q, extractor, log)
 
 	// claude.ai's broker holds session IDs; stateless avoids "session expired".
-	handler := mcp.NewStreamableHTTPHandler(
+	var mcpHandler http.Handler = mcp.NewStreamableHTTPHandler(
 		func(*http.Request) *mcp.Server { return srv },
 		&mcp.StreamableHTTPOptions{Stateless: true},
 	)
 
+	// Per-request identity from Cloudflare Access. Access is the OAuth server at
+	// the edge (claude.ai logs the user in via Authentik) and injects a signed
+	// Cf-Access-Jwt-Assertion; we validate it and scope every tool to the
+	// resolved user. Unset team domain = unscoped (local dev), logged loudly.
+	if team := strings.TrimSpace(os.Getenv("CF_ACCESS_TEAM_DOMAIN")); team != "" {
+		aud := strings.TrimSpace(os.Getenv("CF_ACCESS_AUD"))
+		verifier := newCFAccessVerifier(ctx, team, aud)
+		mcpHandler = cfAccessIdentity(verifier, q, log)(mcpHandler)
+		log.Info("cloudflare access identity enabled", "team", team, "audPinned", aud != "")
+	} else {
+		log.Warn("CF_ACCESS_TEAM_DOMAIN not set — connector exposes ALL profiles (unscoped)")
+	}
+
 	mux := http.NewServeMux()
-	mux.Handle("/mcp", handler)
+	mux.Handle("/mcp", mcpHandler)
 	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"status":"ok"}`))
