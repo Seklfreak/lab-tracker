@@ -53,16 +53,19 @@ and rough notes so they aren't lost.
 ## Near-term
 
 - [~] **iOS app** — native SwiftUI client in [`ios/`](../ios/README.md).
-  - **MVP shipped (2026-06-26):** configurable server URL → profiles → dashboard
-    (latest value per analyte, grouped, color-coded) → analyte detail (Swift
-    Charts trend + readings + the stored AI analysis, markdown-rendered).
-    Verified in the simulator against the live API. xcodegen project, no
-    hand-edited `.xcodeproj`.
+  - **MVP shipped (2026-06-26):** you configure only the server URL → profiles →
+    dashboard (latest value per analyte, grouped, color-coded) → analyte detail
+    (Swift Charts trend + readings + the stored AI analysis, markdown-rendered).
+    Runs on device. xcodegen project, no hand-edited `.xcodeproj`; nothing about
+    a specific server is hardcoded.
   - [x] **OIDC sign-in (2026-06-26)** — Authorization Code + PKCE via
-    `ASWebAuthenticationSession` against Authentik, redirect
-    `dev.winkler.labtracker://auth/callback` (registered on the `lab-tracker`
-    client). Tokens in the Keychain, auto-refresh + retry-on-401. A pasted Bearer
-    token still works as an alternative.
+    `ASWebAuthenticationSession`. The app reads the provider (issuer + client id)
+    from the server's own `{serverURL}/config.js`, so only the server URL is
+    entered. Redirect `dev.winkler.labtracker://auth/callback`. Tokens in the
+    Keychain, auto-refresh + retry-on-401. **Verified end-to-end on a physical
+    device.**
+  - [ ] **Smooth out the sign-in / auth flow** — works, but the transition into
+    and out of the web-auth sheet is a bit janky; polish later.
   - [ ] **PDF upload** from the phone (share sheet / camera scan).
   - [ ] **App Store approval (self-hosted, no shared backend):** because the app
     points at the user's own server, plan around Apple's review guidelines so a
