@@ -1,0 +1,39 @@
+name: iOS
+
+# Compile-check the SwiftUI app. Path-gated so it only spends the (pricier)
+# macOS runner minutes when the iOS app actually changes. Separate from the
+# Test workflow on purpose: a broken iOS build shouldn't block backend/frontend
+# releases (the iOS app isn't part of the published images).
+on:
+  push:
+    branches: [main]
+    paths:
+      - "ios/**"
+      - ".github/workflows/ios.yaml"
+  pull_request:
+    paths:
+      - "ios/**"
+      - ".github/workflows/ios.yaml"
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Tooling
+        run: |
+          brew install xcodegen
+          xcodebuild -version
+
+      - name: Generate project
+        working-directory: ios
+        run: xcodegen generate
+
+      - name: Build (iOS Simulator, unsigned)
+        working-directory: ios
+        run: |
+          xcodebuild \
+            -project LabTracker.xcodeproj -target LabTracker \
+            -sdk iphonesimulator -configuration Debug -arch arm64 \
+            CODE_SIGNING_ALLOWED=NO build
