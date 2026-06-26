@@ -9,9 +9,10 @@ import (
 )
 
 // BootstrapOwner ensures a user with the given OIDC sub exists and assigns it as
-// the owner of any profiles that don't yet have one. This migrates pre-existing
-// (owner-less) profiles to the admin/dev user when multi-user is first rolled
-// out, and is a safe no-op once every profile has an owner. Idempotent.
+// the owner of any profiles that don't yet have one. Used by the AUTH_DISABLED
+// dev path to seed the fixed local user and own its data; a safe no-op once
+// every profile has an owner. Idempotent. (It also served the one-time prod
+// migration of legacy profiles to an admin user, now complete.)
 //
 // When fixedID is non-nil the user is created with that id (used for the fixed
 // local dev user); otherwise the id is generated. If a user with this sub

@@ -10,8 +10,8 @@ CREATE TABLE users (
 );
 
 -- Every profile has an owner. Nullable here so the column can be added without a
--- default; existing rows are backfilled to the admin user at startup
--- (see db.BootstrapOwners), and new profiles always set it in application code.
+-- default; existing rows were backfilled to the admin user at startup
+-- (see db.BootstrapOwner), and new profiles always set it in application code.
 ALTER TABLE profiles ADD COLUMN owner_user_id uuid REFERENCES users (id) ON DELETE CASCADE;
 CREATE INDEX idx_profiles_owner ON profiles (owner_user_id);
 

@@ -24,11 +24,6 @@ type Config struct {
 	OIDCIssuer   string
 	OIDCClientID string
 	AuthDisabled bool
-
-	// AdminOIDCSub is the OIDC subject of the admin user that existing,
-	// owner-less profiles are migrated to on startup. Set this the first time
-	// multi-user is rolled out onto a DB with pre-existing profiles.
-	AdminOIDCSub string
 }
 
 // Load reads configuration from the environment. If a .env file exists in the
@@ -51,7 +46,6 @@ func Load() (*Config, error) {
 		OIDCIssuer:     os.Getenv("OIDC_ISSUER"),
 		OIDCClientID:   os.Getenv("OIDC_CLIENT_ID"),
 		AuthDisabled:   os.Getenv("AUTH_DISABLED") == "true",
-		AdminOIDCSub:   os.Getenv("ADMIN_OIDC_SUB"),
 	}
 
 	var missing []string
