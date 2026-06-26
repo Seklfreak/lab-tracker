@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { NavLink, Route, Routes } from "react-router-dom";
 import { clsx } from "clsx";
 import { useAuth } from "react-oidc-context";
@@ -6,10 +6,15 @@ import { Activity, LayoutGrid, Upload as UploadIcon, FileText, LogOut } from "lu
 import { ProfileSwitcher } from "@/components/ProfileSwitcher";
 import { Spinner } from "@/components/ui";
 import { authEnabled, setAccessToken, setUnauthorizedHandler } from "@/lib/auth";
-import { Dashboard } from "@/pages/Dashboard";
-import { AnalyteDetail } from "@/pages/AnalyteDetail";
-import { Upload } from "@/pages/Upload";
-import { Reports } from "@/pages/Reports";
+
+// Lazy-load route pages so each (and Recharts, pulled in by AnalyteDetail) is a
+// separate chunk instead of one big bundle.
+const Dashboard = lazy(() => import("@/pages/Dashboard").then((m) => ({ default: m.Dashboard })));
+const AnalyteDetail = lazy(() =>
+  import("@/pages/AnalyteDetail").then((m) => ({ default: m.AnalyteDetail })),
+);
+const Upload = lazy(() => import("@/pages/Upload").then((m) => ({ default: m.Upload })));
+const Reports = lazy(() => import("@/pages/Reports").then((m) => ({ default: m.Reports })));
 
 // RequireAuth gates the app behind OIDC login (no-op when auth is disabled).
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -131,12 +136,14 @@ export default function App() {
         </header>
 
         <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/analytes/:analyteId" element={<AnalyteDetail />} />
-            <Route path="/upload" element={<Upload />} />
-            <Route path="/reports" element={<Reports />} />
-          </Routes>
+          <Suspense fallback={<Spinner label="Loading…" />}>
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/analytes/:analyteId" element={<AnalyteDetail />} />
+              <Route path="/upload" element={<Upload />} />
+              <Route path="/reports" element={<Reports />} />
+            </Routes>
+          </Suspense>
         </main>
       </div>
     </RequireAuth>
