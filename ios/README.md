@@ -25,8 +25,11 @@ In the app, tap the gear → set the **server URL**:
 - **Local dev:** `http://localhost:8080` (the default). Run the backend with
   `AUTH_DISABLED=true`; the simulator reaches the host's localhost and no token
   is needed.
-- **A real server:** its https URL. Until OIDC sign-in lands (below), paste a
-  Bearer access token in Settings.
+- **A real server:** its https URL, then **Sign in** under the OIDC section
+  (issuer + client ID default to the Authentik `lab-tracker` app). This runs
+  Authorization Code + PKCE via `ASWebAuthenticationSession` and stores the
+  tokens in the Keychain, refreshing automatically. A pasted Bearer token still
+  works as an alternative.
 
 CLI build + run on a simulator:
 
@@ -52,9 +55,4 @@ xcrun simctl launch booted dev.winkler.labtracker
 
 ## Not yet implemented
 
-- **OIDC sign-in** — Authorization Code + PKCE via `ASWebAuthenticationSession`
-  against Authentik. The `dev.winkler.labtracker://auth/callback` redirect URI
-  (reverse-DNS URL scheme already declared in `Info.plist`) must be registered on
-  the `lab-tracker` OIDC client. Until then, use a pasted Bearer token (or a local
-  AUTH_DISABLED server).
 - **PDF upload** from the phone (share sheet / camera scan).

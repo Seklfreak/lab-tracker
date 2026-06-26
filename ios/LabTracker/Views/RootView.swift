@@ -63,6 +63,7 @@ struct RootView: View {
                 SettingsView()
             }
             .task(id: store.serverURL) { await load() }
+            .onChange(of: store.auth.isSignedIn) { _, _ in Task { await load() } }
             .refreshable { await load() }
         }
     }

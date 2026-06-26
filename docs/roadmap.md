@@ -58,11 +58,11 @@ and rough notes so they aren't lost.
     Charts trend + readings + the stored AI analysis, markdown-rendered).
     Verified in the simulator against the live API. xcodegen project, no
     hand-edited `.xcodeproj`.
-  - [ ] **OIDC sign-in** — Authorization Code + PKCE via
-    `ASWebAuthenticationSession` against Authentik
-    (`dev.winkler.labtracker://auth/callback` reverse-DNS URL scheme already
-    declared; register it on the `lab-tracker` OIDC client). Until then the app
-    uses a pasted Bearer token or a local AUTH_DISABLED server.
+  - [x] **OIDC sign-in (2026-06-26)** — Authorization Code + PKCE via
+    `ASWebAuthenticationSession` against Authentik, redirect
+    `dev.winkler.labtracker://auth/callback` (registered on the `lab-tracker`
+    client). Tokens in the Keychain, auto-refresh + retry-on-401. A pasted Bearer
+    token still works as an alternative.
   - [ ] **PDF upload** from the phone (share sheet / camera scan).
   - [ ] **App Store approval (self-hosted, no shared backend):** because the app
     points at the user's own server, plan around Apple's review guidelines so a
