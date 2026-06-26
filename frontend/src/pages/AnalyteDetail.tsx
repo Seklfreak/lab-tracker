@@ -27,8 +27,9 @@ import {
 } from "@/lib/format";
 import { useThemeColors } from "@/lib/theme";
 import { downloadCsv } from "@/lib/csv";
+import { exportTablePdf } from "@/lib/pdf";
 import { unitFactor } from "@/lib/units";
-import { ArrowLeft, Download, Pencil, Printer, RotateCw, Sparkles, Star, Trash2 } from "lucide-react";
+import { ArrowLeft, Download, FileDown, Pencil, RotateCw, Sparkles, Star, Trash2 } from "lucide-react";
 
 function mostCommonUnit(rows: { unit: string | null }[]): string | undefined {
   const counts = new Map<string, number>();
@@ -211,20 +212,29 @@ export function AnalyteDetail() {
   const refLow = chartRows.find((r) => r.referenceLow !== null)?.referenceLow ?? null;
   const refHigh = chartRows.find((r) => r.referenceHigh !== null)?.referenceHigh ?? null;
 
-  const exportCsv = () =>
-    downloadCsv(
-      `${name.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-history.csv`,
-      ["Date", "Value", "Unit", "Reference", "Flag"],
-      [...data]
-        .sort((a, b) => (a.observedDate ?? "").localeCompare(b.observedDate ?? ""))
-        .map((r) => [
-          r.observedDate ?? "",
-          displayValue(r),
-          r.unit ?? "",
-          referenceLabel(r) ?? "",
-          derivedFlag(r) ?? "Normal",
-        ]),
-    );
+  const exportSlug = name.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+  const exportHead = ["Date", "Value", "Unit", "Reference", "Flag"];
+  const exportRows = () =>
+    [...data]
+      .sort((a, b) => (a.observedDate ?? "").localeCompare(b.observedDate ?? ""))
+      .map((r) => [
+        r.observedDate ?? "",
+        displayValue(r),
+        r.unit ?? "",
+        referenceLabel(r) ?? "",
+        derivedFlag(r) ?? "Normal",
+      ]);
+  const exportCsv = () => downloadCsv(`${exportSlug}-history.csv`, exportHead, exportRows());
+  const exportPdf = () =>
+    exportTablePdf({
+      filename: `${exportSlug}-history.pdf`,
+      title: name,
+      subtitle: `Reference: ${referenceLabel(data[data.length - 1]) ?? "n/a"}`,
+      head: exportHead,
+      rows: exportRows(),
+      notesTitle: analysisQ.data?.analysis ? "AI analysis" : undefined,
+      notes: analysisQ.data?.analysis?.content,
+    });
 
   // Plain numbers plot as a dot; bounded values ("<0.05") plot as a vertical
   // range line (via ErrorBar) covering where the true value could be.
@@ -273,13 +283,8 @@ export function AnalyteDetail() {
           <Button variant="ghost" className="px-2 py-1" onClick={exportCsv} title="Export CSV">
             <Download size={14} /> CSV
           </Button>
-          <Button
-            variant="ghost"
-            className="px-2 py-1"
-            onClick={() => window.print()}
-            title="Print / Save as PDF"
-          >
-            <Printer size={14} /> Print
+          <Button variant="ghost" className="px-2 py-1" onClick={exportPdf} title="Download PDF">
+            <FileDown size={14} /> PDF
           </Button>
           <span className="text-sm text-muted">
             {referenceLabel(data[data.length - 1]) ?? "no reference"}

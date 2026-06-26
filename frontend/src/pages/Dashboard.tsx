@@ -7,8 +7,8 @@ import {
   ChevronDown,
   ChevronRight,
   Download,
+  FileDown,
   LineChart,
-  Printer,
   RotateCw,
   Sparkles,
   Star,
@@ -18,6 +18,7 @@ import { useProfile } from "@/lib/profile";
 import { Badge, Button, Card, Input, Select, Spinner } from "@/components/ui";
 import { Markdown } from "@/components/Markdown";
 import { downloadCsv } from "@/lib/csv";
+import { exportTablePdf } from "@/lib/pdf";
 import { derivedFlag, displayValue, referenceLabel, statusTone } from "@/lib/format";
 
 const SORT_KEYS = ["category", "count", "name", "recent"] as const;
@@ -119,21 +120,28 @@ export function Dashboard() {
   const rest = filtered.filter((r) => !r.isFavorite);
 
   // Export the current view (respects search / needs-attention filters).
+  const exportRows = () =>
+    [...filtered]
+      .sort((a, b) => a.analyteName.localeCompare(b.analyteName))
+      .map((r) => [
+        r.analyteName,
+        displayValue(r),
+        r.unit ?? "",
+        referenceLabel(r) ?? "",
+        r.observedDate ?? "",
+        derivedFlag(r) ?? "Normal",
+      ]);
+  const exportHead = ["Analyte", "Value", "Unit", "Reference", "Date", "Flag"];
   const exportCsv = () =>
-    downloadCsv(
-      `lab-panel-${new Date().toISOString().slice(0, 10)}.csv`,
-      ["Analyte", "Value", "Unit", "Reference", "Date", "Flag"],
-      [...filtered]
-        .sort((a, b) => a.analyteName.localeCompare(b.analyteName))
-        .map((r) => [
-          r.analyteName,
-          displayValue(r),
-          r.unit ?? "",
-          referenceLabel(r) ?? "",
-          r.observedDate ?? "",
-          derivedFlag(r) ?? "Normal",
-        ]),
-    );
+    downloadCsv(`lab-panel-${new Date().toISOString().slice(0, 10)}.csv`, exportHead, exportRows());
+  const exportPdf = () =>
+    exportTablePdf({
+      filename: `lab-panel-${new Date().toISOString().slice(0, 10)}.pdf`,
+      title: "Lab panel",
+      subtitle: new Date().toLocaleDateString(),
+      head: exportHead,
+      rows: exportRows(),
+    });
 
   const controls = (
     <div className="flex flex-wrap items-center gap-3">
@@ -165,13 +173,8 @@ export function Dashboard() {
         <Button variant="ghost" className="px-2 py-1.5" onClick={exportCsv} title="Export CSV">
           <Download size={14} /> CSV
         </Button>
-        <Button
-          variant="ghost"
-          className="px-2 py-1.5"
-          onClick={() => window.print()}
-          title="Print / Save as PDF"
-        >
-          <Printer size={14} /> Print
+        <Button variant="ghost" className="px-2 py-1.5" onClick={exportPdf} title="Download PDF">
+          <FileDown size={14} /> PDF
         </Button>
         <span className="shrink-0 text-muted">Sort by</span>
         {/* Select forces w-full; constrain it via a fixed-width wrapper. */}
