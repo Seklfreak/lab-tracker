@@ -23,6 +23,32 @@ and rough notes so they aren't lost.
   (faster first load); whole-panel "Health snapshot" AI summary; needs-attention
   filter; CSV + print/PDF export; unit-normalized trend charts; duplicate-upload
   guard; post-save "what changed" diff; multi-analyte Compare overlay.
+- [x] **Per-user data isolation + sharing** (2026-06-26) — auth was gate-only
+  (every signed-in user saw *all* profiles). Now each user sees only the profiles
+  they own or that are shared with them, and shared users can co-edit.
+  - **Model:** a `users` table keyed on the OIDC `sub`, upserted from the JWT per
+    request (`authMiddleware`); `profiles.owner_user_id` + a
+    `profile_members(profile_id, user_id, role)` table for sharing. Every
+    profile/result/report query is scoped to owned-or-shared (`GetProfileForUser`
+    / `ListProfilesForUser`); by-id report/result endpoints resolve their profile
+    and access-check it. Legacy profiles were migrated to an admin user at startup
+    (`db.BootstrapOwner`); local dev maps to a fixed dev user.
+  - **Sharing:** owner-only `GET/POST/DELETE /api/profiles/{id}/members`; share
+    by email (target must have logged in once). Frontend Share dialog +
+    owned/shared badge.
+  - **MCP identity:** per-request, derived from the Cloudflare Access identity
+    JWT (`Cf-Access-Jwt-Assertion`) Access injects after the connector OAuth
+    login. The MCP server validates it against the team certs, maps the email to
+    a user, and scopes every tool to that user (`CF_ACCESS_TEAM_DOMAIN` +
+    `CF_ACCESS_AUD`); unset = unscoped (local dev).
+- [x] **Super-user admin area** (2026-06-26) — `ADMIN_EMAILS` allowlist (matched
+  against the JWT email) gates `/api/me` (returns `isAdmin`) and the admin-only
+  `/api/admin/users`, which lists every user with their owned/shared profile
+  counts. Frontend: an Admin nav link + table, shown only to admins.
+- [x] **Frontend ESLint** (2026-06-26) — flat-config ESLint with
+  `react-hooks/rules-of-hooks` (error) + `exhaustive-deps` (warn), run in CI.
+  Catches hook-order bugs that `tsc`/`vite build` can't (e.g. a hook after an
+  early return → white screen on save).
 
 ## Near-term
 
@@ -56,26 +82,6 @@ and rough notes so they aren't lost.
       privacy policy URL still mandatory; every app update is re-reviewed, so
       keep demo mode in the app permanently.
 
-- [x] **Per-user data isolation** (2026-06-26) — auth was gate-only (every
-  signed-in user saw *all* profiles). Now each user sees only the profiles they
-  own or that are shared with them, and shared users can co-edit.
-  - **Model:** a `users` table keyed on the OIDC `sub`, upserted from the JWT per
-    request (`authMiddleware`); `profiles.owner_user_id` + a
-    `profile_members(profile_id, user_id, role)` table for sharing. Every
-    profile/result/report query is scoped to owned-or-shared (`GetProfileForUser`
-    / `ListProfilesForUser`); by-id report/result endpoints resolve their profile
-    and access-check it. Pre-existing profiles are migrated to `ADMIN_OIDC_SUB`
-    at startup (`db.BootstrapOwner`); local dev maps to a fixed dev user.
-  - **Sharing:** owner-only `GET/POST/DELETE /api/profiles/{id}/members`; share
-    by email (target must have logged in once). Frontend Share dialog +
-    owned/shared badge.
-  - **MCP identity:** per-request, derived from the Cloudflare Access identity
-    JWT (`Cf-Access-Jwt-Assertion`) that Access injects after the connector
-    OAuth login. The MCP server validates it against the team certs, maps the
-    email to a user, and scopes every tool to that user. Set
-    `CF_ACCESS_TEAM_DOMAIN` (+ `CF_ACCESS_AUD` to pin the app audience); unset =
-    unscoped (local dev).
-
 ## Bigger direction: a general health record (not just labs)
 
 This could grow from "lab results" into a personal health chart / mini-EHR:
@@ -97,6 +103,7 @@ This could grow from "lab results" into a personal health chart / mini-EHR:
   analyte + result shape (numeric/qualitative value, unit, reference, date).
   Vaccinations and procedures are *events*, not measurements — probably a
   separate "events" model rather than forcing them into results.
-- **Auth / multi-user:** see the **Per-user data isolation** item above.
+- **Auth / multi-user:** done — see **Per-user data isolation + sharing** under
+  Done above; new event/record types just reuse the same per-user scoping.
 - **Privacy:** this is health PII — keep it self-hosted, consider
   encryption-at-rest, and provide export/delete.

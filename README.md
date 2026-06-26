@@ -4,9 +4,11 @@ Self-hosted app to consolidate lab results (Quest, hospital, etc.) into one plac
 visualized over time, with separate profiles. Upload a PDF → Claude scans it →
 review/edit the parsed results → save dated values → graph trends.
 
-Personal-scale. Authenticates via OIDC (any OpenID Connect provider, e.g.
-Authentik) — the API validates Bearer JWTs and the SPA does Authorization Code +
-PKCE; set `AUTH_DISABLED=true` to run locally without it.
+Personal-scale, multi-user. Authenticates via OIDC (any OpenID Connect provider,
+e.g. Authentik) — the API validates Bearer JWTs and the SPA does Authorization
+Code + PKCE; set `AUTH_DISABLED=true` to run locally without it. Each user owns
+their own profiles and can share a profile with other users to co-edit it; a
+super-user admin area (`ADMIN_EMAILS`) lists every user and their profile counts.
 
 ## Stack
 
@@ -28,7 +30,7 @@ PKCE; set `AUTH_DISABLED=true` to run locally without it.
 ## Prerequisites
 
 - Go 1.26+
-- Node 18+
+- Node 20.19+ (Vite 8 / ESLint require it)
 - Docker (for Postgres + MinIO)
 - An Anthropic API key
 
@@ -78,8 +80,11 @@ npm run dev                # http://localhost:5173 (proxies /api to :8080)
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET/POST | `/api/profiles` | list / create profiles |
-| DELETE | `/api/profiles/{id}` | delete profile |
+| GET | `/api/me` | current user + whether they're a super-user |
+| GET | `/api/admin/users` | (super-user) every user with owned/shared profile counts |
+| GET/POST | `/api/profiles` | list owned-or-shared / create profiles |
+| DELETE | `/api/profiles/{id}` | delete profile (owner only) |
+| GET/POST/DELETE | `/api/profiles/{id}/members` | (owner) list members / share by email / unshare |
 | POST | `/api/profiles/{id}/reports` | upload a PDF (multipart `file`) |
 | GET | `/api/profiles/{id}/reports` | list reports |
 | GET | `/api/profiles/{id}/results` | latest result per analyte (`?analyte_id=` for a trend) |
@@ -91,16 +96,20 @@ npm run dev                # http://localhost:5173 (proxies /api to :8080)
 
 ## Data model
 
-`profiles`, `analytes` (canonical tests), `analyte_aliases` (raw name → analyte),
+`users` (one per OIDC identity, keyed on `sub`), `profiles` (each owned by a user
+via `owner_user_id`), `profile_members` (profiles shared with other users),
+`analytes` (canonical tests), `analyte_aliases` (raw name → analyte),
 `lab_reports` (one PDF), `lab_results` (one dated measurement — the graph unit),
-`favorites` (per-profile pinned analytes). See `backend/internal/db/migrations`.
+`favorites` (per-profile pinned analytes), `analyte_analyses` (stored AI analysis
+per profile + analyte). See `backend/internal/db/migrations`.
 
 ## Testing
 
 Unit tests cover the pure logic:
 
 ```bash
-(cd backend && go test ./...)   # JSON extraction, pgtype conversions, dates
+(cd backend && go test ./...)   # JSON extraction, pgtype conversions, dates, access scoping
+(cd frontend && npm run lint)   # ESLint, incl. react-hooks rules (also in CI)
 (cd frontend && npm test)       # statusTone, derivedFlag, referenceLabel, chartYDomain
 ```
 
@@ -126,10 +135,7 @@ explicit version (not `latest`), so what's running is always reproducible.
   (`apps/lab-tracker/lab-tracker.yaml` api+web, `apps/mcp/lab-tracker-mcp.yaml` mcp) and
   commit — Flux rolls it out. **Roll back** by pointing those tags at a prior version.
 
-## Not yet implemented
+## Roadmap
 
-- Unit normalization across labs (mg/dL ↔ mmol/L).
-- Per-user data isolation (today any authenticated user shares all profiles).
-
-Future ideas (MCP server, iOS app, broader health record) are in
+What's shipped, planned, and on the idea list lives in
 [`docs/roadmap.md`](docs/roadmap.md).
