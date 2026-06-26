@@ -19,6 +19,10 @@ and rough notes so they aren't lost.
   semver release: Claude (Haiku) picks the bump — or skips non-shipping (docs/CI)
   changes — and writes the GitHub release notes; deploys pin explicit versions
   (off `:latest`). Renovate keeps dependencies current with auto-merge.
+- [x] **Dashboard & analysis improvements** (2026-06-26) — code-split frontend
+  (faster first load); whole-panel "Health snapshot" AI summary; needs-attention
+  filter; CSV + print/PDF export; unit-normalized trend charts; duplicate-upload
+  guard; post-save "what changed" diff; multi-analyte Compare overlay.
 
 ## Near-term
 
@@ -52,6 +56,20 @@ and rough notes so they aren't lost.
       privacy policy URL still mandatory; every app update is re-reviewed, so
       keep demo mode in the app permanently.
 
+- [ ] **Per-user data isolation** — auth is gate-only today (every signed-in user
+  in the allowed groups sees *all* profiles). Make each user see only the profiles
+  they own, with optional sharing for households. Prerequisite before letting anyone
+  else log in.
+  - **Model:** a `users` table keyed on the OIDC `sub`, upserted from the JWT per
+    request; `profiles.owner_user_id` + a `profile_members(profile_id, user_id, role)`
+    table for sharing; scope every profile/result/report query to owned-or-shared;
+    migrate existing profiles to the first (admin) user.
+  - **Caveats:** touches many queries → add `sqlc` to the dev/CI toolchain first
+    (no CLI in the env today). Decide MCP's identity — it's DB-direct behind
+    Cloudflare Access (effectively one identity), so scope it to a single user or
+    thread identity through. Owner-only is simple; sharing (ACL + share UI) is the
+    bigger chunk.
+
 ## Bigger direction: a general health record (not just labs)
 
 This could grow from "lab results" into a personal health chart / mini-EHR:
@@ -73,9 +91,6 @@ This could grow from "lab results" into a personal health chart / mini-EHR:
   analyte + result shape (numeric/qualitative value, unit, reference, date).
   Vaccinations and procedures are *events*, not measurements — probably a
   separate "events" model rather than forcing them into results.
-- **Auth / multi-user:** app-level OIDC is in place, but it's gate-only — every
-  authenticated user shares all profiles. A broader record likely needs per-user
-  ownership + sharing (a `users` table keyed on the OIDC `sub`, profile owners,
-  query scoping). Deferred until actually needed.
+- **Auth / multi-user:** see the **Per-user data isolation** item above.
 - **Privacy:** this is health PII — keep it self-hosted, consider
   encryption-at-rest, and provide export/delete.
