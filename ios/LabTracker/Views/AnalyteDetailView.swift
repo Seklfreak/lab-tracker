@@ -2,6 +2,9 @@ import SwiftUI
 import Charts
 
 /// One analyte's readings over time (Swift Charts) plus the stored AI analysis.
+/// Chart points and the parsed analysis are computed once in `load()` so the
+/// view body stays cheap (no per-render date parsing or markdown work) — that's
+/// what keeps the push animation smooth.
 struct AnalyteDetailView: View {
     @Environment(Store.self) private var store
     let profile: Profile
@@ -9,33 +12,18 @@ struct AnalyteDetailView: View {
     let analyteName: String
 
     @State private var points: [LabResult] = []
+    @State private var chartPoints: [Point] = []
+    @State private var analysis: Analysis?
+    @State private var analysisBlocks: [MarkdownText.Block] = []
+    @State private var analysisLoaded = false
     @State private var loading = false
     @State private var error: String?
 
-    @State private var analysis: Analysis?
-    @State private var analysisLoaded = false
-
-    private struct Point: Identifiable {
+    struct Point: Identifiable {
         let id: String
         let date: Date
         let value: Double
         let abnormal: Bool
-    }
-
-    private static let dateParser: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        return f
-    }()
-
-    private var chartData: [Point] {
-        points.compactMap { r in
-            guard let v = r.valueNumeric,
-                  let ds = r.observedDate,
-                  let d = Self.dateParser.date(from: ds) else { return nil }
-            return Point(id: r.id, date: d, value: v, abnormal: r.isAbnormal)
-        }
     }
 
     private var latest: LabResult? { points.last }
@@ -48,7 +36,7 @@ struct AnalyteDetailView: View {
             } else if let error {
                 Text(error).foregroundStyle(.red)
             } else {
-                if chartData.count >= 2 {
+                if chartPoints.count >= 2 {
                     Section("Trend") { chart }
                 } else if let latest {
                     Section("Latest") {
@@ -79,7 +67,7 @@ struct AnalyteDetailView: View {
     }
 
     @ViewBuilder private var chart: some View {
-        Chart(chartData) { p in
+        Chart(chartPoints) { p in
             LineMark(x: .value("Date", p.date), y: .value("Value", p.value))
                 .foregroundStyle(.blue)
             PointMark(x: .value("Date", p.date), y: .value("Value", p.value))
@@ -90,13 +78,13 @@ struct AnalyteDetailView: View {
     }
 
     @ViewBuilder private var analysisSection: some View {
-        if let analysis {
+        if analysis != nil {
             VStack(alignment: .leading, spacing: 6) {
-                if analysis.stale {
+                if analysis?.stale == true {
                     Label("New results since this was generated", systemImage: "clock.arrow.circlepath")
                         .font(.caption).foregroundStyle(.orange)
                 }
-                MarkdownText(text: analysis.content)
+                MarkdownText(blocks: analysisBlocks)
             }
         } else if analysisLoaded {
             Text("No analysis generated yet.").foregroundStyle(.secondary)
@@ -108,14 +96,34 @@ struct AnalyteDetailView: View {
     private func load() async {
         loading = true
         defer { loading = false }
+
+        // Fetch the trend and the (optional) analysis concurrently.
+        async let trendTask = store.api.trend(profileId: profile.id, analyteId: analyteId)
+        async let analysisTask = store.api.analysis(profileId: profile.id, analyteId: analyteId)
+
         do {
-            points = try await store.api.trend(profileId: profile.id, analyteId: analyteId)
+            let rows = try await trendTask
+            points = rows
+            chartPoints = rows.compactMap { r in
+                guard let v = r.valueNumeric, let day = r.observedDate, let date = Self.parseDay(day) else { return nil }
+                return Point(id: r.id, date: date, value: v, abnormal: r.isAbnormal)
+            }
             error = nil
         } catch {
             self.error = error.localizedDescription
         }
-        // Best-effort: analysis may not exist.
-        analysis = try? await store.api.analysis(profileId: profile.id, analyteId: analyteId)
+
+        let a = (try? await analysisTask) ?? nil
+        analysis = a
+        analysisBlocks = a.map { MarkdownText.parse($0.content) } ?? []
         analysisLoaded = true
+    }
+
+    /// Fast "yyyy-MM-dd" parse via DateComponents (DateFormatter is too slow to
+    /// call per point on the render path).
+    private static func parseDay(_ s: String) -> Date? {
+        let parts = s.split(separator: "-")
+        guard parts.count == 3, let y = Int(parts[0]), let m = Int(parts[1]), let d = Int(parts[2]) else { return nil }
+        return Calendar.current.date(from: DateComponents(year: y, month: m, day: d))
     }
 }
