@@ -259,6 +259,11 @@ function ReviewForm({
     },
   });
 
+  // Computed before any conditional return so the hook order stays stable across
+  // the saved/unsaved transition (a hook after an early return crashes React).
+  const includedCount = useMemo(() => rows.filter((r) => r.include).length, [rows]);
+  const canSave = collectedDate !== "" && includedCount > 0;
+
   if (saved) {
     return (
       <div className="space-y-5">
@@ -275,9 +280,6 @@ function ReviewForm({
       </div>
     );
   }
-
-  const includedCount = useMemo(() => rows.filter((r) => r.include).length, [rows]);
-  const canSave = collectedDate !== "" && includedCount > 0;
 
   return (
     <div className="space-y-5">
