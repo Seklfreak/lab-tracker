@@ -30,15 +30,22 @@ enum OIDCError: LocalizedError {
 }
 
 private struct DiscoveryDoc: Decodable {
-    let authorization_endpoint: String
-    let token_endpoint: String
+    let authorizationEndpoint: String
+    let tokenEndpoint: String
 }
 
 private struct TokenResponse: Decodable {
-    let access_token: String
-    let refresh_token: String?
-    let expires_in: Int?
+    let accessToken: String
+    let refreshToken: String?
+    let expiresIn: Int?
 }
+
+/// OIDC discovery/token responses are snake_case on the wire.
+private let oidcDecoder: JSONDecoder = {
+    let decoder = JSONDecoder()
+    decoder.keyDecodingStrategy = .convertFromSnakeCase
+    return decoder
+}()
 
 /// Authorization Code + PKCE against an OIDC provider (Authentik). Holds the
 /// tokens (Keychain-backed), runs the interactive sign-in via
@@ -88,7 +95,7 @@ final class AuthSession: NSObject, ASWebAuthenticationPresentationContextProvidi
         let challenge = Self.codeChallenge(for: verifier)
         let state = Self.randomURLSafe(24)
 
-        var comps = URLComponents(string: disco.authorization_endpoint)
+        var comps = URLComponents(string: disco.authorizationEndpoint)
         comps?.queryItems = [
             .init(name: "response_type", value: "code"),
             .init(name: "client_id", value: config.clientID),
@@ -105,7 +112,7 @@ final class AuthSession: NSObject, ASWebAuthenticationPresentationContextProvidi
         guard items.first(where: { $0.name == "state" })?.value == state else { throw OIDCError.stateMismatch }
         guard let code = items.first(where: { $0.name == "code" })?.value else { throw OIDCError.noCode }
 
-        try await exchange(code: code, verifier: verifier, tokenEndpoint: disco.token_endpoint)
+        try await exchange(code: code, verifier: verifier, tokenEndpoint: disco.tokenEndpoint)
     }
 
     func signOut() {
@@ -125,7 +132,7 @@ final class AuthSession: NSObject, ASWebAuthenticationPresentationContextProvidi
     func refresh() async throws {
         guard let rt = refreshToken, config.isConfigured else { return }
         let disco = try await discover()
-        let (data, resp) = try await post(disco.token_endpoint, form: [
+        let (data, resp) = try await post(disco.tokenEndpoint, form: [
             "grant_type": "refresh_token",
             "refresh_token": rt,
             "client_id": config.clientID,
@@ -134,7 +141,7 @@ final class AuthSession: NSObject, ASWebAuthenticationPresentationContextProvidi
             signOut() // refresh token expired/revoked
             throw OIDCError.token("refresh rejected")
         }
-        store(try JSONDecoder().decode(TokenResponse.self, from: data))
+        store(try oidcDecoder.decode(TokenResponse.self, from: data))
     }
 
     // MARK: - private
@@ -150,13 +157,13 @@ final class AuthSession: NSObject, ASWebAuthenticationPresentationContextProvidi
         guard (resp as? HTTPURLResponse)?.statusCode == 200 else {
             throw OIDCError.token(String(data: data, encoding: .utf8) ?? "status \( (resp as? HTTPURLResponse)?.statusCode ?? 0)")
         }
-        store(try JSONDecoder().decode(TokenResponse.self, from: data))
+        store(try oidcDecoder.decode(TokenResponse.self, from: data))
     }
 
     private func store(_ tr: TokenResponse) {
-        accessToken = tr.access_token
-        if let rt = tr.refresh_token { refreshToken = rt } // rotation
-        expiresAt = tr.expires_in.map { Date().addingTimeInterval(TimeInterval($0)) }
+        accessToken = tr.accessToken
+        if let rt = tr.refreshToken { refreshToken = rt } // rotation
+        expiresAt = tr.expiresIn.map { Date().addingTimeInterval(TimeInterval($0)) }
         persist()
     }
 
@@ -182,7 +189,7 @@ final class AuthSession: NSObject, ASWebAuthenticationPresentationContextProvidi
         return OIDCConfig(issuer: issuer, clientID: clientID)
     }
 
-    private static func jsString(_ key: String, in js: String) -> String? {
+    nonisolated static func jsString(_ key: String, in js: String) -> String? {
         guard let re = try? NSRegularExpression(pattern: "\(key)\\s*:\\s*\"([^\"]*)\"") else { return nil }
         let range = NSRange(js.startIndex..., in: js)
         guard let m = re.firstMatch(in: js, range: range), let g = Range(m.range(at: 1), in: js) else { return nil }
@@ -195,7 +202,7 @@ final class AuthSession: NSObject, ASWebAuthenticationPresentationContextProvidi
         guard let url = URL(string: base + ".well-known/openid-configuration") else { throw OIDCError.discovery }
         let (data, resp) = try await URLSession.shared.data(from: url)
         guard (resp as? HTTPURLResponse)?.statusCode == 200,
-              let doc = try? JSONDecoder().decode(DiscoveryDoc.self, from: data) else { throw OIDCError.discovery }
+              let doc = try? oidcDecoder.decode(DiscoveryDoc.self, from: data) else { throw OIDCError.discovery }
         return doc
     }
 
@@ -239,17 +246,17 @@ final class AuthSession: NSObject, ASWebAuthenticationPresentationContextProvidi
 
     // MARK: PKCE helpers
 
-    static func randomURLSafe(_ count: Int) -> String {
+    nonisolated static func randomURLSafe(_ count: Int) -> String {
         var bytes = [UInt8](repeating: 0, count: count)
         _ = SecRandomCopyBytes(kSecRandomDefault, count, &bytes)
         return base64url(Data(bytes))
     }
 
-    static func codeChallenge(for verifier: String) -> String {
+    nonisolated static func codeChallenge(for verifier: String) -> String {
         base64url(Data(SHA256.hash(data: Data(verifier.utf8))))
     }
 
-    static func base64url(_ data: Data) -> String {
+    nonisolated static func base64url(_ data: Data) -> String {
         data.base64EncodedString()
             .replacingOccurrences(of: "+", with: "-")
             .replacingOccurrences(of: "/", with: "_")
@@ -257,7 +264,7 @@ final class AuthSession: NSObject, ASWebAuthenticationPresentationContextProvidi
     }
 
     /// Percent-encode a form value, escaping everything but RFC 3986 unreserved.
-    static func escape(_ s: String) -> String {
+    nonisolated static func escape(_ s: String) -> String {
         let unreserved = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
         return s.addingPercentEncoding(withAllowedCharacters: unreserved) ?? s
     }

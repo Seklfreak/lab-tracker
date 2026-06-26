@@ -67,6 +67,19 @@ xcrun simctl launch booted dev.winkler.labtracker
   (latest per analyte), `AnalyteDetailView` (Swift Charts trend + AI analysis),
   `SettingsView`, `MarkdownText`.
 
+## Tests & lint
+
+```bash
+swiftlint                              # SwiftLint (config in .swiftlint.yml)
+xcodebuild test -project LabTracker.xcodeproj -scheme LabTracker \
+  -destination 'platform=iOS Simulator,name=iPhone 17' CODE_SIGNING_ALLOWED=NO
+```
+
+Unit tests (Swift Testing, in `LabTrackerTests/`) cover the pure logic:
+`LabResult` flags/formatting, the PKCE helpers (incl. the RFC 7636 vector), the
+`/config.js` parser, and the markdown renderer. Both run in CI
+(`.github/workflows/ios.yaml`) on any `ios/**` change.
+
 ## Not yet implemented
 
 - **PDF upload** from the phone (share sheet / camera scan).

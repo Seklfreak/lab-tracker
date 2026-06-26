@@ -23,17 +23,24 @@ jobs:
 
       - name: Tooling
         run: |
-          brew install xcodegen
+          brew install xcodegen swiftlint
           xcodebuild -version
 
       - name: Generate project
         working-directory: ios
         run: xcodegen generate
 
-      - name: Build (iOS Simulator, unsigned)
+      - name: SwiftLint
+        working-directory: ios
+        run: swiftlint lint --strict
+
+      - name: Build + test (iOS Simulator, unsigned)
         working-directory: ios
         run: |
-          xcodebuild \
-            -project LabTracker.xcodeproj -target LabTracker \
-            -sdk iphonesimulator -configuration Debug -arch arm64 \
-            CODE_SIGNING_ALLOWED=NO build
+          SIM=$(xcrun simctl list devices available -j \
+            | python3 -c "import sys,json; d=json.load(sys.stdin)['devices']; print(next(x['udid'] for r in d.values() for x in r if 'iPhone' in x['name']))")
+          echo "Using simulator $SIM"
+          xcodebuild test \
+            -project LabTracker.xcodeproj -scheme LabTracker \
+            -destination "id=$SIM" \
+            CODE_SIGNING_ALLOWED=NO

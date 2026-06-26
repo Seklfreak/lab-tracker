@@ -23,3 +23,24 @@ targets:
         # Device builds: pick your team in Xcode (Signing & Capabilities) or
         # set DEVELOPMENT_TEAM. Simulator CLI builds pass CODE_SIGNING_ALLOWED=NO.
         CODE_SIGN_STYLE: Automatic
+
+  LabTrackerTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - LabTrackerTests
+    dependencies:
+      - target: LabTracker
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.winkler.labtracker.tests
+        GENERATE_INFOPLIST_FILE: YES
+
+schemes:
+  LabTracker:
+    build:
+      targets:
+        LabTracker: all
+    test:
+      targets:
+        - LabTrackerTests
