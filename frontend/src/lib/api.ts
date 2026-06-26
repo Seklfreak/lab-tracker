@@ -164,6 +164,8 @@ export const api = {
 
   latestResults: (profileId: string) =>
     req<Result[]>(`/api/profiles/${profileId}/results`),
+  allResults: (profileId: string) =>
+    req<Result[]>(`/api/profiles/${profileId}/results?all=true`),
   analyteTrend: (profileId: string, analyteId: string) =>
     req<Result[]>(`/api/profiles/${profileId}/results?analyte_id=${analyteId}`),
 
