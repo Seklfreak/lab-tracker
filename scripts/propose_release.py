@@ -80,7 +80,8 @@ Call propose_release with the bump and concise, user-facing markdown notes."""
 
     client = anthropic.Anthropic()
     msg = client.messages.create(
-        model="claude-opus-4-8",
+        # Haiku is plenty for bump-classification + concise notes; override if desired.
+        model=os.environ.get("RELEASE_MODEL", "claude-haiku-4-5"),
         max_tokens=2000,
         tools=[tool],
         tool_choice={"type": "tool", "name": "propose_release"},
