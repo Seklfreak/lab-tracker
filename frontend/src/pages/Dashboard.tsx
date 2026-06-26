@@ -219,15 +219,16 @@ export function Dashboard() {
     <div className="space-y-6">
       <PanelSummaryCard key={profileId} profileId={profileId} currentCount={data.length} />
       {controls}
+      {/* Floating (fixed) so selecting doesn't reflow the list under your finger. */}
       {sel.length > 0 && (
-        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-accent/40 bg-accent/5 px-3 py-2 text-sm">
-          <span>{sel.length} selected to compare</span>
-          <div className="ml-auto flex gap-2">
+        <div className="fixed inset-x-0 bottom-4 z-20 flex justify-center px-4">
+          <div className="flex items-center gap-3 rounded-full border border-accent/40 bg-panel px-4 py-2 text-sm shadow-lg">
+            <span className="text-muted">{sel.length} selected</span>
             <Button variant="ghost" className="px-2 py-1" onClick={() => setSel([])}>
               Clear
             </Button>
             <Button
-              className="px-2 py-1"
+              className="px-3 py-1"
               disabled={sel.length < 2}
               onClick={() => navigate(`/compare?ids=${sel.join(",")}`)}
               title={sel.length < 2 ? "Select at least 2 analytes" : "Compare selected"}
@@ -358,7 +359,7 @@ function ResultCard({
               }}
               onChange={() => {}}
               title="Select to compare"
-              className="mt-1 cursor-pointer"
+              className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer"
             />
             <div className="font-medium">{r.analyteName}</div>
           </div>
