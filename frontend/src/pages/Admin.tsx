@@ -44,7 +44,7 @@ export function Admin() {
             <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted">
               <th className="px-4 py-3 font-medium">User</th>
               <th className="px-4 py-3 text-right font-medium">Owned</th>
-              <th className="px-4 py-3 text-right font-medium">Shared</th>
+              <th className="px-4 py-3 text-right font-medium">Shared with them</th>
               <th className="px-4 py-3 font-medium">Joined</th>
               <th className="px-4 py-3 font-medium">Last seen</th>
             </tr>
