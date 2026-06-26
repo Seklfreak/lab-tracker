@@ -343,59 +343,58 @@ function ResultCard({
   const ref = referenceLabel(r);
   const flag = derivedFlag(r);
   return (
-    <Link to={`/analytes/${r.analyteId}`}>
-      <Card className={clsx("transition hover:border-accent", selected && "border-accent")}>
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-start gap-2">
-            <input
-              type="checkbox"
-              checked={selected}
-              // preventDefault stops the Link nav + native toggle; we toggle manually
-              // so the controlled checkbox stays in sync.
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onToggleSelect();
-              }}
-              onChange={() => {}}
-              title="Select to compare"
-              className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer"
-            />
+    <div className="relative">
+      {/* Checkbox is a sibling of the link (not nested in the anchor) so the native
+          toggle fires reliably on touch; the padded label is the tap target. */}
+      <label
+        className="absolute left-1.5 top-2.5 z-10 flex h-8 w-8 cursor-pointer items-center justify-center"
+        title="Select to compare"
+      >
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={onToggleSelect}
+          className="h-4 w-4 cursor-pointer"
+        />
+      </label>
+      <Link to={`/analytes/${r.analyteId}`}>
+        <Card className={clsx("pl-10 transition hover:border-accent", selected && "border-accent")}>
+          <div className="flex items-start justify-between gap-2">
             <div className="font-medium">{r.analyteName}</div>
+            <div className="flex shrink-0 items-center gap-1.5">
+              {flag && <Badge tone={tone}>{flag}</Badge>}
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onToggleFav();
+                }}
+                title={r.isFavorite ? "Unfavorite" : "Favorite"}
+                className={clsx(
+                  "rounded p-0.5 transition hover:text-warn",
+                  r.isFavorite ? "text-warn" : "text-muted",
+                )}
+              >
+                <Star size={16} className={r.isFavorite ? "fill-warn" : ""} />
+              </button>
+            </div>
           </div>
-          <div className="flex shrink-0 items-center gap-1.5">
-            {flag && <Badge tone={tone}>{flag}</Badge>}
-            <button
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onToggleFav();
-              }}
-              title={r.isFavorite ? "Unfavorite" : "Favorite"}
-              className={clsx(
-                "rounded p-0.5 transition hover:text-warn",
-                r.isFavorite ? "text-warn" : "text-muted",
-              )}
-            >
-              <Star size={16} className={r.isFavorite ? "fill-warn" : ""} />
-            </button>
+          <div className="mt-2 flex items-baseline gap-1">
+            <span className={tone === "bad" ? "text-2xl font-semibold text-bad" : "text-2xl font-semibold"}>
+              {displayValue(r)}
+            </span>
+            {r.unit && <span className="text-sm text-muted">{r.unit}</span>}
           </div>
-        </div>
-        <div className="mt-2 flex items-baseline gap-1">
-          <span className={tone === "bad" ? "text-2xl font-semibold text-bad" : "text-2xl font-semibold"}>
-            {displayValue(r)}
-          </span>
-          {r.unit && <span className="text-sm text-muted">{r.unit}</span>}
-        </div>
-        <div className="mt-1 flex items-center justify-between text-xs text-muted">
-          <span>
-            {ref ? `Ref: ${ref}` : "No reference"} · {r.observedDate ?? "no date"}
-          </span>
-          <span className="shrink-0">
-            {r.count ?? 1} reading{(r.count ?? 1) === 1 ? "" : "s"}
-          </span>
-        </div>
-      </Card>
-    </Link>
+          <div className="mt-1 flex items-center justify-between text-xs text-muted">
+            <span>
+              {ref ? `Ref: ${ref}` : "No reference"} · {r.observedDate ?? "no date"}
+            </span>
+            <span className="shrink-0">
+              {r.count ?? 1} reading{(r.count ?? 1) === 1 ? "" : "s"}
+            </span>
+          </div>
+        </Card>
+      </Link>
+    </div>
   );
 }
