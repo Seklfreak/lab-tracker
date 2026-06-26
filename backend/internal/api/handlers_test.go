@@ -43,7 +43,7 @@ func do(t *testing.T, h http.Handler, method, path, body string) *httptest.Respo
 
 func TestListProfiles(t *testing.T) {
 	q := &sqlctest.FakeQuerier{
-		ListProfilesFn: func(context.Context) ([]sqlc.Profile, error) {
+		ListProfilesForUserFn: func(context.Context, *uuid.UUID) ([]sqlc.Profile, error) {
 			return []sqlc.Profile{{ID: uuid.New(), Name: "Alice"}}, nil
 		},
 	}
@@ -87,8 +87,8 @@ func TestCreateProfileMissingName(t *testing.T) {
 func TestListLatestResults(t *testing.T) {
 	pid := uuid.New()
 	q := &sqlctest.FakeQuerier{
-		GetProfileFn: func(_ context.Context, id uuid.UUID) (sqlc.Profile, error) {
-			return sqlc.Profile{ID: id, Name: "Test"}, nil
+		GetProfileForUserFn: func(_ context.Context, arg sqlc.GetProfileForUserParams) (sqlc.Profile, error) {
+			return sqlc.Profile{ID: arg.ID, Name: "Test"}, nil
 		},
 		// Default /results path is the dashboard "latest per analyte" view.
 		ListLatestResultsForProfileFn: func(context.Context, uuid.UUID) ([]sqlc.ListLatestResultsForProfileRow, error) {
@@ -117,7 +117,9 @@ func TestListLatestResults(t *testing.T) {
 func TestListAllResults(t *testing.T) {
 	pid := uuid.New()
 	q := &sqlctest.FakeQuerier{
-		GetProfileFn: func(_ context.Context, id uuid.UUID) (sqlc.Profile, error) { return sqlc.Profile{ID: id}, nil },
+		GetProfileForUserFn: func(_ context.Context, arg sqlc.GetProfileForUserParams) (sqlc.Profile, error) {
+			return sqlc.Profile{ID: arg.ID}, nil
+		},
 		ListResultsForProfileFn: func(context.Context, uuid.UUID) ([]sqlc.ListResultsForProfileRow, error) {
 			return []sqlc.ListResultsForProfileRow{
 				{AnalyteName: "Glucose", ValueNumeric: pgtype.Float8{Float64: 95, Valid: true}, ObservedDate: pgtype.Date{Time: time.Now(), Valid: true}},
@@ -138,7 +140,7 @@ func TestListAllResults(t *testing.T) {
 
 func TestRequireProfileNotFound(t *testing.T) {
 	q := &sqlctest.FakeQuerier{
-		GetProfileFn: func(context.Context, uuid.UUID) (sqlc.Profile, error) {
+		GetProfileForUserFn: func(context.Context, sqlc.GetProfileForUserParams) (sqlc.Profile, error) {
 			return sqlc.Profile{}, pgx.ErrNoRows
 		},
 	}
@@ -151,7 +153,9 @@ func TestRequireProfileNotFound(t *testing.T) {
 func TestAddFavorite(t *testing.T) {
 	var added sqlc.AddFavoriteParams
 	q := &sqlctest.FakeQuerier{
-		GetProfileFn: func(_ context.Context, id uuid.UUID) (sqlc.Profile, error) { return sqlc.Profile{ID: id}, nil },
+		GetProfileForUserFn: func(_ context.Context, arg sqlc.GetProfileForUserParams) (sqlc.Profile, error) {
+			return sqlc.Profile{ID: arg.ID}, nil
+		},
 		AddFavoriteFn: func(_ context.Context, arg sqlc.AddFavoriteParams) error {
 			added = arg
 			return nil
@@ -169,7 +173,14 @@ func TestAddFavorite(t *testing.T) {
 
 func TestUpdateResult(t *testing.T) {
 	var updated sqlc.UpdateResultParams
+	pid := uuid.New()
 	q := &sqlctest.FakeQuerier{
+		GetResultFn: func(_ context.Context, id uuid.UUID) (sqlc.LabResult, error) {
+			return sqlc.LabResult{ID: id, ProfileID: pid}, nil
+		},
+		GetProfileForUserFn: func(_ context.Context, arg sqlc.GetProfileForUserParams) (sqlc.Profile, error) {
+			return sqlc.Profile{ID: arg.ID}, nil
+		},
 		UpdateResultFn: func(_ context.Context, arg sqlc.UpdateResultParams) error {
 			updated = arg
 			return nil
@@ -194,10 +205,127 @@ func TestUpdateResultBadID(t *testing.T) {
 	}
 }
 
+// --- per-user isolation ---
+
+// A profile the current user neither owns nor shares is invisible: requests
+// scoped to it 404 (and don't leak existence), and writes never reach the DB.
+func TestProfileIsolation_DeniesForeignProfile(t *testing.T) {
+	notMine := func(context.Context, sqlc.GetProfileForUserParams) (sqlc.Profile, error) {
+		return sqlc.Profile{}, pgx.ErrNoRows // owned-or-shared check finds nothing
+	}
+	q := &sqlctest.FakeQuerier{GetProfileForUserFn: notMine}
+	pid := uuid.New().String()
+
+	cases := []struct{ method, path string }{
+		{http.MethodGet, "/api/profiles/" + pid + "/results"},
+		{http.MethodGet, "/api/profiles/" + pid + "/reports"},
+		{http.MethodGet, "/api/profiles/" + pid + "/members"},
+		{http.MethodGet, "/api/profiles/" + pid + "/analytes/" + uuid.New().String() + "/analysis"},
+	}
+	for _, c := range cases {
+		rec := do(t, router(q, nil), c.method, c.path, "")
+		if rec.Code != http.StatusNotFound {
+			t.Errorf("%s %s: want 404, got %d", c.method, c.path, rec.Code)
+		}
+	}
+}
+
+// Editing a result belonging to another user's profile is blocked before the
+// UpdateResult/DeleteResult query runs.
+func TestResultIsolation_DeniesForeignResult(t *testing.T) {
+	q := &sqlctest.FakeQuerier{
+		GetResultFn: func(_ context.Context, id uuid.UUID) (sqlc.LabResult, error) {
+			return sqlc.LabResult{ID: id, ProfileID: uuid.New()}, nil
+		},
+		GetProfileForUserFn: func(context.Context, sqlc.GetProfileForUserParams) (sqlc.Profile, error) {
+			return sqlc.Profile{}, pgx.ErrNoRows // not owned or shared
+		},
+		UpdateResultFn: func(context.Context, sqlc.UpdateResultParams) error {
+			t.Fatal("UpdateResult must not run for an inaccessible result")
+			return nil
+		},
+		DeleteResultFn: func(context.Context, uuid.UUID) error {
+			t.Fatal("DeleteResult must not run for an inaccessible result")
+			return nil
+		},
+	}
+	rid := uuid.New().String()
+	body := `{"analyteId":"` + uuid.New().String() + `","observedDate":"2025-09-26"}`
+	if rec := do(t, router(q, nil), http.MethodPost, "/api/results/"+rid, body); rec.Code != http.StatusNotFound {
+		t.Errorf("update foreign result: want 404, got %d", rec.Code)
+	}
+	if rec := do(t, router(q, nil), http.MethodDelete, "/api/results/"+rid, ""); rec.Code != http.StatusNotFound {
+		t.Errorf("delete foreign result: want 404, got %d", rec.Code)
+	}
+}
+
+// Only the owner can delete a profile; a shared editor gets 403.
+func TestDeleteProfile_OwnerOnly(t *testing.T) {
+	sharedProfile := func(_ context.Context, arg sqlc.GetProfileForUserParams) (sqlc.Profile, error) {
+		other := uuid.New() // owner is someone else
+		return sqlc.Profile{ID: arg.ID, OwnerUserID: &other}, nil
+	}
+	q := &sqlctest.FakeQuerier{
+		GetProfileForUserFn: sharedProfile,
+		DeleteProfileFn:     func(context.Context, uuid.UUID) error { t.Fatal("must not delete"); return nil },
+	}
+	rec := do(t, router(q, nil), http.MethodDelete, "/api/profiles/"+uuid.New().String(), "")
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("non-owner delete: want 403, got %d", rec.Code)
+	}
+}
+
+// Sharing requires the target to have signed in already (a users row exists).
+func TestAddMember_UnknownEmail(t *testing.T) {
+	me := DevUserID
+	q := &sqlctest.FakeQuerier{
+		GetProfileForUserFn: func(_ context.Context, arg sqlc.GetProfileForUserParams) (sqlc.Profile, error) {
+			return sqlc.Profile{ID: arg.ID, OwnerUserID: &me}, nil // I own it
+		},
+		GetUserByEmailFn: func(context.Context, string) (sqlc.User, error) {
+			return sqlc.User{}, pgx.ErrNoRows
+		},
+	}
+	body := `{"email":"nobody@example.com"}`
+	rec := do(t, router(q, nil), http.MethodPost, "/api/profiles/"+uuid.New().String()+"/members", body)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("share with unknown email: want 404, got %d", rec.Code)
+	}
+}
+
+// The owner can share a profile with an existing user.
+func TestAddMember_Success(t *testing.T) {
+	me := DevUserID
+	target := uuid.New()
+	var added sqlc.AddProfileMemberParams
+	q := &sqlctest.FakeQuerier{
+		GetProfileForUserFn: func(_ context.Context, arg sqlc.GetProfileForUserParams) (sqlc.Profile, error) {
+			return sqlc.Profile{ID: arg.ID, OwnerUserID: &me}, nil
+		},
+		GetUserByEmailFn: func(context.Context, string) (sqlc.User, error) {
+			return sqlc.User{ID: target, Email: pgtype.Text{String: "friend@example.com", Valid: true}}, nil
+		},
+		AddProfileMemberFn: func(_ context.Context, arg sqlc.AddProfileMemberParams) error {
+			added = arg
+			return nil
+		},
+	}
+	body := `{"email":"friend@example.com"}`
+	rec := do(t, router(q, nil), http.MethodPost, "/api/profiles/"+uuid.New().String()+"/members", body)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+	if added.UserID != target || added.Role != "editor" {
+		t.Errorf("added member = %+v", added)
+	}
+}
+
 func TestGetAnalysis(t *testing.T) {
 	gen := time.Date(2026, 1, 10, 0, 0, 0, 0, time.UTC)
 	q := &sqlctest.FakeQuerier{
-		GetProfileFn: func(_ context.Context, id uuid.UUID) (sqlc.Profile, error) { return sqlc.Profile{ID: id}, nil },
+		GetProfileForUserFn: func(_ context.Context, arg sqlc.GetProfileForUserParams) (sqlc.Profile, error) {
+			return sqlc.Profile{ID: arg.ID}, nil
+		},
 		ResultStatsForProfileAnalyteFn: func(context.Context, sqlc.ResultStatsForProfileAnalyteParams) (sqlc.ResultStatsForProfileAnalyteRow, error) {
 			return sqlc.ResultStatsForProfileAnalyteRow{Count: 2, LastChanged: pgtype.Timestamptz{Time: gen.Add(-time.Hour), Valid: true}}, nil
 		},
@@ -224,6 +352,10 @@ func TestGetAnalysis(t *testing.T) {
 func TestAnalyzeAnalyte(t *testing.T) {
 	ex := llmtest.MockExtractor(t, "FRESH ANALYSIS")
 	q := &sqlctest.FakeQuerier{
+		GetProfileForUserFn: func(_ context.Context, arg sqlc.GetProfileForUserParams) (sqlc.Profile, error) {
+			return sqlc.Profile{ID: arg.ID}, nil
+		},
+		// analysis.Generate loads the profile (name/DOB) for the LLM prompt.
 		GetProfileFn: func(_ context.Context, id uuid.UUID) (sqlc.Profile, error) { return sqlc.Profile{ID: id}, nil },
 		GetAnalyteFn: func(context.Context, uuid.UUID) (sqlc.Analyte, error) { return sqlc.Analyte{Name: "Glucose"}, nil },
 		ListResultsForProfileAnalyteFn: func(context.Context, sqlc.ListResultsForProfileAnalyteParams) ([]sqlc.ListResultsForProfileAnalyteRow, error) {

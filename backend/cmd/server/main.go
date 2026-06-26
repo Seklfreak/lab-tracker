@@ -38,6 +38,23 @@ func main() {
 	}
 	defer pool.Close()
 
+	// Ensure an owner exists for pre-existing (owner-less) profiles. In dev
+	// (AUTH_DISABLED) everything is owned by the fixed local user; in prod, set
+	// ADMIN_OIDC_SUB once to migrate legacy profiles to the admin account.
+	if cfg.AuthDisabled {
+		devID := api.DevUserID
+		if err := db.BootstrapOwner(ctx, pool, api.DevUserSub, &devID); err != nil {
+			log.Error("bootstrap dev owner", "err", err)
+			os.Exit(1)
+		}
+	} else if cfg.AdminOIDCSub != "" {
+		if err := db.BootstrapOwner(ctx, pool, cfg.AdminOIDCSub, nil); err != nil {
+			log.Error("bootstrap admin owner", "err", err)
+			os.Exit(1)
+		}
+		log.Info("backfilled owner-less profiles to admin", "sub", cfg.AdminOIDCSub)
+	}
+
 	store, err := storage.New(ctx, cfg.MinioEndpoint, cfg.MinioAccessKey, cfg.MinioSecretKey, cfg.MinioBucket, cfg.MinioUseSSL)
 	if err != nil {
 		log.Error("storage", "err", err)

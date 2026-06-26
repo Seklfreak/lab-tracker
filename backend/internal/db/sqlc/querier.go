@@ -12,6 +12,7 @@ import (
 
 type Querier interface {
 	AddFavorite(ctx context.Context, arg AddFavoriteParams) error
+	AddProfileMember(ctx context.Context, arg AddProfileMemberParams) error
 	CreateAnalyte(ctx context.Context, arg CreateAnalyteParams) (Analyte, error)
 	CreateProfile(ctx context.Context, arg CreateProfileParams) (Profile, error)
 	CreateReport(ctx context.Context, arg CreateReportParams) (LabReport, error)
@@ -25,17 +26,32 @@ type Querier interface {
 	GetAnalyte(ctx context.Context, id uuid.UUID) (Analyte, error)
 	GetAnalyteByName(ctx context.Context, btrim string) (Analyte, error)
 	GetProfile(ctx context.Context, id uuid.UUID) (Profile, error)
+	// A profile by id, but only if the user owns it or it's shared with them.
+	// Returns no rows (treated as 404) otherwise, so existence isn't leaked.
+	GetProfileForUser(ctx context.Context, arg GetProfileForUserParams) (Profile, error)
 	GetReport(ctx context.Context, id uuid.UUID) (LabReport, error)
+	GetResult(ctx context.Context, id uuid.UUID) (LabResult, error)
+	GetUser(ctx context.Context, id uuid.UUID) (User, error)
+	// Used when sharing a profile by email. Case-insensitive; the user must have
+	// signed in at least once (so a row exists) to be a share target.
+	GetUserByEmail(ctx context.Context, lower string) (User, error)
+	GetUserBySub(ctx context.Context, oidcSub string) (User, error)
 	ListAnalytes(ctx context.Context) ([]Analyte, error)
 	ListAnalytesWithDataForProfile(ctx context.Context, profileID uuid.UUID) ([]Analyte, error)
 	ListLatestResultsForProfile(ctx context.Context, profileID uuid.UUID) ([]ListLatestResultsForProfileRow, error)
+	ListProfileMembers(ctx context.Context, profileID uuid.UUID) ([]ListProfileMembersRow, error)
+	// Unscoped: every profile. Only the MCP connector uses this, and only when it
+	// runs without a configured user (MCP_USER_SUB). The API always scopes by user.
 	ListProfiles(ctx context.Context) ([]Profile, error)
+	// Profiles the user owns or that have been shared with them.
+	ListProfilesForUser(ctx context.Context, userID *uuid.UUID) ([]Profile, error)
 	ListReportsForProfile(ctx context.Context, profileID uuid.UUID) ([]LabReport, error)
 	ListResultsForProfile(ctx context.Context, profileID uuid.UUID) ([]ListResultsForProfileRow, error)
 	ListResultsForProfileAnalyte(ctx context.Context, arg ListResultsForProfileAnalyteParams) ([]ListResultsForProfileAnalyteRow, error)
 	MatchAliasBySpecimen(ctx context.Context, arg MatchAliasBySpecimenParams) (Analyte, error)
 	MatchAnalyteBySpecimen(ctx context.Context, arg MatchAnalyteBySpecimenParams) (Analyte, error)
 	RemoveFavorite(ctx context.Context, arg RemoveFavoriteParams) error
+	RemoveProfileMember(ctx context.Context, arg RemoveProfileMemberParams) error
 	ResultStatsForProfileAnalyte(ctx context.Context, arg ResultStatsForProfileAnalyteParams) (ResultStatsForProfileAnalyteRow, error)
 	SetReportError(ctx context.Context, arg SetReportErrorParams) error
 	SetReportParsed(ctx context.Context, arg SetReportParsedParams) error
@@ -44,6 +60,9 @@ type Querier interface {
 	UpdateResult(ctx context.Context, arg UpdateResultParams) error
 	UpsertAlias(ctx context.Context, arg UpsertAliasParams) error
 	UpsertAnalysis(ctx context.Context, arg UpsertAnalysisParams) error
+	// Called on every authenticated request from the JWT's sub/email/name. The sub
+	// is the stable identity; email/name are refreshed and last_seen_at bumped.
+	UpsertUser(ctx context.Context, arg UpsertUserParams) (User, error)
 }
 
 var _ Querier = (*Queries)(nil)

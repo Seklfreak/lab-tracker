@@ -8,6 +8,10 @@ INSERT INTO lab_results (
 )
 RETURNING *;
 
+-- name: GetResult :one
+SELECT * FROM lab_results
+WHERE id = $1;
+
 -- name: DeleteResultsForReport :exec
 DELETE FROM lab_results
 WHERE report_id = $1;

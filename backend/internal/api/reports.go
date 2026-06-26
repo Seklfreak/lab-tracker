@@ -376,6 +376,12 @@ func (s *Server) requireReport(w http.ResponseWriter, r *http.Request) (sqlc.Lab
 		writeError(w, http.StatusInternalServerError, "failed to load report")
 		return sqlc.LabReport{}, false
 	}
+	// Guard: the report's profile must be one the user owns or shares. 404 (not
+	// 403) so a report id can't be probed for existence across users.
+	if !s.canAccessProfile(r, report.ProfileID) {
+		writeError(w, http.StatusNotFound, "report not found")
+		return sqlc.LabReport{}, false
+	}
 	return report, true
 }
 

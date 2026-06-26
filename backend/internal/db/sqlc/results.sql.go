@@ -94,6 +94,34 @@ func (q *Queries) DeleteResultsForReport(ctx context.Context, reportID uuid.UUID
 	return err
 }
 
+const getResult = `-- name: GetResult :one
+SELECT id, report_id, profile_id, analyte_id, raw_test_name, value_text, value_numeric, unit, reference_low, reference_high, reference_text, observed_date, created_at, note, updated_at FROM lab_results
+WHERE id = $1
+`
+
+func (q *Queries) GetResult(ctx context.Context, id uuid.UUID) (LabResult, error) {
+	row := q.db.QueryRow(ctx, getResult, id)
+	var i LabResult
+	err := row.Scan(
+		&i.ID,
+		&i.ReportID,
+		&i.ProfileID,
+		&i.AnalyteID,
+		&i.RawTestName,
+		&i.ValueText,
+		&i.ValueNumeric,
+		&i.Unit,
+		&i.ReferenceLow,
+		&i.ReferenceHigh,
+		&i.ReferenceText,
+		&i.ObservedDate,
+		&i.CreatedAt,
+		&i.Note,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const listLatestResultsForProfile = `-- name: ListLatestResultsForProfile :many
 SELECT DISTINCT ON (r.analyte_id)
     r.id, r.report_id, r.profile_id, r.analyte_id, r.raw_test_name, r.value_text, r.value_numeric, r.unit, r.reference_low, r.reference_high, r.reference_text, r.observed_date, r.created_at, r.note, r.updated_at, a.name AS analyte_name, a.category AS analyte_category,

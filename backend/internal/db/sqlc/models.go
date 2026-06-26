@@ -77,4 +77,21 @@ type Profile struct {
 	Name        string             `json:"name"`
 	DateOfBirth pgtype.Date        `json:"date_of_birth"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	OwnerUserID *uuid.UUID         `json:"owner_user_id"`
+}
+
+type ProfileMember struct {
+	ProfileID uuid.UUID          `json:"profile_id"`
+	UserID    uuid.UUID          `json:"user_id"`
+	Role      string             `json:"role"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type User struct {
+	ID         uuid.UUID          `json:"id"`
+	OidcSub    string             `json:"oidc_sub"`
+	Email      pgtype.Text        `json:"email"`
+	Name       pgtype.Text        `json:"name"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	LastSeenAt pgtype.Timestamptz `json:"last_seen_at"`
 }

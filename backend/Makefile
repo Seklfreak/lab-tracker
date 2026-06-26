@@ -1,7 +1,11 @@
 .PHONY: sqlc run build tidy migrate-down
 
+# Pin sqlc to the version the checked-in code was generated with, so `make sqlc`
+# is reproducible and CI doesn't drift onto a newer codegen.
+SQLC_VERSION := v1.31.1
+
 sqlc:
-	go run github.com/sqlc-dev/sqlc/cmd/sqlc@latest generate
+	go run github.com/sqlc-dev/sqlc/cmd/sqlc@$(SQLC_VERSION) generate
 
 tidy:
 	go mod tidy

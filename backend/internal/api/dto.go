@@ -11,10 +11,16 @@ type ProfileDTO struct {
 	ID          uuid.UUID `json:"id"`
 	Name        string    `json:"name"`
 	DateOfBirth *string   `json:"dateOfBirth"`
+	IsOwner     bool      `json:"isOwner"`
 }
 
-func toProfileDTO(p sqlc.Profile) ProfileDTO {
-	return ProfileDTO{ID: p.ID, Name: p.Name, DateOfBirth: dateToPtr(p.DateOfBirth)}
+func toProfileDTO(p sqlc.Profile, uid uuid.UUID) ProfileDTO {
+	return ProfileDTO{
+		ID:          p.ID,
+		Name:        p.Name,
+		DateOfBirth: dateToPtr(p.DateOfBirth),
+		IsOwner:     isOwner(p, uid),
+	}
 }
 
 type AnalyteDTO struct {

@@ -4,6 +4,15 @@ export interface Profile {
   id: string;
   name: string;
   dateOfBirth: string | null;
+  isOwner: boolean;
+}
+
+export interface Member {
+  userId: string;
+  email: string | null;
+  name: string | null;
+  role: string;
+  isOwner: boolean;
 }
 
 export interface Analysis {
@@ -157,6 +166,13 @@ export const api = {
     req<Profile>("/api/profiles", json({ name, dateOfBirth })),
   deleteProfile: (id: string) =>
     req<void>(`/api/profiles/${id}`, { method: "DELETE" }),
+
+  listMembers: (profileId: string) =>
+    req<Member[]>(`/api/profiles/${profileId}/members`),
+  addMember: (profileId: string, email: string) =>
+    req<Member>(`/api/profiles/${profileId}/members`, json({ email })),
+  removeMember: (profileId: string, userId: string) =>
+    req<void>(`/api/profiles/${profileId}/members/${userId}`, { method: "DELETE" }),
 
   listAnalytes: () => req<Analyte[]>("/api/analytes"),
   listProfileAnalytes: (profileId: string) =>

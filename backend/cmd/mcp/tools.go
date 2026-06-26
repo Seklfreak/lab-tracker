@@ -21,10 +21,11 @@ type deps struct {
 	q         sqlc.Querier
 	extractor *llm.Extractor
 	log       *slog.Logger
+	userID    *uuid.UUID // when set, all access is scoped to this user
 }
 
-func newMCPServer(q sqlc.Querier, extractor *llm.Extractor, log *slog.Logger) *mcp.Server {
-	d := &deps{q: q, extractor: extractor, log: log}
+func newMCPServer(q sqlc.Querier, extractor *llm.Extractor, log *slog.Logger, userID *uuid.UUID) *mcp.Server {
+	d := &deps{q: q, extractor: extractor, log: log, userID: userID}
 	s := mcp.NewServer(&mcp.Implementation{Name: "lab-tracker", Version: "0.1.0"}, nil)
 
 	mcp.AddTool(s, &mcp.Tool{
@@ -130,8 +131,29 @@ type analysisOut struct {
 
 // ---- handlers ----
 
+// requireProfileAccess enforces the connector's user scope: when scoped, the
+// profile must be owned by or shared with that user. A no-op when unscoped.
+func (d *deps) requireProfileAccess(ctx context.Context, pid uuid.UUID) error {
+	if d.userID == nil {
+		return nil
+	}
+	if _, err := d.q.GetProfileForUser(ctx, sqlc.GetProfileForUserParams{ID: pid, UserID: d.userID}); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("profile not found")
+		}
+		return err
+	}
+	return nil
+}
+
 func (d *deps) listProfiles(ctx context.Context, _ *mcp.CallToolRequest, _ emptyIn) (*mcp.CallToolResult, listProfilesOut, error) {
-	rows, err := d.q.ListProfiles(ctx)
+	var rows []sqlc.Profile
+	var err error
+	if d.userID != nil {
+		rows, err = d.q.ListProfilesForUser(ctx, d.userID)
+	} else {
+		rows, err = d.q.ListProfiles(ctx)
+	}
 	if err != nil {
 		return nil, listProfilesOut{}, err
 	}
@@ -148,6 +170,9 @@ func (d *deps) listLatestResults(ctx context.Context, _ *mcp.CallToolRequest, in
 	pid, err := uuid.Parse(strings.TrimSpace(in.ProfileID))
 	if err != nil {
 		return nil, listLatestOut{}, fmt.Errorf("invalid profileId: %w", err)
+	}
+	if err := d.requireProfileAccess(ctx, pid); err != nil {
+		return nil, listLatestOut{}, err
 	}
 	rows, err := d.q.ListLatestResultsForProfile(ctx, pid)
 	if err != nil {
@@ -180,6 +205,9 @@ func (d *deps) getAnalyteTrend(ctx context.Context, _ *mcp.CallToolRequest, in a
 	if err != nil {
 		return nil, trendOut{}, fmt.Errorf("invalid analyteId: %w", err)
 	}
+	if err := d.requireProfileAccess(ctx, pid); err != nil {
+		return nil, trendOut{}, err
+	}
 	rows, err := d.q.ListResultsForProfileAnalyte(ctx, sqlc.ListResultsForProfileAnalyteParams{ProfileID: pid, AnalyteID: aid})
 	if err != nil {
 		return nil, trendOut{}, err
@@ -210,6 +238,9 @@ func (d *deps) searchAnalytes(ctx context.Context, _ *mcp.CallToolRequest, in se
 		if perr != nil {
 			return nil, searchOut{}, fmt.Errorf("invalid profileId: %w", perr)
 		}
+		if aerr := d.requireProfileAccess(ctx, pid); aerr != nil {
+			return nil, searchOut{}, aerr
+		}
 		rows, err = d.q.ListAnalytesWithDataForProfile(ctx, pid)
 	} else {
 		rows, err = d.q.ListAnalytes(ctx)
@@ -238,6 +269,9 @@ func (d *deps) getAnalysis(ctx context.Context, _ *mcp.CallToolRequest, in analy
 	aid, err := uuid.Parse(strings.TrimSpace(in.AnalyteID))
 	if err != nil {
 		return nil, analysisOut{}, fmt.Errorf("invalid analyteId: %w", err)
+	}
+	if err := d.requireProfileAccess(ctx, pid); err != nil {
+		return nil, analysisOut{}, err
 	}
 	stats, err := d.q.ResultStatsForProfileAnalyte(ctx, sqlc.ResultStatsForProfileAnalyteParams{ProfileID: pid, AnalyteID: aid})
 	if err != nil {
@@ -271,6 +305,9 @@ func (d *deps) generateAnalysis(ctx context.Context, _ *mcp.CallToolRequest, in 
 	aid, err := uuid.Parse(strings.TrimSpace(in.AnalyteID))
 	if err != nil {
 		return nil, analysisOut{}, fmt.Errorf("invalid analyteId: %w", err)
+	}
+	if err := d.requireProfileAccess(ctx, pid); err != nil {
+		return nil, analysisOut{}, err
 	}
 	content, count, err := analysis.Generate(ctx, d.q, d.extractor, pid, aid)
 	switch {

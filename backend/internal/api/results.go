@@ -2,9 +2,12 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/Seklfreak/lab-tracker/backend/internal/db/sqlc"
 )
 
@@ -24,6 +27,9 @@ func (s *Server) updateResult(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseUUID(chi.URLParam(r, "id"))
 	if !ok {
 		writeError(w, http.StatusBadRequest, "invalid id")
+		return
+	}
+	if !s.requireResultAccess(w, r, id) {
 		return
 	}
 	var req updateResultReq
@@ -66,12 +72,35 @@ func (s *Server) deleteResult(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid id")
 		return
 	}
+	if !s.requireResultAccess(w, r, id) {
+		return
+	}
 	if err := s.q.DeleteResult(r.Context(), id); err != nil {
 		s.log.Error("delete result", "err", err)
 		writeError(w, http.StatusInternalServerError, "failed to delete result")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// requireResultAccess verifies the current user may access the profile that owns
+// the given result. Writes a 404 and returns false otherwise.
+func (s *Server) requireResultAccess(w http.ResponseWriter, r *http.Request, id uuid.UUID) bool {
+	res, err := s.q.GetResult(r.Context(), id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		writeError(w, http.StatusNotFound, "result not found")
+		return false
+	}
+	if err != nil {
+		s.log.Error("get result", "err", err)
+		writeError(w, http.StatusInternalServerError, "failed to load result")
+		return false
+	}
+	if !s.canAccessProfile(r, res.ProfileID) {
+		writeError(w, http.StatusNotFound, "result not found")
+		return false
+	}
+	return true
 }
 
 // listResults returns all results for a profile, or just one analyte's trend

@@ -26,7 +26,7 @@ func connect(t *testing.T, q sqlc.Querier) *mcp.ClientSession {
 // connectLLM is like connect but with an injected extractor (for generate_analysis).
 func connectLLM(t *testing.T, q sqlc.Querier, ex *llm.Extractor) *mcp.ClientSession {
 	t.Helper()
-	srv := newMCPServer(q, ex, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	srv := newMCPServer(q, ex, slog.New(slog.NewTextHandler(io.Discard, nil)), nil)
 	ct, st := mcp.NewInMemoryTransports()
 	ctx := context.Background()
 	ss, err := srv.Connect(ctx, st, nil)

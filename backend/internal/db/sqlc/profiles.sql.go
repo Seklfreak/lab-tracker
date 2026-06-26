@@ -13,24 +13,26 @@ import (
 )
 
 const createProfile = `-- name: CreateProfile :one
-INSERT INTO profiles (name, date_of_birth)
-VALUES ($1, $2)
-RETURNING id, name, date_of_birth, created_at
+INSERT INTO profiles (name, date_of_birth, owner_user_id)
+VALUES ($1, $2, $3)
+RETURNING id, name, date_of_birth, created_at, owner_user_id
 `
 
 type CreateProfileParams struct {
 	Name        string      `json:"name"`
 	DateOfBirth pgtype.Date `json:"date_of_birth"`
+	OwnerUserID *uuid.UUID  `json:"owner_user_id"`
 }
 
 func (q *Queries) CreateProfile(ctx context.Context, arg CreateProfileParams) (Profile, error) {
-	row := q.db.QueryRow(ctx, createProfile, arg.Name, arg.DateOfBirth)
+	row := q.db.QueryRow(ctx, createProfile, arg.Name, arg.DateOfBirth, arg.OwnerUserID)
 	var i Profile
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
 		&i.DateOfBirth,
 		&i.CreatedAt,
+		&i.OwnerUserID,
 	)
 	return i, err
 }
@@ -46,7 +48,7 @@ func (q *Queries) DeleteProfile(ctx context.Context, id uuid.UUID) error {
 }
 
 const getProfile = `-- name: GetProfile :one
-SELECT id, name, date_of_birth, created_at FROM profiles
+SELECT id, name, date_of_birth, created_at, owner_user_id FROM profiles
 WHERE id = $1
 `
 
@@ -58,15 +60,50 @@ func (q *Queries) GetProfile(ctx context.Context, id uuid.UUID) (Profile, error)
 		&i.Name,
 		&i.DateOfBirth,
 		&i.CreatedAt,
+		&i.OwnerUserID,
+	)
+	return i, err
+}
+
+const getProfileForUser = `-- name: GetProfileForUser :one
+SELECT p.id, p.name, p.date_of_birth, p.created_at, p.owner_user_id FROM profiles p
+WHERE p.id = $1
+  AND (
+      p.owner_user_id = $2
+      OR EXISTS (
+          SELECT 1 FROM profile_members m
+          WHERE m.profile_id = p.id AND m.user_id = $2
+      )
+  )
+`
+
+type GetProfileForUserParams struct {
+	ID     uuid.UUID  `json:"id"`
+	UserID *uuid.UUID `json:"user_id"`
+}
+
+// A profile by id, but only if the user owns it or it's shared with them.
+// Returns no rows (treated as 404) otherwise, so existence isn't leaked.
+func (q *Queries) GetProfileForUser(ctx context.Context, arg GetProfileForUserParams) (Profile, error) {
+	row := q.db.QueryRow(ctx, getProfileForUser, arg.ID, arg.UserID)
+	var i Profile
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.DateOfBirth,
+		&i.CreatedAt,
+		&i.OwnerUserID,
 	)
 	return i, err
 }
 
 const listProfiles = `-- name: ListProfiles :many
-SELECT id, name, date_of_birth, created_at FROM profiles
+SELECT id, name, date_of_birth, created_at, owner_user_id FROM profiles
 ORDER BY name
 `
 
+// Unscoped: every profile. Only the MCP connector uses this, and only when it
+// runs without a configured user (MCP_USER_SUB). The API always scopes by user.
 func (q *Queries) ListProfiles(ctx context.Context) ([]Profile, error) {
 	rows, err := q.db.Query(ctx, listProfiles)
 	if err != nil {
@@ -81,6 +118,44 @@ func (q *Queries) ListProfiles(ctx context.Context) ([]Profile, error) {
 			&i.Name,
 			&i.DateOfBirth,
 			&i.CreatedAt,
+			&i.OwnerUserID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listProfilesForUser = `-- name: ListProfilesForUser :many
+SELECT p.id, p.name, p.date_of_birth, p.created_at, p.owner_user_id FROM profiles p
+WHERE p.owner_user_id = $1
+   OR EXISTS (
+       SELECT 1 FROM profile_members m
+       WHERE m.profile_id = p.id AND m.user_id = $1
+   )
+ORDER BY p.name
+`
+
+// Profiles the user owns or that have been shared with them.
+func (q *Queries) ListProfilesForUser(ctx context.Context, userID *uuid.UUID) ([]Profile, error) {
+	rows, err := q.db.Query(ctx, listProfilesForUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Profile{}
+	for rows.Next() {
+		var i Profile
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.DateOfBirth,
+			&i.CreatedAt,
+			&i.OwnerUserID,
 		); err != nil {
 			return nil, err
 		}

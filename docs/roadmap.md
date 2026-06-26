@@ -56,19 +56,22 @@ and rough notes so they aren't lost.
       privacy policy URL still mandatory; every app update is re-reviewed, so
       keep demo mode in the app permanently.
 
-- [ ] **Per-user data isolation** — auth is gate-only today (every signed-in user
-  in the allowed groups sees *all* profiles). Make each user see only the profiles
-  they own, with optional sharing for households. Prerequisite before letting anyone
-  else log in.
+- [x] **Per-user data isolation** (2026-06-26) — auth was gate-only (every
+  signed-in user saw *all* profiles). Now each user sees only the profiles they
+  own or that are shared with them, and shared users can co-edit.
   - **Model:** a `users` table keyed on the OIDC `sub`, upserted from the JWT per
-    request; `profiles.owner_user_id` + a `profile_members(profile_id, user_id, role)`
-    table for sharing; scope every profile/result/report query to owned-or-shared;
-    migrate existing profiles to the first (admin) user.
-  - **Caveats:** touches many queries → add `sqlc` to the dev/CI toolchain first
-    (no CLI in the env today). Decide MCP's identity — it's DB-direct behind
-    Cloudflare Access (effectively one identity), so scope it to a single user or
-    thread identity through. Owner-only is simple; sharing (ACL + share UI) is the
-    bigger chunk.
+    request (`authMiddleware`); `profiles.owner_user_id` + a
+    `profile_members(profile_id, user_id, role)` table for sharing. Every
+    profile/result/report query is scoped to owned-or-shared (`GetProfileForUser`
+    / `ListProfilesForUser`); by-id report/result endpoints resolve their profile
+    and access-check it. Pre-existing profiles are migrated to `ADMIN_OIDC_SUB`
+    at startup (`db.BootstrapOwner`); local dev maps to a fixed dev user.
+  - **Sharing:** owner-only `GET/POST/DELETE /api/profiles/{id}/members`; share
+    by email (target must have logged in once). Frontend Share dialog +
+    owned/shared badge.
+  - **MCP identity:** scoped to one configured user via `MCP_USER_SUB`
+    (resolves the `sub` to a user; tools see only that user's profiles). Unset =
+    unscoped, logged loudly.
 
 ## Bigger direction: a general health record (not just labs)
 
