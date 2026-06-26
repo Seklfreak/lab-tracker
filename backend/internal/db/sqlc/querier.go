@@ -48,6 +48,9 @@ type Querier interface {
 	ListReportsForProfile(ctx context.Context, profileID uuid.UUID) ([]LabReport, error)
 	ListResultsForProfile(ctx context.Context, profileID uuid.UUID) ([]ListResultsForProfileRow, error)
 	ListResultsForProfileAnalyte(ctx context.Context, arg ListResultsForProfileAnalyteParams) ([]ListResultsForProfileAnalyteRow, error)
+	// Admin view: every user with how many profiles they own and how many are
+	// shared with them.
+	ListUsersWithProfileCounts(ctx context.Context) ([]ListUsersWithProfileCountsRow, error)
 	MatchAliasBySpecimen(ctx context.Context, arg MatchAliasBySpecimenParams) (Analyte, error)
 	MatchAnalyteBySpecimen(ctx context.Context, arg MatchAnalyteBySpecimenParams) (Analyte, error)
 	RemoveFavorite(ctx context.Context, arg RemoveFavoriteParams) error

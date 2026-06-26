@@ -1,10 +1,19 @@
 import { lazy, Suspense, useEffect } from "react";
 import { NavLink, Route, Routes } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { clsx } from "clsx";
 import { useAuth } from "react-oidc-context";
-import { Activity, LayoutGrid, Upload as UploadIcon, FileText, LogOut } from "lucide-react";
+import {
+  Activity,
+  LayoutGrid,
+  Upload as UploadIcon,
+  FileText,
+  LogOut,
+  Shield,
+} from "lucide-react";
 import { ProfileSwitcher } from "@/components/ProfileSwitcher";
 import { Spinner } from "@/components/ui";
+import { api } from "@/lib/api";
 import { authEnabled, setAccessToken, setUnauthorizedHandler } from "@/lib/auth";
 
 // Lazy-load route pages so each (and Recharts, pulled in by AnalyteDetail) is a
@@ -16,6 +25,7 @@ const AnalyteDetail = lazy(() =>
 const Upload = lazy(() => import("@/pages/Upload").then((m) => ({ default: m.Upload })));
 const Reports = lazy(() => import("@/pages/Reports").then((m) => ({ default: m.Reports })));
 const Compare = lazy(() => import("@/pages/Compare").then((m) => ({ default: m.Compare })));
+const Admin = lazy(() => import("@/pages/Admin").then((m) => ({ default: m.Admin })));
 
 // RequireAuth gates the app behind OIDC login (no-op when auth is disabled).
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -115,7 +125,18 @@ function NavItem({
 export default function App() {
   return (
     <RequireAuth>
-      <div className="min-h-full">
+      <AppShell />
+    </RequireAuth>
+  );
+}
+
+function AppShell() {
+  // Drives the conditional Admin nav link; the backend independently gates the
+  // admin endpoints, so this is purely cosmetic.
+  const me = useQuery({ queryKey: ["me"], queryFn: api.me });
+
+  return (
+    <div className="min-h-full">
         <header className="sticky top-0 z-10 border-b border-border bg-bg/80 backdrop-blur">
           {/* Mobile: brand + profile on row 1, nav wraps to a full-width row 2.
               sm+: single row brand | nav | profile. */}
@@ -132,6 +153,9 @@ export default function App() {
               <NavItem to="/" icon={<LayoutGrid size={16} />} label="Dashboard" />
               <NavItem to="/upload" icon={<UploadIcon size={16} />} label="Upload" />
               <NavItem to="/reports" icon={<FileText size={16} />} label="Reports" />
+              {me.data?.isAdmin && (
+                <NavItem to="/admin" icon={<Shield size={16} />} label="Admin" />
+              )}
             </nav>
           </div>
         </header>
@@ -144,10 +168,10 @@ export default function App() {
               <Route path="/upload" element={<Upload />} />
               <Route path="/compare" element={<Compare />} />
               <Route path="/reports" element={<Reports />} />
+              <Route path="/admin" element={<Admin />} />
             </Routes>
           </Suspense>
         </main>
-      </div>
-    </RequireAuth>
+    </div>
   );
 }

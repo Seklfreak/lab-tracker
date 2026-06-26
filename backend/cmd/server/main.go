@@ -69,7 +69,7 @@ func main() {
 		log.Info("oidc auth enabled", "issuer", cfg.OIDCIssuer)
 	}
 
-	srv := api.NewServer(pool, store, extractor, log, verifier)
+	srv := api.NewServer(pool, store, extractor, log, verifier, cfg.AdminEmails)
 	handler := srv.Router(cfg.CORSOrigins)
 
 	httpServer := &http.Server{

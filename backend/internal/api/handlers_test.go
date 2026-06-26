@@ -198,6 +198,59 @@ func TestUpdateResult(t *testing.T) {
 	}
 }
 
+// --- admin area ---
+
+func TestGetMe_DevIsAdmin(t *testing.T) {
+	q := &sqlctest.FakeQuerier{
+		GetUserFn: func(_ context.Context, id uuid.UUID) (sqlc.User, error) {
+			return sqlc.User{ID: id, Email: pgtype.Text{String: "me@x.com", Valid: true}}, nil
+		},
+	}
+	rec := do(t, router(q, nil), http.MethodGet, "/api/me", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d", rec.Code)
+	}
+	var got MeDTO
+	_ = json.Unmarshal(rec.Body.Bytes(), &got)
+	if !got.IsAdmin {
+		t.Errorf("dev user should be admin, got %+v", got)
+	}
+}
+
+func TestListAllUsers(t *testing.T) {
+	q := &sqlctest.FakeQuerier{
+		ListUsersWithProfileCountsFn: func(context.Context) ([]sqlc.ListUsersWithProfileCountsRow, error) {
+			return []sqlc.ListUsersWithProfileCountsRow{
+				{ID: uuid.New(), Email: pgtype.Text{String: "a@b.com", Valid: true}, OwnedCount: 2, SharedCount: 1},
+			}, nil
+		},
+	}
+	rec := do(t, router(q, nil), http.MethodGet, "/api/admin/users", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d", rec.Code)
+	}
+	var got []AdminUserDTO
+	_ = json.Unmarshal(rec.Body.Bytes(), &got)
+	if len(got) != 1 || got[0].OwnedCount != 2 || got[0].SharedCount != 1 {
+		t.Errorf("users = %+v", got)
+	}
+}
+
+// A non-admin is rejected before any query runs.
+func TestListAllUsers_Forbidden(t *testing.T) {
+	s := &Server{
+		q:   &sqlctest.FakeQuerier{},
+		log: slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+	req := httptest.NewRequest(http.MethodGet, "/api/admin/users", nil)
+	req = req.WithContext(context.WithValue(req.Context(), isAdminKey, false))
+	rec := httptest.NewRecorder()
+	s.listAllUsers(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("non-admin: want 403, got %d", rec.Code)
+	}
+}
+
 func TestUpdateResultBadID(t *testing.T) {
 	rec := do(t, router(&sqlctest.FakeQuerier{}, nil), http.MethodPost, "/api/results/not-a-uuid", `{"analyteId":"x"}`)
 	if rec.Code != http.StatusBadRequest {

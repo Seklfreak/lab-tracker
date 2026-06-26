@@ -24,6 +24,10 @@ type Config struct {
 	OIDCIssuer   string
 	OIDCClientID string
 	AuthDisabled bool
+
+	// AdminEmails are the email addresses (from the JWT) granted super-user
+	// access to the admin area (e.g. listing all users). Comma-separated.
+	AdminEmails []string
 }
 
 // Load reads configuration from the environment. If a .env file exists in the
@@ -46,6 +50,7 @@ func Load() (*Config, error) {
 		OIDCIssuer:     os.Getenv("OIDC_ISSUER"),
 		OIDCClientID:   os.Getenv("OIDC_CLIENT_ID"),
 		AuthDisabled:   os.Getenv("AUTH_DISABLED") == "true",
+		AdminEmails:    splitCSV(os.Getenv("ADMIN_EMAILS")),
 	}
 
 	var missing []string

@@ -30,8 +30,10 @@ func NewVerifier(ctx context.Context, issuer, clientID string) (*oidc.IDTokenVer
 type ctxKey string
 
 const (
-	claimsKey ctxKey = "oidc-claims"
-	userIDKey ctxKey = "user-id"
+	claimsKey  ctxKey = "oidc-claims"
+	userIDKey  ctxKey = "user-id"
+	emailKey   ctxKey = "user-email"
+	isAdminKey ctxKey = "is-admin"
 )
 
 // DevUserID is the fixed local user used when AUTH_DISABLED is set (dev). The
@@ -48,7 +50,10 @@ const DevUserSub = "dev-user"
 func (s *Server) authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if s.verifier == nil {
+			// Dev: act as the fixed local user, and treat them as admin so the
+			// admin area is reachable without a token.
 			ctx := context.WithValue(r.Context(), userIDKey, DevUserID)
+			ctx = context.WithValue(ctx, isAdminKey, true)
 			next.ServeHTTP(w, r.WithContext(ctx))
 			return
 		}
@@ -82,10 +87,25 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
+		email := stringClaim(claims, "email")
 		ctx := context.WithValue(r.Context(), userIDKey, user.ID)
 		ctx = context.WithValue(ctx, claimsKey, claims)
+		ctx = context.WithValue(ctx, emailKey, email)
+		ctx = context.WithValue(ctx, isAdminKey, s.isAdminEmail(email))
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+// isAdminEmail reports whether the email is in the super-user allowlist.
+func (s *Server) isAdminEmail(email string) bool {
+	email = strings.ToLower(strings.TrimSpace(email))
+	return email != "" && s.adminEmails[email]
+}
+
+// isAdmin reports whether the current request is from a super-user.
+func isAdmin(ctx context.Context) bool {
+	v, _ := ctx.Value(isAdminKey).(bool)
+	return v
 }
 
 // currentUserID returns the authenticated user's id from context, or uuid.Nil

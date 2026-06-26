@@ -3,6 +3,7 @@ package api
 import (
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -16,22 +17,28 @@ import (
 )
 
 type Server struct {
-	pool      *pgxpool.Pool
-	q         sqlc.Querier
-	store     *storage.Store
-	extractor *llm.Extractor
-	log       *slog.Logger
-	verifier  *oidc.IDTokenVerifier // nil when AUTH_DISABLED
+	pool        *pgxpool.Pool
+	q           sqlc.Querier
+	store       *storage.Store
+	extractor   *llm.Extractor
+	log         *slog.Logger
+	verifier    *oidc.IDTokenVerifier // nil when AUTH_DISABLED
+	adminEmails map[string]bool       // lowercased; super-user allowlist
 }
 
-func NewServer(pool *pgxpool.Pool, store *storage.Store, extractor *llm.Extractor, log *slog.Logger, verifier *oidc.IDTokenVerifier) *Server {
+func NewServer(pool *pgxpool.Pool, store *storage.Store, extractor *llm.Extractor, log *slog.Logger, verifier *oidc.IDTokenVerifier, adminEmails []string) *Server {
+	admins := make(map[string]bool, len(adminEmails))
+	for _, e := range adminEmails {
+		admins[strings.ToLower(strings.TrimSpace(e))] = true
+	}
 	return &Server{
-		pool:      pool,
-		q:         sqlc.New(pool),
-		store:     store,
-		extractor: extractor,
-		log:       log,
-		verifier:  verifier,
+		pool:        pool,
+		q:           sqlc.New(pool),
+		store:       store,
+		extractor:   extractor,
+		log:         log,
+		verifier:    verifier,
+		adminEmails: admins,
 	}
 }
 
@@ -56,6 +63,9 @@ func (s *Server) Router(corsOrigins []string) http.Handler {
 
 	r.Route("/api", func(r chi.Router) {
 		r.Use(s.authMiddleware)
+
+		r.Get("/me", s.getMe)
+		r.Get("/admin/users", s.listAllUsers)
 
 		r.Get("/profiles", s.listProfiles)
 		r.Post("/profiles", s.createProfile)

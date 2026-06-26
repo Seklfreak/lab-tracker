@@ -15,6 +15,24 @@ export interface Member {
   isOwner: boolean;
 }
 
+export interface Me {
+  userId: string;
+  email: string | null;
+  name: string | null;
+  isAdmin: boolean;
+}
+
+export interface AdminUser {
+  id: string;
+  email: string | null;
+  name: string | null;
+  oidcSub: string;
+  createdAt: string;
+  lastSeenAt: string;
+  ownedCount: number;
+  sharedCount: number;
+}
+
 export interface Analysis {
   content: string;
   generatedAt: string;
@@ -161,6 +179,9 @@ const json = (body: unknown): RequestInit => ({
 });
 
 export const api = {
+  me: () => req<Me>("/api/me"),
+  adminUsers: () => req<AdminUser[]>("/api/admin/users"),
+
   listProfiles: () => req<Profile[]>("/api/profiles"),
   createProfile: (name: string, dateOfBirth: string | null) =>
     req<Profile>("/api/profiles", json({ name, dateOfBirth })),

@@ -39,6 +39,11 @@ type FakeQuerier struct {
 	RemoveProfileMemberFn            func(context.Context, sqlc.RemoveProfileMemberParams) error
 	DeleteProfileFn                  func(context.Context, uuid.UUID) error
 	DeleteResultFn                   func(context.Context, uuid.UUID) error
+	ListUsersWithProfileCountsFn     func(context.Context) ([]sqlc.ListUsersWithProfileCountsRow, error)
+}
+
+func (f *FakeQuerier) ListUsersWithProfileCounts(ctx context.Context) ([]sqlc.ListUsersWithProfileCountsRow, error) {
+	return f.ListUsersWithProfileCountsFn(ctx)
 }
 
 func (f *FakeQuerier) DeleteProfile(ctx context.Context, id uuid.UUID) error {

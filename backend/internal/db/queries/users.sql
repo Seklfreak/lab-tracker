@@ -19,3 +19,12 @@ SELECT * FROM users WHERE id = $1;
 -- Used when sharing a profile by email. Case-insensitive; the user must have
 -- signed in at least once (so a row exists) to be a share target.
 SELECT * FROM users WHERE lower(email) = lower($1);
+
+-- name: ListUsersWithProfileCounts :many
+-- Admin view: every user with how many profiles they own and how many are
+-- shared with them.
+SELECT u.id, u.email, u.name, u.oidc_sub, u.created_at, u.last_seen_at,
+       (SELECT count(*) FROM profiles p WHERE p.owner_user_id = u.id)::int AS owned_count,
+       (SELECT count(*) FROM profile_members m WHERE m.user_id = u.id)::int AS shared_count
+FROM users u
+ORDER BY u.created_at;

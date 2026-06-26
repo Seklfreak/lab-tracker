@@ -68,6 +68,56 @@ func (q *Queries) GetUserBySub(ctx context.Context, oidcSub string) (User, error
 	return i, err
 }
 
+const listUsersWithProfileCounts = `-- name: ListUsersWithProfileCounts :many
+SELECT u.id, u.email, u.name, u.oidc_sub, u.created_at, u.last_seen_at,
+       (SELECT count(*) FROM profiles p WHERE p.owner_user_id = u.id)::int AS owned_count,
+       (SELECT count(*) FROM profile_members m WHERE m.user_id = u.id)::int AS shared_count
+FROM users u
+ORDER BY u.created_at
+`
+
+type ListUsersWithProfileCountsRow struct {
+	ID          uuid.UUID          `json:"id"`
+	Email       pgtype.Text        `json:"email"`
+	Name        pgtype.Text        `json:"name"`
+	OidcSub     string             `json:"oidc_sub"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	LastSeenAt  pgtype.Timestamptz `json:"last_seen_at"`
+	OwnedCount  int32              `json:"owned_count"`
+	SharedCount int32              `json:"shared_count"`
+}
+
+// Admin view: every user with how many profiles they own and how many are
+// shared with them.
+func (q *Queries) ListUsersWithProfileCounts(ctx context.Context) ([]ListUsersWithProfileCountsRow, error) {
+	rows, err := q.db.Query(ctx, listUsersWithProfileCounts)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListUsersWithProfileCountsRow{}
+	for rows.Next() {
+		var i ListUsersWithProfileCountsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Email,
+			&i.Name,
+			&i.OidcSub,
+			&i.CreatedAt,
+			&i.LastSeenAt,
+			&i.OwnedCount,
+			&i.SharedCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const upsertUser = `-- name: UpsertUser :one
 INSERT INTO users (oidc_sub, email, name, last_seen_at)
 VALUES ($1, $2, $3, now())
