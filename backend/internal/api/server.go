@@ -45,7 +45,10 @@ func NewServer(pool *pgxpool.Pool, store *storage.Store, extractor *llm.Extracto
 func (s *Server) Router(corsOrigins []string) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
+	// RealIP is deprecated for spoofing reasons when directly exposed; here the
+	// app only ever sits behind trusted proxies (Traefik + Cloudflare) that set
+	// the forwarded headers, and the IP is used for request logging only.
+	r.Use(middleware.RealIP) //nolint:staticcheck // trusted-proxy-only; logging
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(120 * time.Second))

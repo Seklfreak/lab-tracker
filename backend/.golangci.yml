@@ -1,0 +1,16 @@
+version: "2"
+
+# Standard linters (errcheck, govet, ineffassign, staticcheck, unused) plus a
+# few high-signal extras. Kept focused so the output stays meaningful.
+linters:
+  default: standard
+  enable:
+    - bodyclose # HTTP response bodies get closed
+    - misspell # typos in comments/strings
+    - unconvert # redundant type conversions
+  exclusions:
+    rules:
+      # Deferred cleanup (Close / tx.Rollback) is idiomatically fire-and-forget.
+      - linters:
+          - errcheck
+        source: 'defer .*\.(Close|Rollback)\('

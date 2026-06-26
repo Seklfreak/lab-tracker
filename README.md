@@ -109,10 +109,14 @@ per profile + analyte). See `backend/internal/db/migrations`.
 Unit tests cover the pure logic:
 
 ```bash
-(cd backend && go test ./...)   # JSON extraction, pgtype conversions, dates, access scoping
-(cd frontend && npm run lint)   # ESLint, incl. react-hooks rules (also in CI)
-(cd frontend && npm test)       # statusTone, derivedFlag, referenceLabel, chartYDomain
+(cd backend && golangci-lint run ./...)  # staticcheck, errcheck, … (config: backend/.golangci.yml)
+(cd backend && go test ./...)            # JSON extraction, pgtype conversions, dates, access scoping
+(cd frontend && npm run lint)            # ESLint, incl. react-hooks rules
+(cd frontend && npm test)                # statusTone, derivedFlag, referenceLabel, chartYDomain
 ```
+
+Lint + tests run in CI on every push (backend via golangci-lint, frontend via
+ESLint; the iOS app builds + tests on `ios/**` changes).
 
 DB/integration and extraction paths are still verified manually — recipes
 (smoke test, analyte matching, specimen disambiguation, favorites, report

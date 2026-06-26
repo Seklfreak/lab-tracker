@@ -66,7 +66,8 @@ are shared with them**.
 
 ## Before committing
 
-- Backend: `cd backend && go build ./... && go vet ./... && go test ./...`
+- Backend: `cd backend && golangci-lint run ./... && go build ./... && go test ./...`
+  (golangci-lint config in `backend/.golangci.yml`; it includes govet)
 - Frontend: `cd frontend && npm run lint && npx tsc --noEmit && npm test`
 - Go imports follow goimports grouping with the local module
   (`github.com/Seklfreak/lab-tracker/...`) last. `gofmt -l` flags this, but it's

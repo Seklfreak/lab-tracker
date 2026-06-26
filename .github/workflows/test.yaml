@@ -16,6 +16,12 @@ jobs:
         with:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
+      - name: Lint
+        working-directory: backend
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh \
+            | sh -s -- -b "$(go env GOPATH)/bin" v2.12.2
+          "$(go env GOPATH)/bin/golangci-lint" run ./...
       - name: Build + test
         working-directory: backend
         run: |

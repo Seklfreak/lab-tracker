@@ -33,12 +33,12 @@ func connectLLM(t *testing.T, q sqlc.Querier, ex *llm.Extractor) *mcp.ClientSess
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { ss.Close() })
+	t.Cleanup(func() { _ = ss.Close() })
 	cs, err := mcp.NewClient(&mcp.Implementation{Name: "t", Version: "0"}, nil).Connect(ctx, ct, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { cs.Close() })
+	t.Cleanup(func() { _ = cs.Close() })
 	return cs
 }
 
