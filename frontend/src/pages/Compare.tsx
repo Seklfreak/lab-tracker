@@ -1,10 +1,8 @@
 import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQueries, useQuery } from "@tanstack/react-query";
-import { clsx } from "clsx";
 import {
   CartesianGrid,
-  Legend,
   Line,
   LineChart,
   ReferenceArea,
@@ -15,41 +13,100 @@ import {
 } from "recharts";
 import { api, type Result } from "@/lib/api";
 import { useProfile } from "@/lib/profile";
-import { Card, Spinner } from "@/components/ui";
-import { chartYDomain } from "@/lib/format";
-import { useThemeColors } from "@/lib/theme";
+import { Button, Card, Spinner } from "@/components/ui";
+import { Combobox, type ComboOption } from "@/components/Combobox";
+import { chartYDomain, derivedFlag, displayValue, plotPoint, referenceLabel } from "@/lib/format";
+import { useThemeColors, type ThemeColors } from "@/lib/theme";
+import { downloadCsv } from "@/lib/csv";
+import { exportSectionsPdf } from "@/lib/pdf";
+import { FileDown, Download, X } from "lucide-react";
 
-const MAX = 6;
-const PALETTE = ["#2f6fed", "#1f9d6b", "#b9761f", "#d2433f", "#7c5cff", "#0e9aa7"];
+const MAX = 12;
+const HISTORY_HEAD = ["Date", "Value", "Unit", "Reference", "Flag", "Lab"];
 
-// Normalized position within the reference range: 0 = low end, 1 = high end.
-// Needs a usable upper bound; lower bound defaults to 0 when absent.
-function refPosition(r: Result): number | null {
-  if (r.valueNumeric === null) return null;
-  const hi = r.referenceHigh;
-  const lo = r.referenceLow ?? 0;
-  if (hi === null || hi <= lo) return null;
-  return (r.valueNumeric - lo) / (hi - lo);
+function historyRows(data: Result[]): (string | number)[][] {
+  return [...data]
+    .sort((a, b) => (a.observedDate ?? "").localeCompare(b.observedDate ?? ""))
+    .map((r) => [
+      r.observedDate ?? "",
+      displayValue(r),
+      r.unit ?? "",
+      referenceLabel(r) ?? "",
+      derivedFlag(r) ?? "Normal",
+      r.sourceLab ?? "",
+    ]);
+}
+
+// One analyte's trend; shares a synced crosshair with the others via syncId.
+function MiniChart({ data, colors }: { data: Result[]; colors: ThemeColors }) {
+  const refLow = data.find((r) => r.referenceLow !== null)?.referenceLow ?? null;
+  const refHigh = data.find((r) => r.referenceHigh !== null)?.referenceHigh ?? null;
+  const chartData = [...data]
+    .sort((a, b) => (a.observedDate ?? "").localeCompare(b.observedDate ?? ""))
+    .map((r) => {
+      const p = plotPoint(r);
+      return p ? { date: r.observedDate ?? "", value: p.value } : null;
+    })
+    .filter((d): d is { date: string; value: number } => d !== null);
+
+  if (chartData.length === 0)
+    return <p className="text-sm text-muted">No numeric values to plot.</p>;
+
+  const yDomain = chartYDomain(
+    chartData.map((d) => d.value),
+    refLow,
+    refHigh,
+  );
+
+  return (
+    <div className="h-44 w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart
+          data={chartData}
+          syncId="compare"
+          syncMethod="value"
+          margin={{ top: 8, right: 16, bottom: 0, left: -8 }}
+        >
+          <CartesianGrid stroke={colors.border} strokeDasharray="3 3" />
+          <XAxis dataKey="date" stroke={colors.muted} fontSize={11} />
+          <YAxis stroke={colors.muted} fontSize={11} domain={yDomain} width={44} allowDataOverflow />
+          {refLow !== null && refHigh !== null && (
+            <ReferenceArea y1={refLow} y2={refHigh} fill={colors.good} fillOpacity={0.1} />
+          )}
+          <Tooltip
+            contentStyle={{
+              background: colors.panel,
+              border: `1px solid ${colors.border}`,
+              borderRadius: 8,
+              color: colors.text,
+            }}
+          />
+          <Line type="monotone" dataKey="value" stroke={colors.accent} strokeWidth={2} dot={{ r: 2 }} />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
 }
 
 export function Compare() {
   const { profileId } = useProfile();
   const colors = useThemeColors();
-
-  const latest = useQuery({
-    queryKey: ["latest", profileId],
-    queryFn: () => api.latestResults(profileId!),
-    enabled: !!profileId,
-  });
-
-  // Initial selection comes from the dashboard via ?ids=a,b,c; the chips below
-  // let you adjust it.
   const [params] = useSearchParams();
+  // Initial selection comes from the dashboard (?ids=a,b,c).
   const [selected, setSelected] = useState<string[]>(() =>
     (params.get("ids") ?? "").split(",").filter(Boolean).slice(0, MAX),
   );
-  const toggle = (id: string) =>
-    setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : s.length >= MAX ? s : [...s, id]));
+
+  const analytes = useQuery({
+    queryKey: ["profile-analytes", profileId],
+    queryFn: () => api.listProfileAnalytes(profileId!),
+    enabled: !!profileId,
+  });
+  const nameById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const a of analytes.data ?? []) m.set(a.id, a.name);
+    return m;
+  }, [analytes.data]);
 
   const trends = useQueries({
     queries: selected.map((id) => ({
@@ -59,154 +116,107 @@ export function Compare() {
     })),
   });
 
-  const nameById = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const r of latest.data ?? []) m.set(r.analyteId, r.analyteName);
-    return m;
-  }, [latest.data]);
-
-  // Merge each selected analyte's normalized series into rows keyed by date.
-  const { chartData, plotted, skipped } = useMemo(() => {
-    const byDate = new Map<string, Record<string, number | string>>();
-    const plotted: string[] = [];
-    const skipped: string[] = [];
-    selected.forEach((id, idx) => {
-      const name = nameById.get(id) ?? id;
-      const rows = trends[idx]?.data ?? [];
-      let any = false;
-      for (const r of rows) {
-        const pos = refPosition(r);
-        if (pos === null) continue;
-        any = true;
-        const date = r.observedDate ?? "";
-        if (!byDate.has(date)) byDate.set(date, { date });
-        byDate.get(date)![name] = pos;
-      }
-      (any ? plotted : skipped).push(name);
-    });
-    const chartData = [...byDate.values()].sort((a, b) =>
-      String(a.date).localeCompare(String(b.date)),
-    );
-    return { chartData, plotted, skipped };
-  }, [selected, trends, nameById]);
-
-  const yDomain = useMemo(() => {
-    const vals = chartData.flatMap((row) =>
-      Object.entries(row)
-        .filter(([k]) => k !== "date")
-        .map(([, v]) => v as number),
-    );
-    return chartYDomain(vals, 0, 1);
-  }, [chartData]);
+  const add = (id: string) => setSelected((s) => (s.includes(id) || s.length >= MAX ? s : [...s, id]));
+  const remove = (id: string) => setSelected((s) => s.filter((x) => x !== id));
 
   if (!profileId) return <p className="text-muted">Select a profile.</p>;
-  if (latest.isLoading) return <Spinner label="Loading…" />;
+  if (analytes.isLoading) return <Spinner label="Loading…" />;
 
-  const options = [...(latest.data ?? [])]
-    .map((r) => ({ id: r.analyteId, name: r.analyteName }))
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const options: ComboOption[] = (analytes.data ?? [])
+    .filter((a) => !selected.includes(a.id))
+    .map((a) => ({ value: a.id, label: a.name, hint: a.category ?? undefined }))
+    .sort((a, b) => a.label.localeCompare(b.label));
 
-  if (options.length === 0)
-    return (
-      <Card>
-        <p className="text-muted">No results yet to compare.</p>
-      </Card>
-    );
+  const withData = selected
+    .map((id, i) => ({ id, name: nameById.get(id) ?? id, data: trends[i]?.data ?? [] }))
+    .filter((s) => s.data.length > 0);
 
-  const loading = trends.some((t) => t.isLoading);
+  const exportPdf = () => {
+    if (withData.length === 0) return;
+    exportSectionsPdf({
+      filename: `compare-${new Date().toISOString().slice(0, 10)}.pdf`,
+      title: "Compare — full history",
+      subtitle: new Date().toLocaleDateString(),
+      sections: withData.map((s) => ({ heading: s.name, head: HISTORY_HEAD, rows: historyRows(s.data) })),
+    });
+  };
+  const exportCsv = () => {
+    if (withData.length === 0) return;
+    const rows = withData.flatMap((s) => historyRows(s.data).map((r) => [s.name, ...r]));
+    downloadCsv(`compare-${new Date().toISOString().slice(0, 10)}.csv`, ["Analyte", ...HISTORY_HEAD], rows);
+  };
 
   return (
     <div className="space-y-5">
-      <div>
-        <Link to="/" className="text-sm text-accent">
-          ← Dashboard
-        </Link>
-        <h1 className="mt-1 text-xl font-semibold">Compare analytes</h1>
-        <p className="text-sm text-muted">
-          Pick up to {MAX} analytes. Each is plotted relative to its reference range — 0 = low end,
-          1 = high end; the shaded band is normal, points outside it are out of range.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <Link to="/" className="text-sm text-accent">
+            ← Dashboard
+          </Link>
+          <h1 className="mt-1 text-xl font-semibold">Compare analytes</h1>
+          <p className="text-sm text-muted">One chart per analyte — hover to sync a crosshair across all.</p>
+        </div>
+        {withData.length > 0 && (
+          <div className="flex gap-2">
+            <Button variant="ghost" className="px-2 py-1.5" onClick={exportCsv} title="Export CSV (full history)">
+              <Download size={14} /> CSV
+            </Button>
+            <Button variant="ghost" className="px-2 py-1.5" onClick={exportPdf} title="Download PDF (full history)">
+              <FileDown size={14} /> PDF
+            </Button>
+          </div>
+        )}
       </div>
 
       <Card>
-        <div className="flex flex-wrap gap-2">
-          {options.map((o) => {
-            const on = selected.includes(o.id);
-            const i = selected.indexOf(o.id);
-            return (
-              <button
-                key={o.id}
-                onClick={() => toggle(o.id)}
-                className={clsx(
-                  "rounded-full border px-3 py-1 text-sm transition",
-                  on
-                    ? "border-transparent text-white"
-                    : "border-border bg-panel2 text-muted hover:text-text",
-                )}
-                style={on ? { backgroundColor: PALETTE[i % PALETTE.length] } : undefined}
+        {selected.length > 0 && (
+          <div className="mb-3 flex flex-wrap gap-2">
+            {selected.map((id) => (
+              <span
+                key={id}
+                className="flex items-center gap-1 rounded-full bg-panel2 px-3 py-1 text-sm"
               >
-                {o.name}
-              </button>
-            );
-          })}
-        </div>
-        {selected.length >= MAX && (
-          <p className="mt-2 text-xs text-muted">Maximum of {MAX} selected.</p>
+                {nameById.get(id) ?? id}
+                <button onClick={() => remove(id)} className="text-muted hover:text-bad" title="Remove">
+                  <X size={13} />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+        {selected.length < MAX ? (
+          <Combobox value="" onChange={(id) => id && add(id)} options={options} placeholder="Add an analyte…" />
+        ) : (
+          <p className="text-xs text-muted">Maximum of {MAX} analytes.</p>
         )}
       </Card>
 
       {selected.length === 0 ? (
         <Card>
-          <p className="text-sm text-muted">Select analytes above to overlay their trends.</p>
-        </Card>
-      ) : loading ? (
-        <Spinner label="Loading trends…" />
-      ) : chartData.length === 0 ? (
-        <Card>
-          <p className="text-sm text-muted">
-            None of the selected analytes have numeric values with a reference range to normalize.
-          </p>
+          <p className="text-sm text-muted">Add analytes above to compare their trends.</p>
         </Card>
       ) : (
-        <Card>
-          <div className="h-80 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData} margin={{ top: 8, right: 16, bottom: 0, left: -8 }}>
-                <CartesianGrid stroke={colors.border} strokeDasharray="3 3" />
-                <XAxis dataKey="date" stroke={colors.muted} fontSize={12} />
-                <YAxis stroke={colors.muted} fontSize={12} domain={yDomain} allowDataOverflow />
-                {/* normal range band */}
-                <ReferenceArea y1={0} y2={1} fill={colors.good} fillOpacity={0.1} />
-                <Tooltip
-                  contentStyle={{
-                    background: colors.panel,
-                    border: `1px solid ${colors.border}`,
-                    borderRadius: 8,
-                    color: colors.text,
-                  }}
-                  formatter={(v) => `${Math.round(Number(v) * 100)}% of range`}
-                />
-                <Legend />
-                {plotted.map((name) => (
-                  <Line
-                    key={name}
-                    type="monotone"
-                    dataKey={name}
-                    stroke={PALETTE[selected.findIndex((id) => nameById.get(id) === name) % PALETTE.length]}
-                    strokeWidth={2}
-                    dot={{ r: 2 }}
-                    connectNulls
-                  />
-                ))}
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-          {skipped.length > 0 && (
-            <p className="mt-2 text-xs text-muted">
-              Not shown (no numeric value + reference range to normalize): {skipped.join(", ")}.
-            </p>
-          )}
-        </Card>
+        <div className="space-y-4">
+          {selected.map((id, i) => (
+            <Card key={id}>
+              <div className="mb-2 flex items-center justify-between">
+                <Link to={`/analytes/${id}`} className="font-medium hover:text-accent">
+                  {nameById.get(id) ?? id}
+                </Link>
+                <button onClick={() => remove(id)} className="text-muted hover:text-bad" title="Remove">
+                  <X size={15} />
+                </button>
+              </div>
+              {trends[i]?.isLoading ? (
+                <Spinner />
+              ) : (trends[i]?.data ?? []).length === 0 ? (
+                <p className="text-sm text-muted">No readings.</p>
+              ) : (
+                <MiniChart data={trends[i].data!} colors={colors} />
+              )}
+            </Card>
+          ))}
+        </div>
       )}
     </div>
   );

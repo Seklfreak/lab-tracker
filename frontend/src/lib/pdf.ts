@@ -82,3 +82,56 @@ export async function exportTablePdf(opts: PdfOpts): Promise<void> {
 
   doc.save(opts.filename);
 }
+
+// Multi-section letter PDF: one heading + table per section (e.g. one analyte's
+// full history each). autoTable paginates automatically.
+export async function exportSectionsPdf(opts: {
+  filename: string;
+  title: string;
+  subtitle?: string;
+  sections: { heading: string; head: string[]; rows: (string | number)[][] }[];
+}): Promise<void> {
+  const { jsPDF } = await import("jspdf");
+  const autoTable = (await import("jspdf-autotable")).default;
+
+  const doc = new jsPDF({ unit: "pt", format: "letter" });
+  const margin = 48;
+  const pageH = doc.internal.pageSize.getHeight();
+  let y = margin;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(16);
+  doc.text(opts.title, margin, y);
+  y += 18;
+  if (opts.subtitle) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.setTextColor(110);
+    doc.text(opts.subtitle, margin, y);
+    doc.setTextColor(0);
+    y += 8;
+  }
+
+  for (const sec of opts.sections) {
+    y += 18;
+    if (y > pageH - 80) {
+      doc.addPage();
+      y = margin;
+    }
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text(sec.heading, margin, y);
+    autoTable(doc, {
+      startY: y + 6,
+      head: [sec.head],
+      body: sec.rows,
+      styles: { fontSize: 9, cellPadding: 4 },
+      headStyles: { fillColor: [47, 111, 237] },
+      margin: { left: margin, right: margin },
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    y = (doc as any).lastAutoTable.finalY;
+  }
+
+  doc.save(opts.filename);
+}
