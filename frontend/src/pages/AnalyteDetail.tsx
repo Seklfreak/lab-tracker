@@ -213,7 +213,7 @@ export function AnalyteDetail() {
   const refHigh = chartRows.find((r) => r.referenceHigh !== null)?.referenceHigh ?? null;
 
   const exportSlug = name.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
-  const exportHead = ["Date", "Value", "Unit", "Reference", "Flag"];
+  const exportHead = ["Date", "Value", "Unit", "Reference", "Flag", "Lab"];
   const exportRows = () =>
     [...data]
       .sort((a, b) => (a.observedDate ?? "").localeCompare(b.observedDate ?? ""))
@@ -223,6 +223,7 @@ export function AnalyteDetail() {
         r.unit ?? "",
         referenceLabel(r) ?? "",
         derivedFlag(r) ?? "Normal",
+        r.sourceLab ?? "",
       ]);
   const exportCsv = () => downloadCsv(`${exportSlug}-history.csv`, exportHead, exportRows());
   const exportPdf = () =>

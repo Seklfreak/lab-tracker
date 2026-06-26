@@ -130,8 +130,9 @@ export function Dashboard() {
         referenceLabel(r) ?? "",
         r.observedDate ?? "",
         derivedFlag(r) ?? "Normal",
+        r.sourceLab ?? "",
       ]);
-  const exportHead = ["Analyte", "Value", "Unit", "Reference", "Date", "Flag"];
+  const exportHead = ["Analyte", "Value", "Unit", "Reference", "Date", "Flag", "Lab"];
   const exportCsv = () =>
     downloadCsv(`lab-panel-${new Date().toISOString().slice(0, 10)}.csv`, exportHead, exportRows());
   const exportPdf = () =>
