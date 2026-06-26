@@ -37,7 +37,9 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
-	<!-- OIDC redirect for the Authorization Code + PKCE flow. -->
+	<!-- OIDC redirect for the Authorization Code + PKCE flow. Reverse-DNS scheme
+	     (matches the bundle id) so another app can't claim it. Full redirect URI:
+	     dev.winkler.labtracker://auth/callback -->
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -45,7 +47,7 @@
 			<string>dev.winkler.labtracker.auth</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>labtracker</string>
+				<string>dev.winkler.labtracker</string>
 			</array>
 		</dict>
 	</array>

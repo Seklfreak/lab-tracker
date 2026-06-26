@@ -53,7 +53,8 @@ xcrun simctl launch booted dev.winkler.labtracker
 ## Not yet implemented
 
 - **OIDC sign-in** — Authorization Code + PKCE via `ASWebAuthenticationSession`
-  against Authentik. The `labtracker://auth/callback` redirect URI (URL scheme
-  already declared in `Info.plist`) must be registered on the `lab-tracker` OIDC
-  client. Until then, use a pasted Bearer token (or a local AUTH_DISABLED server).
+  against Authentik. The `dev.winkler.labtracker://auth/callback` redirect URI
+  (reverse-DNS URL scheme already declared in `Info.plist`) must be registered on
+  the `lab-tracker` OIDC client. Until then, use a pasted Bearer token (or a local
+  AUTH_DISABLED server).
 - **PDF upload** from the phone (share sheet / camera scan).

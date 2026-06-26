@@ -59,9 +59,10 @@ and rough notes so they aren't lost.
     Verified in the simulator against the live API. xcodegen project, no
     hand-edited `.xcodeproj`.
   - [ ] **OIDC sign-in** — Authorization Code + PKCE via
-    `ASWebAuthenticationSession` against Authentik (`labtracker://auth/callback`
-    URL scheme already declared; register it on the `lab-tracker` OIDC client).
-    Until then the app uses a pasted Bearer token or a local AUTH_DISABLED server.
+    `ASWebAuthenticationSession` against Authentik
+    (`dev.winkler.labtracker://auth/callback` reverse-DNS URL scheme already
+    declared; register it on the `lab-tracker` OIDC client). Until then the app
+    uses a pasted Bearer token or a local AUTH_DISABLED server.
   - [ ] **PDF upload** from the phone (share sheet / camera scan).
   - [ ] **App Store approval (self-hosted, no shared backend):** because the app
     points at the user's own server, plan around Apple's review guidelines so a
