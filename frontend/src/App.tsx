@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect } from "react";
 import { NavLink, Route, Routes } from "react-router-dom";
 import { clsx } from "clsx";
 import { useAuth } from "react-oidc-context";
-import { Activity, LayoutGrid, Upload as UploadIcon, FileText, LogOut } from "lucide-react";
+import { Activity, LayoutGrid, Upload as UploadIcon, FileText, LineChart, LogOut } from "lucide-react";
 import { ProfileSwitcher } from "@/components/ProfileSwitcher";
 import { Spinner } from "@/components/ui";
 import { authEnabled, setAccessToken, setUnauthorizedHandler } from "@/lib/auth";
@@ -15,6 +15,7 @@ const AnalyteDetail = lazy(() =>
 );
 const Upload = lazy(() => import("@/pages/Upload").then((m) => ({ default: m.Upload })));
 const Reports = lazy(() => import("@/pages/Reports").then((m) => ({ default: m.Reports })));
+const Compare = lazy(() => import("@/pages/Compare").then((m) => ({ default: m.Compare })));
 
 // RequireAuth gates the app behind OIDC login (no-op when auth is disabled).
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -130,6 +131,7 @@ export default function App() {
             <nav className="order-3 flex w-full items-center justify-center gap-1 sm:order-2 sm:ml-2 sm:w-auto sm:justify-start">
               <NavItem to="/" icon={<LayoutGrid size={16} />} label="Dashboard" />
               <NavItem to="/upload" icon={<UploadIcon size={16} />} label="Upload" />
+              <NavItem to="/compare" icon={<LineChart size={16} />} label="Compare" />
               <NavItem to="/reports" icon={<FileText size={16} />} label="Reports" />
             </nav>
           </div>
@@ -141,6 +143,7 @@ export default function App() {
               <Route path="/" element={<Dashboard />} />
               <Route path="/analytes/:analyteId" element={<AnalyteDetail />} />
               <Route path="/upload" element={<Upload />} />
+              <Route path="/compare" element={<Compare />} />
               <Route path="/reports" element={<Reports />} />
             </Routes>
           </Suspense>
