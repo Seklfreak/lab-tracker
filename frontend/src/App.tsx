@@ -46,11 +46,14 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     return () => setUnauthorizedHandler(null);
   }, [auth]);
 
-  // Kick off the login redirect once we know the user isn't signed in.
+  // Kick off the login redirect once we know the user isn't signed in. We depend
+  // on the specific auth flags rather than the whole `auth` object on purpose, so
+  // this doesn't re-run on every unrelated auth state change.
   useEffect(() => {
     if (!auth.isLoading && !auth.isAuthenticated && !auth.error && !auth.activeNavigator) {
       void auth.signinRedirect();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auth.isLoading, auth.isAuthenticated, auth.error, auth.activeNavigator]);
 
   if (auth.error) {
