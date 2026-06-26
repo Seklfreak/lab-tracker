@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { Button, Input, Spinner, Badge } from "@/components/ui";
@@ -45,7 +46,10 @@ export function ShareDialog({
     onError: (e: Error) => setError(e.message),
   });
 
-  return (
+  // Render through a portal to document.body: the app header uses backdrop-blur,
+  // which creates a containing block for position:fixed descendants — without the
+  // portal the overlay would be sized to the header, not the viewport.
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
       onClick={onClose}
@@ -133,6 +137,7 @@ export function ShareDialog({
           </p>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
