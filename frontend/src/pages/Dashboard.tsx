@@ -103,6 +103,7 @@ export function Dashboard() {
       key={r.id}
       r={r}
       selected={sel.includes(r.analyteId)}
+      selecting={sel.length > 0}
       onToggleSelect={() => toggleSel(r.analyteId)}
       onToggleFav={() =>
         toggleFav.mutate({ analyteId: r.analyteId, isFav: !!r.isFavorite })
@@ -354,17 +355,59 @@ function PanelSummaryCard({ profileId, currentCount }: { profileId: string; curr
 function ResultCard({
   r,
   selected,
+  selecting,
   onToggleSelect,
   onToggleFav,
 }: {
   r: Result;
   selected: boolean;
+  selecting: boolean;
   onToggleSelect: () => void;
   onToggleFav: () => void;
 }) {
   const tone = statusTone(r);
   const ref = referenceLabel(r);
   const flag = derivedFlag(r);
+
+  const card = (
+    <Card className={clsx("pl-10 transition hover:border-accent", selected && "border-accent")}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="font-medium">{r.analyteName}</div>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {flag && <Badge tone={tone}>{flag}</Badge>}
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onToggleFav();
+            }}
+            title={r.isFavorite ? "Unfavorite" : "Favorite"}
+            className={clsx(
+              "rounded p-0.5 transition hover:text-warn",
+              r.isFavorite ? "text-warn" : "text-muted",
+            )}
+          >
+            <Star size={16} className={r.isFavorite ? "fill-warn" : ""} />
+          </button>
+        </div>
+      </div>
+      <div className="mt-2 flex items-baseline gap-1">
+        <span className={tone === "bad" ? "text-2xl font-semibold text-bad" : "text-2xl font-semibold"}>
+          {displayValue(r)}
+        </span>
+        {r.unit && <span className="text-sm text-muted">{r.unit}</span>}
+      </div>
+      <div className="mt-1 flex items-center justify-between text-xs text-muted">
+        <span>
+          {ref ? `Ref: ${ref}` : "No reference"} · {r.observedDate ?? "no date"}
+        </span>
+        <span className="shrink-0">
+          {r.count ?? 1} reading{(r.count ?? 1) === 1 ? "" : "s"}
+        </span>
+      </div>
+    </Card>
+  );
+
   return (
     <div className="relative">
       {/* Checkbox is a sibling of the link (not nested in the anchor) so the native
@@ -380,44 +423,15 @@ function ResultCard({
           className="h-4 w-4 cursor-pointer"
         />
       </label>
-      <Link to={`/analytes/${r.analyteId}`}>
-        <Card className={clsx("pl-10 transition hover:border-accent", selected && "border-accent")}>
-          <div className="flex items-start justify-between gap-2">
-            <div className="font-medium">{r.analyteName}</div>
-            <div className="flex shrink-0 items-center gap-1.5">
-              {flag && <Badge tone={tone}>{flag}</Badge>}
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onToggleFav();
-                }}
-                title={r.isFavorite ? "Unfavorite" : "Favorite"}
-                className={clsx(
-                  "rounded p-0.5 transition hover:text-warn",
-                  r.isFavorite ? "text-warn" : "text-muted",
-                )}
-              >
-                <Star size={16} className={r.isFavorite ? "fill-warn" : ""} />
-              </button>
-            </div>
-          </div>
-          <div className="mt-2 flex items-baseline gap-1">
-            <span className={tone === "bad" ? "text-2xl font-semibold text-bad" : "text-2xl font-semibold"}>
-              {displayValue(r)}
-            </span>
-            {r.unit && <span className="text-sm text-muted">{r.unit}</span>}
-          </div>
-          <div className="mt-1 flex items-center justify-between text-xs text-muted">
-            <span>
-              {ref ? `Ref: ${ref}` : "No reference"} · {r.observedDate ?? "no date"}
-            </span>
-            <span className="shrink-0">
-              {r.count ?? 1} reading{(r.count ?? 1) === 1 ? "" : "s"}
-            </span>
-          </div>
-        </Card>
-      </Link>
+      {/* Once a comparison selection is in progress, clicking a card anywhere adds
+          it to the selection instead of opening the analyte page. */}
+      {selecting ? (
+        <div role="button" className="cursor-pointer" onClick={onToggleSelect}>
+          {card}
+        </div>
+      ) : (
+        <Link to={`/analytes/${r.analyteId}`}>{card}</Link>
+      )}
     </div>
   );
 }
