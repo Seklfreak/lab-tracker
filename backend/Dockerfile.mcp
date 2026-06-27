@@ -1,10 +1,11 @@
 # MCP server: a second static Go binary from the same module (cmd/mcp).
 FROM golang:1.26-alpine AS build
 WORKDIR /src
+ARG APP_VERSION=dev
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 go build -trimpath -o /out/mcp ./cmd/mcp
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-X main.version=${APP_VERSION}" -o /out/mcp ./cmd/mcp
 
 # distroless/static ships CA certs (outbound TLS to Postgres/Anthropic).
 FROM gcr.io/distroless/static-debian12:nonroot

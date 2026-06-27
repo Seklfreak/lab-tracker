@@ -15,8 +15,14 @@ import (
 	"github.com/Seklfreak/lab-tracker/backend/internal/storage"
 )
 
+// version is the release version, injected at build time via
+// -ldflags "-X main.version=...". "dev" for local builds.
+var version = "dev"
+
 func main() {
 	log := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	log.Info("starting", "version", version)
+	api.BuildVersion = version
 
 	cfg, err := config.Load()
 	if err != nil {

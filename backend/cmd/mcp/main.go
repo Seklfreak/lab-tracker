@@ -18,8 +18,14 @@ import (
 	"github.com/Seklfreak/lab-tracker/backend/internal/llm"
 )
 
+// version is the release version, injected at build time via
+// -ldflags "-X main.version=...". "dev" for local builds. Reported in the MCP
+// server's Implementation handshake.
+var version = "dev"
+
 func main() {
 	log := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	log.Info("starting", "version", version)
 
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {

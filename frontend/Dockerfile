@@ -3,6 +3,10 @@ FROM node:24-alpine AS build
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
+# Baked into the bundle (__APP_VERSION__) and shown in the footer. Set after
+# `npm ci` so a version change doesn't bust the dependency-install cache layer.
+ARG APP_VERSION=dev
+ENV VITE_APP_VERSION=$APP_VERSION
 COPY . .
 RUN npm run build
 

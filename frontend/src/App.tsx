@@ -175,6 +175,25 @@ function AppShell() {
             </Routes>
           </Suspense>
         </main>
+
+        <VersionFooter />
     </div>
+  );
+}
+
+// Shows the deployed versions: web is baked in at build time; api is fetched
+// (they're released and deployed independently, so they can differ).
+function VersionFooter() {
+  const apiVersion = useQuery({
+    queryKey: ["version"],
+    queryFn: api.version,
+    staleTime: Infinity,
+    retry: false,
+  });
+  return (
+    <footer className="mx-auto max-w-6xl px-4 pb-6 text-center text-xs text-muted sm:px-6">
+      web {__APP_VERSION__}
+      {apiVersion.data?.version ? ` · api ${apiVersion.data.version}` : ""}
+    </footer>
   );
 }

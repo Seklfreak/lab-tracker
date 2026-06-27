@@ -16,6 +16,10 @@ import (
 	"github.com/Seklfreak/lab-tracker/backend/internal/storage"
 )
 
+// BuildVersion is the running server's release version, set from main via
+// ldflags (-X) and surfaced at GET /api/version. "dev" in local builds.
+var BuildVersion = "dev"
+
 type Server struct {
 	pool        *pgxpool.Pool
 	q           sqlc.Querier
@@ -67,6 +71,7 @@ func (s *Server) Router(corsOrigins []string) http.Handler {
 	r.Route("/api", func(r chi.Router) {
 		r.Use(s.authMiddleware)
 
+		r.Get("/version", s.getVersion)
 		r.Get("/me", s.getMe)
 		r.Get("/admin/users", s.listAllUsers)
 
@@ -101,4 +106,9 @@ func (s *Server) Router(corsOrigins []string) http.Handler {
 	})
 
 	return r
+}
+
+// getVersion reports the running api build version (GET /api/version).
+func (s *Server) getVersion(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]string{"version": BuildVersion})
 }

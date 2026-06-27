@@ -179,6 +179,7 @@ const json = (body: unknown): RequestInit => ({
 });
 
 export const api = {
+  version: () => req<{ version: string }>("/api/version"),
   me: () => req<Me>("/api/me"),
   adminUsers: () => req<AdminUser[]>("/api/admin/users"),
 

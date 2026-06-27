@@ -5,6 +5,10 @@ and rough notes so they aren't lost.
 
 ## Done
 
+- [x] **Version display** (2026-06-27) — web/api/mcp are stamped with the release
+  version at build time (Vite define / Go ldflags). The web footer shows its own
+  version plus the api's (via `GET /api/version`); they're deployed independently
+  so can differ. mcp reports its version in the MCP handshake.
 - [x] **App-level OIDC auth** (2026-06-25) — Authentik OIDC: backend validates
   Bearer JWTs on `/api` (by issuer), SPA does Authorization Code + PKCE via
   react-oidc-context. Forward-auth removed. Gate-only (all logged-in allowed-group

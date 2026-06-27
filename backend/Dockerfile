@@ -1,10 +1,11 @@
 # Build a static Go binary; migrations are embedded (go:embed) and run on boot.
 FROM golang:1.26-alpine AS build
 WORKDIR /src
+ARG APP_VERSION=dev
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 go build -trimpath -o /out/server ./cmd/server
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-X main.version=${APP_VERSION}" -o /out/server ./cmd/server
 
 # distroless/static ships CA certs (needed for outbound TLS to Anthropic/MinIO/CNPG).
 FROM gcr.io/distroless/static-debian12:nonroot

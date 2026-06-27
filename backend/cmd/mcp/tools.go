@@ -25,7 +25,7 @@ type deps struct {
 
 func newMCPServer(q sqlc.Querier, extractor *llm.Extractor, log *slog.Logger) *mcp.Server {
 	d := &deps{q: q, extractor: extractor, log: log}
-	s := mcp.NewServer(&mcp.Implementation{Name: "lab-tracker", Version: "0.1.0"}, nil)
+	s := mcp.NewServer(&mcp.Implementation{Name: "lab-tracker", Version: version}, nil)
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list_profiles",

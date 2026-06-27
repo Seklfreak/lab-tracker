@@ -78,11 +78,19 @@ jobs:
       matrix: ${{ fromJSON(needs.detect.outputs.build) }}
     steps:
       - name: Prepare
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
           image="${REGISTRY}/${GITHUB_REPOSITORY}/${{ matrix.name }}"
           echo "IMAGE=${image,,}" >> "$GITHUB_ENV"
           platform="${{ matrix.platform }}"
           echo "PLATFORM_PAIR=${platform//\//-}" >> "$GITHUB_ENV"
+          # Release version stamped into the build: dispatch input, else the tag
+          # ref (vX.Y.Z -> X.Y.Z), else "dev".
+          ver="$INPUT_VERSION"
+          [ -z "$ver" ] && ver="${GITHUB_REF_NAME#v}"
+          [ -z "$ver" ] && ver="dev"
+          echo "APP_VERSION=$ver" >> "$GITHUB_ENV"
 
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -104,6 +112,8 @@ jobs:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
           platforms: ${{ matrix.platform }}
+          build-args: |
+            APP_VERSION=${{ env.APP_VERSION }}
           cache-from: type=gha,scope=${{ matrix.name }}-${{ env.PLATFORM_PAIR }}
           cache-to: type=gha,mode=max,scope=${{ matrix.name }}-${{ env.PLATFORM_PAIR }}
           outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
