@@ -81,7 +81,6 @@ npm run dev                # http://localhost:5173 (proxies /api to :8080)
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/api/version` | running api build version (shown in the web footer) |
 | GET | `/api/me` | current user + whether they're a super-user |
 | GET | `/api/admin/users` | (super-user) every user with owned/shared profile counts |
 | GET/POST | `/api/profiles` | list owned-or-shared / create profiles |

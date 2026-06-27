@@ -64,14 +64,15 @@ func (s *Server) Router(corsOrigins []string) http.Handler {
 		MaxAge:           300,
 	}))
 
+	// Public: also carries the build version so the web footer can show it
+	// without an authed request (a 401 there would trigger a re-login redirect).
 	r.Get("/health", func(w http.ResponseWriter, _ *http.Request) {
-		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "version": BuildVersion})
 	})
 
 	r.Route("/api", func(r chi.Router) {
 		r.Use(s.authMiddleware)
 
-		r.Get("/version", s.getVersion)
 		r.Get("/me", s.getMe)
 		r.Get("/admin/users", s.listAllUsers)
 
@@ -106,9 +107,4 @@ func (s *Server) Router(corsOrigins []string) http.Handler {
 	})
 
 	return r
-}
-
-// getVersion reports the running api build version (GET /api/version).
-func (s *Server) getVersion(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]string{"version": BuildVersion})
 }

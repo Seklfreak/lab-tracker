@@ -178,8 +178,12 @@ const json = (body: unknown): RequestInit => ({
   body: JSON.stringify(body),
 });
 
+// Public health endpoint (no auth) — also carries the api build version, so the
+// footer can read it without an authed request (a 401 would trigger re-login).
+export const health = (): Promise<{ status: string; version?: string }> =>
+  fetch("/health").then((r) => r.json());
+
 export const api = {
-  version: () => req<{ version: string }>("/api/version"),
   me: () => req<Me>("/api/me"),
   adminUsers: () => req<AdminUser[]>("/api/admin/users"),
 

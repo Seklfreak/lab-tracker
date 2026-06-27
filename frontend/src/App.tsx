@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { ProfileSwitcher } from "@/components/ProfileSwitcher";
 import { Spinner } from "@/components/ui";
-import { api } from "@/lib/api";
+import { api, health } from "@/lib/api";
 import { authEnabled, setAccessToken, setUnauthorizedHandler } from "@/lib/auth";
 
 // Lazy-load route pages so each (and Recharts, pulled in by AnalyteDetail) is a
@@ -184,16 +184,16 @@ function AppShell() {
 // Shows the deployed versions: web is baked in at build time; api is fetched
 // (they're released and deployed independently, so they can differ).
 function VersionFooter() {
-  const apiVersion = useQuery({
-    queryKey: ["version"],
-    queryFn: api.version,
+  const apiHealth = useQuery({
+    queryKey: ["health"],
+    queryFn: health,
     staleTime: Infinity,
     retry: false,
   });
   return (
     <footer className="mx-auto max-w-6xl px-4 pb-6 text-center text-xs text-muted sm:px-6">
       web {__APP_VERSION__}
-      {apiVersion.data?.version ? ` · api ${apiVersion.data.version}` : ""}
+      {apiHealth.data?.version ? ` · api ${apiHealth.data.version}` : ""}
     </footer>
   );
 }
