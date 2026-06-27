@@ -44,3 +44,16 @@ body {
   @apply bg-bg text-text antialiased;
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
+
+/* iOS Safari auto-zooms when a focused input's font-size is < 16px. On touch
+   devices, force form controls to 16px so focusing the search field or the
+   Compare analyte combobox doesn't zoom (the zoom also fired a resize/scroll
+   that immediately closed the combobox dropdown). Desktop keeps the compact
+   text-sm sizing. */
+@media (pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}

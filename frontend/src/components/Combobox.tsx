@@ -34,6 +34,17 @@ export function Combobox({
 
   const selected = options.find((o) => o.value === value);
 
+  // On touch devices, auto-focusing the search input pops the soft keyboard,
+  // whose resize/scroll would otherwise close the dropdown the instant it opens.
+  const isTouch =
+    typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches;
+
+  const reposition = () => {
+    if (!triggerRef.current) return;
+    const r = triggerRef.current.getBoundingClientRect();
+    setRect({ top: r.bottom + 4, left: r.left, width: r.width });
+  };
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return options;
@@ -45,9 +56,8 @@ export function Combobox({
   }, [options, query]);
 
   useLayoutEffect(() => {
-    if (open && triggerRef.current) {
-      const r = triggerRef.current.getBoundingClientRect();
-      setRect({ top: r.bottom + 4, left: r.left, width: r.width });
+    if (open) {
+      reposition();
       setHi(0);
     }
   }, [open]);
@@ -65,7 +75,9 @@ export function Combobox({
       if (e.target instanceof Node && panelRef.current?.contains(e.target)) return;
       setOpen(false);
     };
-    const onResize = () => setOpen(false);
+    // Reposition (don't close) on resize, so the mobile keyboard / orientation
+    // changes keep the dropdown open.
+    const onResize = () => reposition();
     document.addEventListener("mousedown", onDown);
     window.addEventListener("scroll", onScroll, true);
     window.addEventListener("resize", onResize);
@@ -107,7 +119,7 @@ export function Combobox({
           >
             <div className="p-1.5">
               <input
-                autoFocus
+                autoFocus={!isTouch}
                 value={query}
                 onChange={(e) => {
                   setQuery(e.target.value);
