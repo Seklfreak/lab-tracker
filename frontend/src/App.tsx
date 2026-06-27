@@ -140,7 +140,7 @@ function AppShell() {
 
   return (
     <div className="min-h-full">
-        <header className="sticky top-0 z-10 border-b border-border bg-bg/80 backdrop-blur">
+        <header className="sticky top-0 z-30 border-b border-border bg-bg/80 backdrop-blur">
           {/* Mobile: brand + profile on row 1, nav wraps to a full-width row 2.
               sm+: single row brand | nav | profile. */}
           <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 sm:px-6">
