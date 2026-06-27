@@ -422,15 +422,15 @@ export function AnalyteDetail() {
 
       <Card>
         <div className="overflow-x-auto">
-        <table className="w-full min-w-[480px] text-sm">
+        <table className="w-full text-sm sm:min-w-[480px]">
           <thead>
             <tr className="text-left text-muted">
               <th className="pb-2">Date</th>
               <th className="pb-2">Value</th>
               <th className="pb-2">Reference</th>
               <th className="pb-2">Flag</th>
-              <th className="pb-2">Lab</th>
-              <th className="pb-2">Source</th>
+              <th className="hidden pb-2 sm:table-cell">Lab</th>
+              <th className="pb-2">PDF</th>
               <th className="pb-2 text-right">Edit</th>
             </tr>
           </thead>
@@ -448,7 +448,7 @@ export function AnalyteDetail() {
                     </td>
                     <td className="py-2 text-muted">{referenceLabel(r) ?? "—"}</td>
                     <td className="py-2">{flag ? <Badge tone={tone}>{flag}</Badge> : "—"}</td>
-                    <td className="py-2 text-muted">{r.sourceLab ?? "—"}</td>
+                    <td className="hidden py-2 text-muted sm:table-cell">{r.sourceLab ?? "—"}</td>
                     <td className="py-2">
                       <button
                         type="button"

@@ -171,7 +171,7 @@ export function Dashboard() {
           </span>
         </button>
       )}
-      <div className="flex items-center gap-2 text-sm sm:ml-auto">
+      <div className="flex flex-wrap items-center gap-2 text-sm sm:ml-auto">
         <Button variant="ghost" className="px-2 py-1.5" onClick={exportCsv} title="Export CSV">
           <Download size={14} /> CSV
         </Button>
