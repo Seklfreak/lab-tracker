@@ -5,7 +5,9 @@ import { Card, Spinner } from "@/components/ui";
 function fmtDate(iso: string): string {
   if (!iso) return "—";
   const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? "—" : d.toLocaleString();
+  return Number.isNaN(d.getTime())
+    ? "—"
+    : d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }
 
 // Admin is the super-user area: every user with how many profiles they own and
@@ -38,44 +40,45 @@ export function Admin() {
         </span>
       </div>
 
-      <Card className="overflow-x-auto p-0">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted">
-              <th className="px-4 py-3 font-medium">User</th>
-              <th className="px-4 py-3 text-right font-medium">Owned</th>
-              <th className="px-4 py-3 text-right font-medium">Shared with them</th>
-              <th className="px-4 py-3 font-medium">Joined</th>
-              <th className="px-4 py-3 font-medium">Last seen</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((u) => (
-              <tr key={u.id} className="border-b border-border last:border-0">
-                <td className="px-4 py-3">
-                  <div className="font-medium">{u.name || u.email || u.oidcSub}</div>
+      {rows.length === 0 ? (
+        <Card>
+          <p className="text-muted">No users yet.</p>
+        </Card>
+      ) : (
+        <Card className="divide-y divide-border p-0">
+          {rows.map((u) => (
+            <div key={u.id} className="p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="truncate font-medium">{u.name || u.email || u.oidcSub}</div>
                   {u.email && u.name && (
-                    <div className="text-xs text-muted">{u.email}</div>
+                    <div className="truncate text-xs text-muted">{u.email}</div>
                   )}
-                </td>
-                <td className="px-4 py-3 text-right tabular-nums">{u.ownedCount}</td>
-                <td className="px-4 py-3 text-right tabular-nums text-muted">
-                  {u.sharedCount}
-                </td>
-                <td className="px-4 py-3 text-muted">{fmtDate(u.createdAt)}</td>
-                <td className="px-4 py-3 text-muted">{fmtDate(u.lastSeenAt)}</td>
-              </tr>
-            ))}
-            {rows.length === 0 && (
-              <tr>
-                <td className="px-4 py-6 text-muted" colSpan={5}>
-                  No users yet.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </Card>
+                </div>
+                <div className="flex shrink-0 gap-4">
+                  <Stat label="owned" value={u.ownedCount} />
+                  <Stat label="shared" value={u.sharedCount} muted />
+                </div>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted">
+                <span>Joined {fmtDate(u.createdAt)}</span>
+                <span>Last seen {fmtDate(u.lastSeenAt)}</span>
+              </div>
+            </div>
+          ))}
+        </Card>
+      )}
+    </div>
+  );
+}
+
+function Stat({ label, value, muted }: { label: string; value: number; muted?: boolean }) {
+  return (
+    <div className="text-center">
+      <div className={`text-base font-semibold tabular-nums ${muted ? "text-muted" : ""}`}>
+        {value}
+      </div>
+      <div className="text-[11px] uppercase tracking-wide text-muted">{label}</div>
     </div>
   );
 }
