@@ -442,7 +442,14 @@ export function AnalyteDetail() {
               return (
                 <Fragment key={r.id}>
                   <tr className="border-t border-border">
-                    <td className="py-2">{r.observedDate ?? "—"}</td>
+                    <td className="py-2">
+                      {r.observedDate ?? "—"}
+                      {r.sourceLab && (
+                        <span className="mt-0.5 block text-xs text-muted sm:hidden">
+                          {r.sourceLab}
+                        </span>
+                      )}
+                    </td>
                     <td className={tone === "bad" ? "py-2 font-medium text-bad" : "py-2"}>
                       {displayValue(r)} {r.unit}
                     </td>
