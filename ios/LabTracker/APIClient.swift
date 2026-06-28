@@ -12,6 +12,13 @@ enum APIError: LocalizedError {
         case let .decoding(msg): return "Could not read response: \(msg)"
         }
     }
+
+    /// A 401 — the token is missing, expired, or otherwise rejected. The UI
+    /// offers a re-sign-in to recover when it sees this.
+    var isUnauthorized: Bool {
+        if case .http(401, _) = self { return true }
+        return false
+    }
 }
 
 /// Thin REST client for the lab-tracker API. Uses the OIDC access token when

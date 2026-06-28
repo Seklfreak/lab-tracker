@@ -74,7 +74,9 @@ and rough notes so they aren't lost.
       their own refresh, so two overlapping refreshes spent the same rotating
       Authentik refresh token; the second was rejected and signed the user out,
       surfacing as `401 invalid token`. Refreshes are now coalesced onto a single
-      in-flight task.
+      in-flight task. A 401 on load also offers a **Sign in** button right in the
+      error view, so a broken session can be recovered without digging through
+      Settings to sign out + back in.
   - [ ] **Smooth out the sign-in / auth flow** — works, but the transition into
     and out of the web-auth sheet is a bit janky; polish later.
   - [ ] **PDF upload** from the phone (share sheet / camera scan).
