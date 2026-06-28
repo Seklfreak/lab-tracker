@@ -69,6 +69,12 @@ and rough notes so they aren't lost.
     entered. Redirect `dev.winkler.labtracker://auth/callback`. Tokens in the
     Keychain, auto-refresh + retry-on-401. **Verified end-to-end on a physical
     device.**
+    - [x] **Fix token-refresh race (2026-06-28)** — concurrent API requests (e.g.
+      the analyte detail screen fetches trend + analysis at once) each triggered
+      their own refresh, so two overlapping refreshes spent the same rotating
+      Authentik refresh token; the second was rejected and signed the user out,
+      surfacing as `401 invalid token`. Refreshes are now coalesced onto a single
+      in-flight task.
   - [ ] **Smooth out the sign-in / auth flow** — works, but the transition into
     and out of the web-auth sheet is a bit janky; polish later.
   - [ ] **PDF upload** from the phone (share sheet / camera scan).
