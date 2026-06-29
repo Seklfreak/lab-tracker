@@ -50,6 +50,7 @@ struct RootView: View {
                 }
             }
             .navigationTitle("Lab Tracker")
+            .tint(.brandTeal)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     if profiles.count > 1, let selected {

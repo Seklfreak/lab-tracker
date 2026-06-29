@@ -2,6 +2,8 @@ import SwiftUI
 import Charts
 
 /// One analyte's readings over time (Swift Charts) plus the stored AI analysis.
+/// A hero shows the latest value + where it sits in range; the trend chart draws
+/// the reference band behind the line so out-of-range stretches are visible.
 /// Chart points and the parsed analysis are computed once in `load()` so the
 /// view body stays cheap (no per-render date parsing or markdown work) — that's
 /// what keeps the push animation smooth.
@@ -23,11 +25,13 @@ struct AnalyteDetailView: View {
         let id: String
         let date: Date
         let value: Double
-        let abnormal: Bool
+        let status: LabStatus
     }
 
     private var latest: LabResult? { points.last }
     private var unit: String? { points.last?.unit }
+    private var refLow: Double? { points.last?.referenceLow }
+    private var refHigh: Double? { points.last?.referenceHigh }
 
     var body: some View {
         List {
@@ -36,28 +40,17 @@ struct AnalyteDetailView: View {
             } else if let error {
                 Text(error).foregroundStyle(.red)
             } else {
+                if let latest {
+                    Section {
+                        hero(latest)
+                    }
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 6, trailing: 16))
+                }
                 if chartPoints.count >= 2 {
                     Section("Trend") { chart }
-                } else if let latest {
-                    Section("Latest") {
-                        LabeledContent(latest.displayValue + (unit.map { " \($0)" } ?? "")) {
-                            Text(latest.observedDate ?? "").foregroundStyle(.secondary)
-                        }
-                    }
                 }
-
-                Section("Readings") {
-                    ForEach(points.reversed()) { r in
-                        HStack {
-                            Text(r.observedDate ?? "—")
-                            Spacer()
-                            Text(r.displayValue + (r.unit.map { " \($0)" } ?? ""))
-                                .foregroundStyle(r.isAbnormal ? .red : .primary)
-                        }
-                        .font(.callout)
-                    }
-                }
-
+                Section("Readings") { readings }
                 Section("AI analysis") { analysisSection }
             }
         }
@@ -66,15 +59,78 @@ struct AnalyteDetailView: View {
         .task(id: analyteId) { await load() }
     }
 
-    @ViewBuilder private var chart: some View {
-        Chart(chartPoints) { p in
-            LineMark(x: .value("Date", p.date), y: .value("Value", p.value))
-                .foregroundStyle(.blue)
-            PointMark(x: .value("Date", p.date), y: .value("Value", p.value))
-                .foregroundStyle(p.abnormal ? .red : .blue)
+    @ViewBuilder private func hero(_ latest: LabResult) -> some View {
+        let status = latest.status
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(latest.displayValue)
+                    .font(.system(size: 40, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(status == .unknown ? Color.primary : status.tint)
+                if let unit { Text(unit).font(.title3).foregroundStyle(.secondary) }
+                Spacer()
+                if !status.label.isEmpty {
+                    Text(status.label)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(status.tint)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Capsule().fill(status.tint.opacity(0.15)))
+                }
+            }
+            if let v = latest.valueNumeric, refLow != nil || refHigh != nil {
+                RangeTrack(value: v, low: refLow, high: refHigh, status: status)
+            }
+            if let ref = latest.referenceLabel {
+                Text("Reference \(ref)").font(.caption).foregroundStyle(.secondary)
+            }
         }
-        .frame(height: 200)
-        .padding(.vertical, 4)
+    }
+
+    @ViewBuilder private var chart: some View {
+        Chart {
+            if let lo = refLow, let hi = refHigh {
+                RectangleMark(yStart: .value("Low", lo), yEnd: .value("High", hi))
+                    .foregroundStyle(Color.statusInRange.opacity(0.12))
+            } else if let hi = refHigh {
+                RuleMark(y: .value("Upper limit", hi))
+                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                    .foregroundStyle(Color.statusInRange.opacity(0.5))
+            } else if let lo = refLow {
+                RuleMark(y: .value("Lower limit", lo))
+                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                    .foregroundStyle(Color.statusInRange.opacity(0.5))
+            }
+            ForEach(chartPoints) { p in
+                AreaMark(x: .value("Date", p.date), y: .value("Value", p.value))
+                    .foregroundStyle(.linearGradient(
+                        colors: [Color.brandTeal.opacity(0.22), Color.brandTeal.opacity(0.02)],
+                        startPoint: .top, endPoint: .bottom))
+                    .interpolationMethod(.catmullRom)
+                LineMark(x: .value("Date", p.date), y: .value("Value", p.value))
+                    .foregroundStyle(Color.brandTeal)
+                    .interpolationMethod(.catmullRom)
+                    .lineStyle(StrokeStyle(lineWidth: 2.5))
+                PointMark(x: .value("Date", p.date), y: .value("Value", p.value))
+                    .foregroundStyle(p.status == .unknown ? Color.brandTeal : p.status.tint)
+                    .symbolSize(p.status == .high || p.status == .low ? 60 : 26)
+            }
+        }
+        .frame(height: 220)
+        .padding(.vertical, 6)
+    }
+
+    @ViewBuilder private var readings: some View {
+        ForEach(points.reversed()) { r in
+            HStack {
+                Text(LabDate.pretty(r.observedDate) ?? r.observedDate ?? "—")
+                Spacer()
+                Text(r.displayValue + (r.unit.map { " \($0)" } ?? ""))
+                    .monospacedDigit()
+                    .foregroundStyle(r.status == .unknown ? Color.primary : r.status.tint)
+            }
+            .font(.callout)
+        }
     }
 
     @ViewBuilder private var analysisSection: some View {
@@ -106,7 +162,7 @@ struct AnalyteDetailView: View {
             points = rows
             chartPoints = rows.compactMap { r in
                 guard let v = r.valueNumeric, let day = r.observedDate, let date = Self.parseDay(day) else { return nil }
-                return Point(id: r.id, date: date, value: v, abnormal: r.isAbnormal)
+                return Point(id: r.id, date: date, value: v, status: r.status)
             }
             error = nil
         } catch {

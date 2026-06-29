@@ -37,6 +37,12 @@ struct DashboardView: View {
                 ContentUnavailableView("No results yet", systemImage: "doc.text.magnifyingglass")
             } else {
                 List {
+                    Section {
+                        SummaryHeader(results: results)
+                            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 8, trailing: 16))
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                    }
                     ForEach(groups, id: \.0) { category, rows in
                         Section(category) {
                             ForEach(rows) { r in
@@ -70,27 +76,85 @@ struct DashboardView: View {
     }
 }
 
+/// One analyte: name + value on top, the reference-range track below, then the
+/// reference interval as a quiet caption. Value is tabular and tinted by status.
 struct ResultRow: View {
     let result: LabResult
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(result.analyteName).font(.body)
-                if let ref = result.referenceLabel {
-                    Text("Ref: \(ref)").font(.caption).foregroundStyle(.secondary)
+        let status = result.status
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(result.analyteName)
+                    .font(.body.weight(.medium))
+                Spacer(minLength: 8)
+                if let symbol = status.directionSymbol {
+                    Image(systemName: symbol)
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(status.tint)
                 }
-            }
-            Spacer()
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text(result.displayValue)
-                    .font(.headline)
-                    .foregroundStyle(result.isAbnormal ? .red : .primary)
+                    .font(.callout.weight(.semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(status == .unknown ? Color.primary : status.tint)
                 if let unit = result.unit {
                     Text(unit).font(.caption).foregroundStyle(.secondary)
                 }
             }
+            if let v = result.valueNumeric, result.referenceLow != nil || result.referenceHigh != nil {
+                RangeTrack(value: v, low: result.referenceLow, high: result.referenceHigh, status: status)
+            }
+            if let ref = result.referenceLabel {
+                Text("Reference \(ref)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 4)
     }
+}
+
+/// Opens the dashboard with a verdict, not just a list: total markers, how many
+/// are out of range, and when the panel was last updated.
+struct SummaryHeader: View {
+    let results: [LabResult]
+
+    private var outOfRange: Int { results.filter(\.isAbnormal).count }
+    private var latest: String? { results.compactMap(\.observedDate).max() }
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 14) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text("\(results.count) markers")
+                    .font(.title3.weight(.semibold))
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            chip
+        }
+    }
+
+    private var subtitle: String {
+        var parts = [outOfRange == 0 ? "All in range" : "\(outOfRange) out of range"]
+        if let pretty = LabDate.pretty(latest) { parts.append("updated \(pretty)") }
+        return parts.joined(separator: " · ")
+    }
+
+    @ViewBuilder private var chip: some View {
+        if outOfRange == 0 {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.title)
+                .foregroundStyle(Color.statusInRange)
+        } else {
+            Text("\(outOfRange)")
+                .font(.headline.weight(.bold))
+                .monospacedDigit()
+                .foregroundStyle(.white)
+                .frame(width: 36, height: 36)
+                .background(Circle().fill(Color.statusHigh))
+        }
+    }
+
 }

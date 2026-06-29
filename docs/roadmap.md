@@ -83,6 +83,13 @@ and rough notes so they aren't lost.
     using App Store Connect API-key cloud signing. Dispatched from the release
     flow; dormant until the `APP_STORE_CONNECT_*` / `APP_STORE_TEAM_ID` secrets are
     set. See the [iOS README](../ios/README.md#testflight-ci).
+  - [x] **Visual redesign (2026-06-29)** — gave the app an identity beyond stock
+    SwiftUI: brand teal (matching the icon), a status palette that encodes
+    direction (in-range teal / high coral / low indigo), tabular values, a
+    dashboard summary header, and the signature **reference-range track** on
+    each row. The detail screen gained a value hero + a trend chart with the
+    reference band shaded behind the line. See
+    [`Views/RangeTrack.swift`](../ios/LabTracker/Views/RangeTrack.swift).
   - [ ] **Smooth out the sign-in / auth flow** — works, but the transition into
     and out of the web-auth sheet is a bit janky; polish later.
   - [ ] **PDF upload** from the phone (share sheet / camera scan).

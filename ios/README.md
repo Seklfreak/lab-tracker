@@ -85,6 +85,11 @@ tag; the build number is the workflow run number.
 - `LabTracker/Views/` — `RootView` (profiles + settings), `DashboardView`
   (latest per analyte), `AnalyteDetailView` (Swift Charts trend + AI analysis),
   `SettingsView`, `MarkdownText`.
+- `LabTracker/Views/Theme.swift` — brand teal + the in-range/high/low status
+  palette, and `LabResult.status`.
+- `LabTracker/Views/RangeTrack.swift` — the reference-range gauge: a value's
+  position within (or past) its normal band. Used on the dashboard rows and the
+  analyte detail hero; echoed as the shaded band behind the trend chart.
 
 ## Tests & lint
 

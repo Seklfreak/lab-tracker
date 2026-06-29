@@ -4,6 +4,7 @@
 # Xcode / build
 build/
 build-device/
+build-sim/
 DerivedData/
 *.xcuserstate
 xcuserdata/
