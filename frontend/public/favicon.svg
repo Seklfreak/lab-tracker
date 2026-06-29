@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#15B8A6"/>
+      <stop offset="1" stop-color="#0F766E"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" rx="224" fill="url(#bg)"/>
+  <!-- area under the trend -->
+  <path d="M205 620 L420 520 L620 600 L820 360 L820 742 L205 742 Z" fill="#ffffff" fill-opacity="0.16"/>
+  <!-- baseline -->
+  <rect x="188" y="742" width="648" height="18" rx="9" fill="#ffffff" fill-opacity="0.5"/>
+  <!-- trend line -->
+  <polyline points="205,620 420,520 620,600 820,360" fill="none" stroke="#ffffff" stroke-width="46" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- data points -->
+  <g fill="#ffffff">
+    <circle cx="205" cy="620" r="34"/>
+    <circle cx="420" cy="520" r="34"/>
+    <circle cx="620" cy="600" r="34"/>
+    <circle cx="820" cy="360" r="34"/>
+  </g>
+</svg>
