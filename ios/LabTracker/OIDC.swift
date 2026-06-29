@@ -62,6 +62,11 @@ final class AuthSession: NSObject, ASWebAuthenticationPresentationContextProvidi
     private var expiresAt: Date?
     private var webSession: ASWebAuthenticationSession?
 
+    /// The in-flight refresh, if any. Concurrent callers (e.g. a screen that
+    /// fans out several API requests at once) await this instead of each kicking
+    /// off their own refresh — see refresh().
+    private var refreshTask: Task<Void, Error>?
+
     var isSignedIn: Bool { refreshToken != nil || accessToken != nil }
 
     override init() {
@@ -129,7 +134,25 @@ final class AuthSession: NSObject, ASWebAuthenticationPresentationContextProvidi
         return accessToken
     }
 
+    /// Refresh the access token, coalescing concurrent callers onto a single
+    /// request. Authentik rotates the refresh token on every use, so two
+    /// overlapping refreshes would each present the same token — the first
+    /// rotates it, the second is rejected and signs the user out. Funnelling
+    /// everyone through one in-flight task means the token is only ever spent
+    /// once. (Reaching `refreshTask = task` involves no `await`, so on the main
+    /// actor a second caller can't slip past the check before it's set.)
     func refresh() async throws {
+        if let inFlight = refreshTask {
+            return try await inFlight.value
+        }
+        guard refreshToken != nil, config.isConfigured else { return }
+        let task = Task { try await self.performRefresh() }
+        refreshTask = task
+        defer { refreshTask = nil }
+        try await task.value
+    }
+
+    private func performRefresh() async throws {
         guard let rt = refreshToken, config.isConfigured else { return }
         let disco = try await discover()
         let (data, resp) = try await post(disco.tokenEndpoint, form: [

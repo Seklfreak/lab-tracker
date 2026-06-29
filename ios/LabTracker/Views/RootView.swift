@@ -8,6 +8,8 @@ struct RootView: View {
     @State private var profiles: [Profile] = []
     @State private var loading = false
     @State private var error: String?
+    @State private var canReauth = false
+    @State private var signingIn = false
     @State private var showSettings = false
 
     private var selected: Profile? {
@@ -25,6 +27,13 @@ struct RootView: View {
                     } description: {
                         Text(error)
                     } actions: {
+                        // An expired/revoked token (or a wiped session) shows up
+                        // as a 401 — let the user re-auth right here instead of
+                        // hunting through Settings for sign out + sign in.
+                        if canReauth {
+                            Button("Sign in") { Task { await reSignIn() } }
+                                .disabled(signingIn)
+                        }
                         Button("Retry") { Task { await load() } }
                         Button("Settings") { showSettings = true }
                     }
@@ -74,7 +83,22 @@ struct RootView: View {
         do {
             profiles = try await store.api.profiles()
             error = nil
+            canReauth = false
             if store.selectedProfileId == nil { store.selectedProfileId = profiles.first?.id }
+        } catch {
+            self.error = error.localizedDescription
+            canReauth = (error as? APIError)?.isUnauthorized ?? false
+        }
+    }
+
+    /// Re-run the OIDC sign-in flow to mint a fresh token pair. Works whether the
+    /// old session was expired, revoked, or wiped — no sign-out needed first.
+    private func reSignIn() async {
+        signingIn = true
+        defer { signingIn = false }
+        do {
+            try await store.auth.signIn(serverURL: store.serverURL)
+            await load()
         } catch {
             self.error = error.localizedDescription
         }
