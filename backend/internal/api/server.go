@@ -71,6 +71,16 @@ func (s *Server) Router(corsOrigins []string) http.Handler {
 	})
 
 	r.Route("/api", func(r chi.Router) {
+		// API responses carry per-user data; never let a browser cache them.
+		// Without this, mobile Safari heuristically caches GETs like /api/profiles
+		// and serves stale results (e.g. a pre-login empty list) without
+		// revalidating, which looks like "No profiles" until site data is cleared.
+		r.Use(func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Cache-Control", "no-store")
+				next.ServeHTTP(w, r)
+			})
+		})
 		r.Use(s.authMiddleware)
 
 		r.Get("/me", s.getMe)

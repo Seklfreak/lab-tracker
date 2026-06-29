@@ -60,6 +60,18 @@ func TestListProfiles(t *testing.T) {
 	}
 }
 
+func TestAPIResponsesAreNoStore(t *testing.T) {
+	q := &sqlctest.FakeQuerier{
+		ListProfilesForUserFn: func(context.Context, *uuid.UUID) ([]sqlc.Profile, error) {
+			return nil, nil
+		},
+	}
+	rec := do(t, router(q, nil), http.MethodGet, "/api/profiles", "")
+	if got := rec.Header().Get("Cache-Control"); got != "no-store" {
+		t.Errorf("Cache-Control = %q, want no-store", got)
+	}
+}
+
 func TestCreateProfile(t *testing.T) {
 	q := &sqlctest.FakeQuerier{
 		CreateProfileFn: func(_ context.Context, arg sqlc.CreateProfileParams) (sqlc.Profile, error) {
