@@ -20,6 +20,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.winktech.labtracker
         INFOPLIST_FILE: LabTracker/Info.plist
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         # Device builds: pick your team in Xcode (Signing & Capabilities) or
         # set DEVELOPMENT_TEAM. Simulator CLI builds pass CODE_SIGNING_ALLOWED=NO.
         CODE_SIGN_STYLE: Automatic

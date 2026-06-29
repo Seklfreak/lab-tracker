@@ -28,7 +28,10 @@ on:
 
 jobs:
   testflight:
-    runs-on: macos-latest
+    # macos-26 ships Xcode 26 / the iOS 26 SDK, which App Store Connect now
+    # requires for uploads (older runner images build with the iOS 18 SDK and
+    # are rejected at validation).
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v7
 
