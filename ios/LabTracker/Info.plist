@@ -39,15 +39,15 @@
 	</dict>
 	<!-- OIDC redirect for the Authorization Code + PKCE flow. Reverse-DNS scheme
 	     (matches the bundle id) so another app can't claim it. Full redirect URI:
-	     dev.winkler.labtracker://auth/callback -->
+	     dev.winktech.labtracker://auth/callback -->
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>dev.winkler.labtracker.auth</string>
+			<string>dev.winktech.labtracker.auth</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>dev.winkler.labtracker</string>
+				<string>dev.winktech.labtracker</string>
 			</array>
 		</dict>
 	</array>

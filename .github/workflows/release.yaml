@@ -67,3 +67,6 @@ jobs:
           gh release create "$new" --target "$SHA" --title "$new" --notes-file notes.md
           # GITHUB_TOKEN tag pushes don't trigger workflows, so dispatch the build.
           gh workflow run build.yaml --ref "$new" -f version="${new#v}"
+          # Same limitation applies to the iOS TestFlight upload (no-ops if its
+          # App Store Connect secrets aren't set).
+          gh workflow run testflight.yaml --ref "$new" -f version="${new#v}"

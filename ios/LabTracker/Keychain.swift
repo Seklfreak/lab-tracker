@@ -4,7 +4,7 @@ import Security
 /// Tiny Keychain wrapper for the OIDC tokens (more appropriate than UserDefaults
 /// for credentials). Keyed by a string account under one service.
 enum Keychain {
-    private static let service = "dev.winkler.labtracker"
+    private static let service = "dev.winktech.labtracker"
 
     static func set(_ value: String?, for account: String) {
         let query: [String: Any] = [

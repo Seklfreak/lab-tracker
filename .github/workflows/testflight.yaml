@@ -1,0 +1,123 @@
+name: TestFlight
+
+# Build the iOS app and upload it to TestFlight on every version tag.
+#
+# Signing is done with an App Store Connect API key ("cloud signing" via
+# xcodebuild -allowProvisioningUpdates), so there are NO certificates or
+# provisioning profiles to manage in the repo or as secrets — Apple mints the
+# distribution cert + App Store profile on the fly and registers the App ID.
+#
+# Dormant by design: if the App Store Connect secrets are absent the job logs a
+# notice and exits 0, so this never red-X's a release before the account is
+# wired up. Set the four secrets below to switch it on.
+#
+# Required repository secrets:
+#   APP_STORE_CONNECT_KEY_ID     - App Store Connect API key ID
+#   APP_STORE_CONNECT_ISSUER_ID  - the key's Issuer ID
+#   APP_STORE_CONNECT_API_KEY    - contents of the AuthKey_XXXX.p8 file
+#   APP_STORE_TEAM_ID            - paid Apple Developer Team ID
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Marketing version, e.g. 0.1.2. Blank = derive from the tag."
+        required: false
+        default: ""
+
+jobs:
+  testflight:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Secrets can't be referenced in `if:`, so surface presence as an output
+      # and gate every real step on it.
+      - name: Check for App Store Connect secrets
+        id: gate
+        env:
+          KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+        run: |
+          if [ -z "$KEY_ID" ]; then
+            echo "::notice::App Store Connect secrets not set — skipping TestFlight upload."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Tooling
+        if: steps.gate.outputs.ready == 'true'
+        run: |
+          brew install xcodegen
+          xcodebuild -version
+
+      - name: Generate project
+        if: steps.gate.outputs.ready == 'true'
+        working-directory: ios
+        run: xcodegen generate
+
+      - name: Write API key
+        if: steps.gate.outputs.ready == 'true'
+        env:
+          API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+          KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+        run: |
+          mkdir -p ~/.appstoreconnect/private_keys
+          printf '%s' "$API_KEY" > ~/.appstoreconnect/private_keys/AuthKey_"$KEY_ID".p8
+
+      - name: Archive (cloud-signed)
+        if: steps.gate.outputs.ready == 'true'
+        working-directory: ios
+        env:
+          TEAM_ID: ${{ secrets.APP_STORE_TEAM_ID }}
+          KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+        run: |
+          # Marketing version: dispatch input wins, else derive from the tag (vX.Y.Z -> X.Y.Z).
+          VERSION="$INPUT_VERSION"
+          [ -z "$VERSION" ] && VERSION="${GITHUB_REF_NAME#v}"
+          BUILD="${GITHUB_RUN_NUMBER}"      # monotonic, unique per upload
+          echo "Archiving $VERSION (build $BUILD)"
+          xcodebuild archive \
+            -project LabTracker.xcodeproj -scheme LabTracker \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/LabTracker.xcarchive \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/.appstoreconnect/private_keys/AuthKey_"$KEY_ID".p8 \
+            -authenticationKeyID "$KEY_ID" \
+            -authenticationKeyIssuerID "$ISSUER_ID" \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
+            CODE_SIGN_STYLE=Automatic \
+            MARKETING_VERSION="$VERSION" \
+            CURRENT_PROJECT_VERSION="$BUILD"
+
+      - name: Export + upload to TestFlight
+        if: steps.gate.outputs.ready == 'true'
+        working-directory: ios
+        env:
+          TEAM_ID: ${{ secrets.APP_STORE_TEAM_ID }}
+          KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          cat > build/ExportOptions.plist <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>teamID</key><string>${TEAM_ID}</string>
+            <key>destination</key><string>upload</string>
+            <key>uploadSymbols</key><true/>
+          </dict>
+          </plist>
+          PLIST
+          xcodebuild -exportArchive \
+            -archivePath build/LabTracker.xcarchive \
+            -exportOptionsPlist build/ExportOptions.plist \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/.appstoreconnect/private_keys/AuthKey_"$KEY_ID".p8 \
+            -authenticationKeyID "$KEY_ID" \
+            -authenticationKeyIssuerID "$ISSUER_ID"

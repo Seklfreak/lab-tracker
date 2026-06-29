@@ -66,7 +66,7 @@ and rough notes so they aren't lost.
   - [x] **OIDC sign-in (2026-06-26)** — Authorization Code + PKCE via
     `ASWebAuthenticationSession`. The app reads the provider (issuer + client id)
     from the server's own `{serverURL}/config.js`, so only the server URL is
-    entered. Redirect `dev.winkler.labtracker://auth/callback`. Tokens in the
+    entered. Redirect `dev.winktech.labtracker://auth/callback`. Tokens in the
     Keychain, auto-refresh + retry-on-401. **Verified end-to-end on a physical
     device.**
     - [x] **Fix token-refresh race (2026-06-28)** — concurrent API requests (e.g.
@@ -77,6 +77,12 @@ and rough notes so they aren't lost.
       in-flight task. A 401 on load also offers a **Sign in** button right in the
       error view, so a broken session can be recovered without digging through
       Settings to sign out + back in.
+  - [x] **TestFlight via CI (2026-06-29)** — bundle id moved to
+    `dev.winktech.labtracker` (US paid Apple Developer account) and a tag-triggered
+    [`testflight.yaml`](../.github/workflows/testflight.yaml) archives + uploads
+    using App Store Connect API-key cloud signing. Dispatched from the release
+    flow; dormant until the `APP_STORE_CONNECT_*` / `APP_STORE_TEAM_ID` secrets are
+    set. See the [iOS README](../ios/README.md#testflight-ci).
   - [ ] **Smooth out the sign-in / auth flow** — works, but the transition into
     and out of the web-auth sheet is a bit janky; polish later.
   - [ ] **PDF upload** from the phone (share sheet / camera scan).

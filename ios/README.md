@@ -54,8 +54,27 @@ xcodebuild -project LabTracker.xcodeproj -target LabTracker \
   CODE_SIGNING_ALLOWED=NO SYMROOT="$PWD/build" build
 xcrun simctl boot "iPhone 17"
 xcrun simctl install booted build/Debug-iphonesimulator/LabTracker.app
-xcrun simctl launch booted dev.winkler.labtracker
+xcrun simctl launch booted dev.winktech.labtracker
 ```
+
+## TestFlight (CI)
+
+Every version tag uploads a build to TestFlight via
+[`.github/workflows/testflight.yaml`](../.github/workflows/testflight.yaml)
+(also runnable from the Actions tab). Signing is **App Store Connect API-key
+cloud signing** (`xcodebuild -allowProvisioningUpdates`) — no certs or profiles
+live in the repo. The job is dormant until these repository secrets are set, and
+no-ops cleanly otherwise:
+
+- `APP_STORE_CONNECT_KEY_ID` / `APP_STORE_CONNECT_ISSUER_ID` / `APP_STORE_CONNECT_API_KEY`
+  — an App Store Connect API key (App Manager role): the Key ID, its Issuer ID,
+  and the `.p8` contents.
+- `APP_STORE_TEAM_ID` — the paid Apple Developer Team ID.
+
+One-time setup on the Apple side: register the explicit App ID
+`dev.winktech.labtracker`, then create the matching app record in App Store
+Connect (the first upload fails without it). The marketing version comes from the
+tag; the build number is the workflow run number.
 
 ## Layout
 

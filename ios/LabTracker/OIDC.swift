@@ -7,8 +7,8 @@ import Observation
 struct OIDCConfig {
     var issuer: String        // e.g. https://auth.example.com/application/o/lab-tracker/
     var clientID: String
-    var redirectURI = "dev.winkler.labtracker://auth/callback"
-    var callbackScheme = "dev.winkler.labtracker"
+    var redirectURI = "dev.winktech.labtracker://auth/callback"
+    var callbackScheme = "dev.winktech.labtracker"
     var scope = "openid profile email offline_access"
 
     var isConfigured: Bool { !issuer.trimmingCharacters(in: .whitespaces).isEmpty }

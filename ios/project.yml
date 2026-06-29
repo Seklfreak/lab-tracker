@@ -1,6 +1,6 @@
 name: LabTracker
 options:
-  bundleIdPrefix: dev.winkler
+  bundleIdPrefix: dev.winktech
   deploymentTarget:
     iOS: "17.0"
   createIntermediateGroups: true
@@ -18,7 +18,7 @@ targets:
       - LabTracker
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: dev.winkler.labtracker
+        PRODUCT_BUNDLE_IDENTIFIER: dev.winktech.labtracker
         INFOPLIST_FILE: LabTracker/Info.plist
         # Device builds: pick your team in Xcode (Signing & Capabilities) or
         # set DEVELOPMENT_TEAM. Simulator CLI builds pass CODE_SIGNING_ALLOWED=NO.
@@ -33,7 +33,7 @@ targets:
       - target: LabTracker
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: dev.winkler.labtracker.tests
+        PRODUCT_BUNDLE_IDENTIFIER: dev.winktech.labtracker.tests
         GENERATE_INFOPLIST_FILE: YES
 
 schemes:
