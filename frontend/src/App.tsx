@@ -12,7 +12,8 @@ import {
   Shield,
 } from "lucide-react";
 import { ProfileSwitcher } from "@/components/ProfileSwitcher";
-import { Spinner } from "@/components/ui";
+import { EmptyProfiles } from "@/components/EmptyProfiles";
+import { Button, Spinner } from "@/components/ui";
 import { api, health } from "@/lib/api";
 import { authEnabled, setAccessToken, setUnauthorizedHandler } from "@/lib/auth";
 
@@ -33,8 +34,14 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   return <AuthGate>{children}</AuthGate>;
 }
 
+// Set just before signoutRedirect so that, on return to the app, AuthGate shows
+// a "signed out" landing instead of immediately bouncing back into login (which
+// otherwise loops as a perpetual "Signing in…" spinner, especially on iOS).
+const SIGNED_OUT_KEY = "lt:signedOut";
+
 function AuthGate({ children }: { children: React.ReactNode }) {
   const auth = useAuth();
+  const justSignedOut = sessionStorage.getItem(SIGNED_OUT_KEY) === "1";
 
   // Keep the API client's token in sync. Set synchronously during render so it's
   // available before child components fire their first request.
@@ -46,11 +53,23 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     return () => setUnauthorizedHandler(null);
   }, [auth]);
 
-  // Kick off the login redirect once we know the user isn't signed in. We depend
-  // on the specific auth flags rather than the whole `auth` object on purpose, so
-  // this doesn't re-run on every unrelated auth state change.
+  // Once signed in, clear the just-signed-out marker.
   useEffect(() => {
-    if (!auth.isLoading && !auth.isAuthenticated && !auth.error && !auth.activeNavigator) {
+    if (auth.isAuthenticated) sessionStorage.removeItem(SIGNED_OUT_KEY);
+  }, [auth.isAuthenticated]);
+
+  // Kick off the login redirect once we know the user isn't signed in — unless
+  // they just signed out, in which case we show a landing with a Sign in button.
+  // We depend on the specific auth flags rather than the whole `auth` object on
+  // purpose, so this doesn't re-run on every unrelated auth state change.
+  useEffect(() => {
+    if (
+      !auth.isLoading &&
+      !auth.isAuthenticated &&
+      !auth.error &&
+      !auth.activeNavigator &&
+      !justSignedOut
+    ) {
       void auth.signinRedirect();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -67,6 +86,21 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     );
   }
   if (!auth.isAuthenticated) {
+    if (justSignedOut) {
+      return (
+        <div className="flex min-h-screen flex-col items-center justify-center gap-4 text-sm">
+          <p className="text-muted">You’ve been signed out.</p>
+          <Button
+            onClick={() => {
+              sessionStorage.removeItem(SIGNED_OUT_KEY);
+              void auth.signinRedirect();
+            }}
+          >
+            Sign in
+          </Button>
+        </div>
+      );
+    }
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Spinner label="Signing in…" />
@@ -89,7 +123,10 @@ function UserMenuInner() {
     "Account";
   return (
     <button
-      onClick={() => void auth.signoutRedirect()}
+      onClick={() => {
+        sessionStorage.setItem(SIGNED_OUT_KEY, "1");
+        void auth.signoutRedirect();
+      }}
       title="Sign out"
       className="flex items-center gap-1.5 rounded-md px-2 py-1 text-sm text-muted hover:bg-panel2 hover:text-text"
     >
@@ -138,6 +175,12 @@ function AppShell() {
   // admin endpoints, so this is purely cosmetic.
   const me = useQuery({ queryKey: ["me"], queryFn: api.me });
 
+  // A signed-in user with zero profiles (new account, or signed in as the wrong
+  // identity) gets a clear empty state instead of a blank dashboard. Shares the
+  // ["profiles"] query with the header switcher, so no extra request.
+  const profiles = useQuery({ queryKey: ["profiles"], queryFn: api.listProfiles });
+  const noProfiles = profiles.isSuccess && profiles.data.length === 0;
+
   return (
     <div className="min-h-full">
         <header className="sticky top-0 z-30 border-b border-border bg-bg/80 backdrop-blur">
@@ -164,16 +207,20 @@ function AppShell() {
         </header>
 
         <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
-          <Suspense fallback={<Spinner label="Loading…" />}>
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/analytes/:analyteId" element={<AnalyteDetail />} />
-              <Route path="/upload" element={<Upload />} />
-              <Route path="/compare" element={<Compare />} />
-              <Route path="/reports" element={<Reports />} />
-              <Route path="/admin" element={<Admin />} />
-            </Routes>
-          </Suspense>
+          {noProfiles ? (
+            <EmptyProfiles email={me.data?.email} />
+          ) : (
+            <Suspense fallback={<Spinner label="Loading…" />}>
+              <Routes>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/analytes/:analyteId" element={<AnalyteDetail />} />
+                <Route path="/upload" element={<Upload />} />
+                <Route path="/compare" element={<Compare />} />
+                <Route path="/reports" element={<Reports />} />
+                <Route path="/admin" element={<Admin />} />
+              </Routes>
+            </Suspense>
+          )}
         </main>
 
         <VersionFooter />
