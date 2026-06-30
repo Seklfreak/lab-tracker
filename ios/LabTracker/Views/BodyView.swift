@@ -16,6 +16,7 @@ struct BodyView: View {
     @State private var loading = false
     @State private var saving = false
     @State private var importing = false
+    @State private var expanded: Set<String> = [] // kinds whose full history is shown
     @State private var error: String?
 
     @AppStorage("weightUnit") private var weightUnit = "lb"   // kg | lb
@@ -134,7 +135,7 @@ struct BodyView: View {
                     await add(kind: kind, canonical: toCanonical(value, kind: kind, unit: unit.wrappedValue))
                 }
             }
-            ForEach(items) { m in
+            ForEach(expanded.contains(kind) ? items : Array(items.prefix(10))) { m in
                 HStack {
                     VStack(alignment: .leading, spacing: 1) {
                         Text(LabDate.pretty(m.measuredOn) ?? m.measuredOn)
@@ -150,6 +151,12 @@ struct BodyView: View {
                     Button("Delete", role: .destructive) { Task { await remove(m) } }
                 }
             }
+            if items.count > 10 {
+                Button(expanded.contains(kind) ? "Show less" : "Show all \(items.count) readings") {
+                    if expanded.contains(kind) { expanded.remove(kind) } else { expanded.insert(kind) }
+                }
+                .font(.callout)
+            }
         } header: {
             Text(title)
         }
@@ -160,9 +167,13 @@ struct BodyView: View {
             LineMark(x: .value("Date", m.measuredOn), y: .value("Value", displayNumeric(m.value, kind: kind, unit: unit)))
                 .foregroundStyle(Color.brandTeal)
                 .interpolationMethod(.linear)
-                .lineStyle(StrokeStyle(lineWidth: 3))
-            PointMark(x: .value("Date", m.measuredOn), y: .value("Value", displayNumeric(m.value, kind: kind, unit: unit)))
-                .foregroundStyle(Color.brandTeal)
+                .lineStyle(StrokeStyle(lineWidth: 2.5))
+            // Dots crowd the line once there are many readings — show them only
+            // when the series is sparse enough to be readable.
+            if items.count <= 40 {
+                PointMark(x: .value("Date", m.measuredOn), y: .value("Value", displayNumeric(m.value, kind: kind, unit: unit)))
+                    .foregroundStyle(Color.brandTeal)
+            }
         }
         .chartXAxis(.hidden)
         .frame(height: 120)

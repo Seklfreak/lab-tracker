@@ -194,8 +194,10 @@ function MetricCard({
   const [text, setText] = useState("");
   const [ft, setFt] = useState("");
   const [inch, setInch] = useState("");
+  const [showAll, setShowAll] = useState(false);
   const latest = items[0];
   const isFtin = kind === "height" && unit === "ftin";
+  const visible = showAll ? items : items.slice(0, 10);
 
   const chartData = [...items]
     .reverse()
@@ -238,7 +240,13 @@ function MetricCard({
                   color: colors.text,
                 }}
               />
-              <Line type="monotone" dataKey="value" stroke={colors.accent} strokeWidth={2} dot />
+              <Line
+                type="monotone"
+                dataKey="value"
+                stroke={colors.accent}
+                strokeWidth={2}
+                dot={chartData.length <= 40}
+              />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -291,7 +299,7 @@ function MetricCard({
 
       {items.length > 0 && (
         <ul className="mt-3 divide-y divide-border text-sm">
-          {items.map((m) => (
+          {visible.map((m) => (
             <li key={m.id} className="flex items-center justify-between py-1.5">
               <span className="flex flex-col">
                 <span>{m.measuredOn}</span>
@@ -310,6 +318,14 @@ function MetricCard({
             </li>
           ))}
         </ul>
+      )}
+      {items.length > 10 && (
+        <button
+          className="mt-2 text-sm font-medium text-accent hover:underline"
+          onClick={() => setShowAll((s) => !s)}
+        >
+          {showAll ? "Show less" : `Show all ${items.length} readings`}
+        </button>
       )}
     </Card>
   );
