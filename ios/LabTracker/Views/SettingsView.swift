@@ -61,6 +61,14 @@ struct SettingsView: View {
                 } footer: {
                     Text("An alternative to signing in: paste an access token directly.")
                 }
+
+                Section {
+                    NavigationLink {
+                        AboutView()
+                    } label: {
+                        Label("About", systemImage: "info.circle")
+                    }
+                }
             }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)

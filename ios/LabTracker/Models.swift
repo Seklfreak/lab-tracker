@@ -71,3 +71,9 @@ struct Analysis: Codable, Hashable {
 struct AnalysisEnvelope: Codable {
     let analysis: Analysis?
 }
+
+/// Public /health payload — carries the running server's build version.
+struct Health: Codable {
+    let status: String
+    let version: String
+}

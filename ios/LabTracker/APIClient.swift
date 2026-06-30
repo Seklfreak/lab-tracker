@@ -85,4 +85,9 @@ struct APIClient {
     func analysis(profileId: String, analyteId: String) async throws -> Analysis? {
         try await request("/api/profiles/\(profileId)/analytes/\(analyteId)/analysis", as: AnalysisEnvelope.self).analysis
     }
+
+    /// Public health endpoint (no auth) — used by the About screen for the API version.
+    func health() async throws -> Health {
+        try await request("/health", as: Health.self)
+    }
 }

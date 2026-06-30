@@ -84,7 +84,7 @@ tag; the build number is the workflow run number.
   selected profile), persisted to `UserDefaults`.
 - `LabTracker/Views/` — `RootView` (profiles + settings), `DashboardView`
   (latest per analyte), `AnalyteDetailView` (Swift Charts trend + AI analysis),
-  `SettingsView`, `MarkdownText`.
+  `SettingsView`, `AboutView` (app/API versions + diagnostics), `MarkdownText`.
 - `LabTracker/Views/Theme.swift` — brand teal + the in-range/high/low status
   palette, and `LabResult.status`.
 - `LabTracker/Views/RangeTrack.swift` — the reference-range gauge: a value's
