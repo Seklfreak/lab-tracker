@@ -14,6 +14,7 @@ import {
   Star,
 } from "lucide-react";
 import { api, type Result } from "@/lib/api";
+import { dashboardBodyItems, type BodyDashItem } from "@/lib/body";
 import { useProfile } from "@/lib/profile";
 import { Badge, Button, Card, Input, Select, Spinner } from "@/components/ui";
 import { Markdown } from "@/components/Markdown";
@@ -67,6 +68,12 @@ export function Dashboard() {
   const results = useQuery({
     queryKey: ["latest", profileId],
     queryFn: () => api.latestResults(profileId!),
+    enabled: !!profileId,
+  });
+
+  const bodyQ = useQuery({
+    queryKey: ["body", profileId],
+    queryFn: () => api.bodyMeasurements(profileId!),
     enabled: !!profileId,
   });
 
@@ -192,6 +199,18 @@ export function Dashboard() {
     </div>
   );
 
+  const bodyItems = dashboardBodyItems(bodyQ.data ?? [], localStorage.getItem("weightUnit") ?? "lb");
+  const bodySection = bodyItems.length > 0 && (
+    <section>
+      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">Body</h2>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {bodyItems.map((it) => (
+          <BodyMetricCard key={it.key} item={it} />
+        ))}
+      </div>
+    </section>
+  );
+
   const favSection = favorites.length > 0 && (
     <section>
       <h2 className="mb-3 flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wide text-warn">
@@ -253,6 +272,7 @@ export function Dashboard() {
           </div>
         </div>
       )}
+      {bodySection}
       {filtered.length === 0 ? (
         <p className="text-sm text-muted">
           {onlyAbnormal ? "Nothing is out of range. 🎉" : `No analytes match “${query}”.`}
@@ -433,5 +453,24 @@ function ResultCard({
         <Link to={`/analytes/${r.analyteId}`}>{card}</Link>
       )}
     </div>
+  );
+}
+
+// A body stat on the dashboard. Read-only and links through to the Body page,
+// where the trend + history live.
+function BodyMetricCard({ item }: { item: BodyDashItem }) {
+  return (
+    <Link to="/body">
+      <Card className="transition hover:border-accent">
+        <div className="font-medium">{item.label}</div>
+        <div className="mt-2 text-2xl font-semibold">{item.value}</div>
+        <div className="mt-1 flex items-center justify-between text-xs text-muted">
+          <span>{item.date}</span>
+          <span className="shrink-0">
+            {item.count} reading{item.count === 1 ? "" : "s"}
+          </span>
+        </div>
+      </Card>
+    </Link>
   );
 }

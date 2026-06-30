@@ -73,7 +73,9 @@ npm run dev                # http://localhost:5173 (proxies /api to :8080)
 
 1. Open http://localhost:5173, add a profile (top-right).
 2. **Upload** → choose a lab PDF → wait for parsing → review the form → **Save**.
-3. **Dashboard** shows the latest value per analyte, grouped by category.
+3. **Dashboard** shows the latest value per analyte, grouped by category, with a
+   **Body** section up top for your tracked body stats (weight, BMI, and any
+   imported vitals).
 4. Click an analyte to see its trend over time with the reference band, and links
    to each source PDF.
 

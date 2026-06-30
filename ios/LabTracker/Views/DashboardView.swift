@@ -22,11 +22,14 @@ struct DashboardView: View {
     let profile: Profile
 
     @State private var results: [LabResult] = []
+    @State private var bodyMeasurements: [BodyMeasurement] = []
+    @State private var showBody = false
     @State private var loading = false
     @State private var error: String?
     @State private var search = ""
     @State private var onlyOutOfRange = false
     @AppStorage("dashboardSort") private var sort: SortKey = .category
+    @AppStorage("weightUnit") private var weightUnit = "lb"
 
     private var filtered: [LabResult] {
         var rows = results
@@ -93,6 +96,9 @@ struct DashboardView: View {
         }
         .task(id: profile.id) { await load() }
         .refreshable { await load() }
+        .sheet(isPresented: $showBody, onDismiss: { Task { await load() } }, content: {
+            BodyView(profile: profile)
+        })
     }
 
     private var list: some View {
@@ -104,6 +110,22 @@ struct DashboardView: View {
                 .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 8, trailing: 16))
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
+            }
+
+            let bodyItems = bodyDashItems(bodyMeasurements, weightUnit: weightUnit)
+            if !bodyItems.isEmpty {
+                Section("Body") {
+                    ForEach(bodyItems) { item in
+                        Button { showBody = true } label: {
+                            HStack {
+                                Text(item.label).foregroundStyle(.primary)
+                                Spacer()
+                                Text(item.value).monospacedDigit().foregroundStyle(.secondary)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
             }
 
             if !favorites.isEmpty {
@@ -152,6 +174,8 @@ struct DashboardView: View {
         } catch {
             self.error = error.localizedDescription
         }
+        // Body stats are supplementary — don't fail the dashboard if they error.
+        bodyMeasurements = (try? await store.api.bodyMeasurements(profileId: profile.id)) ?? []
     }
 
     private func toggleFavorite(_ r: LabResult) async {
@@ -209,6 +233,50 @@ struct ResultRow: View {
         }
         .padding(.vertical, 4)
     }
+}
+
+/// A changing body stat for the dashboard's Body section (excludes height + age).
+struct BodyDashItem: Identifiable {
+    let id: String
+    let label: String
+    let value: String
+}
+
+/// Latest changing body stats in display order; empty metrics are skipped.
+func bodyDashItems(_ rows: [BodyMeasurement], weightUnit: String) -> [BodyDashItem] {
+    func latest(_ kind: String) -> BodyMeasurement? { rows.first { $0.kind == kind } }
+    var items: [BodyDashItem] = []
+    if let w = latest("weight") {
+        let value = weightUnit == "lb"
+            ? String(format: "%.1f lb", w.value * 2.20462)
+            : String(format: "%.1f kg", w.value)
+        items.append(BodyDashItem(id: "weight", label: "Weight", value: value))
+    }
+    if let w = latest("weight"), let h = latest("height"), h.value > 0 {
+        let m = h.value / 100
+        items.append(BodyDashItem(id: "bmi", label: "BMI", value: String(format: "%.1f", w.value / (m * m))))
+    }
+    if let bp = latest("blood_pressure") {
+        let value = bp.value2.map { String(format: "%.0f/%.0f mmHg", bp.value, $0) }
+            ?? String(format: "%.0f mmHg", bp.value)
+        items.append(BodyDashItem(id: "bp", label: "Blood Pressure", value: value))
+    }
+    if let m = latest("resting_heart_rate") {
+        items.append(BodyDashItem(id: "rhr", label: "Resting Heart Rate", value: String(format: "%.0f bpm", m.value)))
+    }
+    if let m = latest("body_fat") {
+        items.append(BodyDashItem(id: "bf", label: "Body Fat", value: String(format: "%.1f%%", m.value)))
+    }
+    if let m = latest("waist") {
+        items.append(BodyDashItem(id: "waist", label: "Waist", value: String(format: "%.0f cm", m.value)))
+    }
+    if let m = latest("vo2max") {
+        items.append(BodyDashItem(id: "vo2", label: "Cardio Fitness", value: String(format: "%.1f mL/kg·min", m.value)))
+    }
+    if let m = latest("oxygen") {
+        items.append(BodyDashItem(id: "spo2", label: "Blood Oxygen", value: String(format: "%.0f%%", m.value)))
+    }
+    return items
 }
 
 /// Opens the dashboard with a verdict, not just a list: total markers, how many

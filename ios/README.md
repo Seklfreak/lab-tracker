@@ -86,7 +86,8 @@ tag; the build number is the workflow run number.
 - `LabTracker/Store.swift` — `@Observable` app state (server URL, token,
   selected profile), persisted to `UserDefaults`.
 - `LabTracker/Views/` — `OnboardingView` (first-run server setup), `RootView`
-  (profiles + settings), `DashboardView` (latest per analyte), `AnalyteDetailView`
+  (profiles + settings), `DashboardView` (latest per analyte, plus a Body section
+  of tracked body stats that opens the Body sheet), `AnalyteDetailView`
   (Swift Charts trend + AI analysis), `SettingsView`, `AboutView` (app/API
   versions + diagnostics), `MarkdownText`.
 - `LabTracker/Views/ServerCheck.swift` — probes `{url}/health` to validate a
