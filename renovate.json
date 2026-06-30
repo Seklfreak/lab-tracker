@@ -4,6 +4,7 @@
     "config:recommended",
     "group:allNonMajor"
   ],
+  "assignees": ["Seklfreak"],
   "packageRules": [
     {
       "description": "Auto-merge non-major updates once the test workflow passes.",
