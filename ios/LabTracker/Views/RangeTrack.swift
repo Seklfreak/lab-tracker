@@ -20,21 +20,21 @@ struct RangeTrack: View {
             ZStack(alignment: .leading) {
                 Capsule()
                     .fill(Color.secondary.opacity(0.16))
-                    .frame(height: 5)
+                    .frame(height: 8)
                 Capsule()
-                    .fill(Color.statusInRange.opacity(0.38))
-                    .frame(width: max(4, x(g.bandHighFrac) - x(g.bandLowFrac)), height: 5)
+                    .fill(Color.statusInRange.opacity(0.40))
+                    .frame(width: max(6, x(g.bandHighFrac) - x(g.bandLowFrac)), height: 8)
                     .offset(x: x(g.bandLowFrac))
                 Circle()
                     .fill(status.tint)
-                    .frame(width: 13, height: 13)
-                    .overlay(Circle().strokeBorder(Color(uiColor: .systemBackground), lineWidth: 2.5))
+                    .frame(width: 16, height: 16)
+                    .overlay(Circle().strokeBorder(Color(uiColor: .systemBackground), lineWidth: 3))
                     .shadow(color: .black.opacity(0.18), radius: 1, y: 0.5)
-                    .offset(x: x(g.valueFrac) - 6.5)
+                    .offset(x: x(g.valueFrac) - 8)
             }
             .frame(maxHeight: .infinity, alignment: .center)
         }
-        .frame(height: 15)
+        .frame(height: 18)
         .accessibilityHidden(true)
     }
 }

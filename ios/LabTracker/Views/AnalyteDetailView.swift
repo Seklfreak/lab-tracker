@@ -106,11 +106,11 @@ struct AnalyteDetailView: View {
                     .foregroundStyle(.linearGradient(
                         colors: [Color.brandTeal.opacity(0.22), Color.brandTeal.opacity(0.02)],
                         startPoint: .top, endPoint: .bottom))
-                    .interpolationMethod(.catmullRom)
+                    .interpolationMethod(.linear)
                 LineMark(x: .value("Date", p.date), y: .value("Value", p.value))
                     .foregroundStyle(Color.brandTeal)
-                    .interpolationMethod(.catmullRom)
-                    .lineStyle(StrokeStyle(lineWidth: 2.5))
+                    .interpolationMethod(.linear)
+                    .lineStyle(StrokeStyle(lineWidth: 3))
                 PointMark(x: .value("Date", p.date), y: .value("Value", p.value))
                     .foregroundStyle(p.status == .unknown ? Color.brandTeal : p.status.tint)
                     .symbolSize(p.status == .high || p.status == .low ? 60 : 26)
