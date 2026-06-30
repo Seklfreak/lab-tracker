@@ -29,19 +29,26 @@ struct RootView: View {
             Group {
                 if loading && profiles.isEmpty {
                     ProgressView("Loading…")
+                } else if canReauth {
+                    // A 401 means we're not signed in (fresh from onboarding, or
+                    // an expired/revoked session). That's not an error — prompt to
+                    // sign in, not a scary failure with a raw status body.
+                    ContentUnavailableView {
+                        Label("Sign in", systemImage: "person.crop.circle")
+                    } description: {
+                        Text("Sign in to your Lab Tracker server to view your results.")
+                    } actions: {
+                        Button("Sign in") { Task { await reSignIn() } }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(signingIn)
+                        Button("Settings") { showSettings = true }
+                    }
                 } else if let error {
                     ContentUnavailableView {
                         Label("Couldn’t load", systemImage: "exclamationmark.triangle")
                     } description: {
                         Text(error)
                     } actions: {
-                        // An expired/revoked token (or a wiped session) shows up
-                        // as a 401 — let the user re-auth right here instead of
-                        // hunting through Settings for sign out + sign in.
-                        if canReauth {
-                            Button("Sign in") { Task { await reSignIn() } }
-                                .disabled(signingIn)
-                        }
                         Button("Retry") { Task { await load() } }
                         Button("Settings") { showSettings = true }
                     }
