@@ -85,5 +85,5 @@ struct BodyMeasurement: Codable, Identifiable, Hashable {
     let kind: String // "weight" | "height"
     let value: Double
     let measuredOn: String // YYYY-MM-DD
-    let source: String? // "manual" | "apple_health" | … (optional for older servers)
+    let source: String // "manual" | "apple_health" | …
 }

@@ -13,7 +13,7 @@ export interface BodyMeasurement {
   kind: "weight" | "height";
   value: number;
   measuredOn: string; // YYYY-MM-DD
-  source?: string; // "manual" | "apple_health" | … (optional for older servers)
+  source: string; // "manual" | "apple_health" | …
 }
 
 export interface Member {

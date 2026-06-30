@@ -222,11 +222,11 @@ struct BodyView: View {
         }
     }
 
-    static func prettySource(_ s: String?) -> String {
-        switch s ?? "manual" {
+    static func prettySource(_ s: String) -> String {
+        switch s {
         case "apple_health": return "Apple Health"
         case "manual": return "Manual entry"
-        default: return (s ?? "manual").capitalized
+        default: return s.capitalized
         }
     }
 

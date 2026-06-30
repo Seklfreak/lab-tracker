@@ -28,8 +28,8 @@ const toCanonical = (display: number, kind: string, unit: string) => {
   return display;
 };
 
-const prettySource = (s?: string) =>
-  s === "apple_health" ? "Apple Health" : s === "manual" || !s ? "Manual entry" : s;
+const prettySource = (s: string) =>
+  s === "apple_health" ? "Apple Health" : s === "manual" ? "Manual entry" : s;
 
 function bmiCategory(v: number): { label: string; tone: "good" | "warn" | "bad" } {
   if (v < 18.5) return { label: "Underweight", tone: "warn" };
