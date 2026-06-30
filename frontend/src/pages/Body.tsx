@@ -15,18 +15,30 @@ import { useThemeColors } from "@/lib/theme";
 import { Badge, Button, Card, Input, Select, Spinner } from "@/components/ui";
 
 type WeightUnit = "kg" | "lb";
-type HeightUnit = "cm" | "in";
+type HeightUnit = "cm" | "ftin";
 
-const toDisplay = (canonical: number, kind: string, unit: string) => {
+// Numeric value in the chosen unit (for the chart y-axis).
+const toNumeric = (canonical: number, kind: string, unit: string) => {
   if (kind === "weight" && unit === "lb") return canonical * 2.20462;
-  if (kind === "height" && unit === "in") return canonical / 2.54;
+  if (kind === "height" && unit !== "cm") return canonical / 2.54; // inches
   return canonical;
 };
-const toCanonical = (display: number, kind: string, unit: string) => {
-  if (kind === "weight" && unit === "lb") return display / 2.20462;
-  if (kind === "height" && unit === "in") return display * 2.54;
-  return display;
+// Single-field display value back to canonical (kg / cm).
+const toCanonical = (display: number, kind: string, unit: string) =>
+  kind === "weight" && unit === "lb" ? display / 2.20462 : display;
+// Full display string, including feet+inches for height.
+const displayString = (canonical: number, kind: string, unit: string): string => {
+  if (kind === "weight") {
+    const v = unit === "lb" ? canonical * 2.20462 : canonical;
+    return `${v.toFixed(1)} ${unit}`;
+  }
+  if (unit === "cm") return `${canonical.toFixed(1)} cm`;
+  const totalIn = canonical / 2.54;
+  const ft = Math.floor(totalIn / 12);
+  const inch = Math.round(totalIn - ft * 12);
+  return inch === 12 ? `${ft + 1}′ 0″` : `${ft}′ ${inch}″`;
 };
+const unitLabel = (u: string) => (u === "ftin" ? "ft / in" : u);
 
 const prettySource = (s: string) =>
   s === "apple_health" ? "Apple Health" : s === "manual" ? "Manual entry" : s;
@@ -52,10 +64,10 @@ export function Body() {
   });
 
   const [weightUnit, setWeightUnit] = useState<WeightUnit>(
-    () => (localStorage.getItem("weightUnit") as WeightUnit) ?? "kg",
+    () => (localStorage.getItem("weightUnit") as WeightUnit) ?? "lb",
   );
   const [heightUnit, setHeightUnit] = useState<HeightUnit>(
-    () => (localStorage.getItem("heightUnit") as HeightUnit) ?? "cm",
+    () => (localStorage.getItem("heightUnit") === "cm" ? "cm" : "ftin"), // default + migrate old "in"
   );
   const [dob, setDob] = useState<string | null>(null);
 
@@ -147,7 +159,7 @@ export function Body() {
         kind="height"
         items={heights}
         unit={heightUnit}
-        units={["cm", "in"]}
+        units={["cm", "ftin"]}
         onUnit={(u) => {
           setHeightUnit(u as HeightUnit);
           localStorage.setItem("heightUnit", u);
@@ -182,13 +194,24 @@ function MetricCard({
 }) {
   const colors = useThemeColors();
   const [text, setText] = useState("");
+  const [ft, setFt] = useState("");
+  const [inch, setInch] = useState("");
   const latest = items[0];
+  const isFtin = kind === "height" && unit === "ftin";
 
   const chartData = [...items]
     .reverse()
-    .map((m) => ({ date: m.measuredOn, value: Number(toDisplay(m.value, kind, unit).toFixed(1)) }));
+    .map((m) => ({ date: m.measuredOn, value: Number(toNumeric(m.value, kind, unit).toFixed(1)) }));
 
   const submit = () => {
+    if (isFtin) {
+      const total = (Number(ft) || 0) * 12 + (Number(inch) || 0);
+      if (total <= 0) return;
+      onAdd(total * 2.54);
+      setFt("");
+      setInch("");
+      return;
+    }
     const v = Number(text);
     if (!Number.isFinite(v) || v <= 0) return;
     onAdd(toCanonical(v, kind, unit));
@@ -199,12 +222,7 @@ function MetricCard({
     <Card>
       <div className="mb-3 flex items-center justify-between">
         <h2 className="font-semibold">{title}</h2>
-        {latest && (
-          <span className="tabular-nums">
-            {toDisplay(latest.value, kind, unit).toFixed(1)}{" "}
-            <span className="text-muted">{unit}</span>
-          </span>
-        )}
+        {latest && <span className="tabular-nums">{displayString(latest.value, kind, unit)}</span>}
       </div>
 
       {showTrend && chartData.length >= 2 && (
@@ -229,19 +247,44 @@ function MetricCard({
       )}
 
       <div className="flex items-center gap-2">
-        <Input
-          type="number"
-          inputMode="decimal"
-          placeholder={`Add reading (${unit})`}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && submit()}
-          className="w-40"
-        />
-        <Select value={unit} onChange={(e) => onUnit(e.target.value)} className="w-20">
+        {isFtin ? (
+          <div className="flex items-center gap-1">
+            <Input
+              type="number"
+              inputMode="numeric"
+              placeholder="ft"
+              value={ft}
+              onChange={(e) => setFt(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && submit()}
+              className="w-16"
+            />
+            <span className="text-muted">′</span>
+            <Input
+              type="number"
+              inputMode="numeric"
+              placeholder="in"
+              value={inch}
+              onChange={(e) => setInch(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && submit()}
+              className="w-16"
+            />
+            <span className="text-muted">″</span>
+          </div>
+        ) : (
+          <Input
+            type="number"
+            inputMode="decimal"
+            placeholder={`Add reading (${unit})`}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && submit()}
+            className="w-40"
+          />
+        )}
+        <Select value={unit} onChange={(e) => onUnit(e.target.value)} className="w-24">
           {units.map((u) => (
             <option key={u} value={u}>
-              {u}
+              {unitLabel(u)}
             </option>
           ))}
         </Select>
@@ -257,9 +300,7 @@ function MetricCard({
                 <span className="text-xs text-muted">{prettySource(m.source)}</span>
               </span>
               <span className="flex items-center gap-3">
-                <span className="tabular-nums">
-                  {toDisplay(m.value, kind, unit).toFixed(1)} {unit}
-                </span>
+                <span className="tabular-nums">{displayString(m.value, kind, unit)}</span>
                 <button
                   className="text-muted hover:text-bad"
                   title="Delete"

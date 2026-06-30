@@ -3,7 +3,7 @@ import Charts
 
 /// Per-profile body metrics: edit birthdate, track weight & height over time,
 /// and see BMI. Weight/height are stored canonically (kg, cm); this view shows
-/// and accepts them in the user's preferred unit.
+/// and accepts them in the chosen unit — including feet+inches for height.
 struct BodyView: View {
     @Environment(Store.self) private var store
     @Environment(\.dismiss) private var dismiss
@@ -17,13 +17,11 @@ struct BodyView: View {
     @State private var saving = false
     @State private var error: String?
 
-    @AppStorage("weightUnit") private var weightUnit = "kg" // kg | lb
-    @AppStorage("heightUnit") private var heightUnit = "cm" // cm | in
+    @AppStorage("weightUnit") private var weightUnit = "lb"   // kg | lb
+    @AppStorage("heightUnit") private var heightUnit = "ftin" // cm | ftin
 
-    private var weights: [BodyMeasurement] { measurements.filter { $0.kind == "weight" } }
-    private var heights: [BodyMeasurement] { measurements.filter { $0.kind == "height" } }
-    private var latestWeightKg: Double? { weights.first?.value }
-    private var latestHeightCm: Double? { heights.first?.value }
+    private var latestWeightKg: Double? { measurements.first { $0.kind == "weight" }?.value }
+    private var latestHeightCm: Double? { measurements.first { $0.kind == "height" }?.value }
     private var bmi: Double? {
         guard let w = latestWeightKg, let h = latestHeightCm, h > 0 else { return nil }
         let m = h / 100
@@ -45,8 +43,10 @@ struct BodyView: View {
                 if let bmi {
                     Section("BMI") { bmiRow(bmi) }
                 }
-                metricSection(kind: "weight", title: "Weight", unit: $weightUnit, units: ["kg", "lb"])
-                metricSection(kind: "height", title: "Height", unit: $heightUnit, units: ["cm", "in"])
+                metricSection(kind: "weight", title: "Weight", unit: $weightUnit,
+                              units: [("kg", "kg"), ("lb", "lb")])
+                metricSection(kind: "height", title: "Height", unit: $heightUnit,
+                              units: [("cm", "cm"), ("ftin", "ft / in")])
             }
             .navigationTitle("Body")
             .navigationBarTitleDisplayMode(.inline)
@@ -57,6 +57,7 @@ struct BodyView: View {
                     Button("Save") { Task { await saveBirthdate() } }.disabled(saving)
                 }
             }
+            .onAppear { if heightUnit == "in" { heightUnit = "ftin" } } // migrate old total-inches
             .task { await load() }
         }
     }
@@ -89,14 +90,13 @@ struct BodyView: View {
     // MARK: weight / height sections
 
     @ViewBuilder
-    private func metricSection(kind: String, title: String, unit: Binding<String>, units: [String]) -> some View {
+    private func metricSection(kind: String, title: String, unit: Binding<String>, units: [(String, String)]) -> some View {
         let items = measurements.filter { $0.kind == kind }
         Section {
             if let latest = items.first {
                 HStack {
-                    Text(format(latest.value, kind: kind, unit: unit.wrappedValue))
+                    Text(displayString(latest.value, kind: kind, unit: unit.wrappedValue))
                         .font(.title3.weight(.semibold)).monospacedDigit()
-                    Text(unit.wrappedValue).foregroundStyle(.secondary)
                     Spacer()
                     Text(LabDate.pretty(latest.measuredOn) ?? latest.measuredOn)
                         .font(.caption).foregroundStyle(.secondary)
@@ -105,8 +105,16 @@ struct BodyView: View {
             if items.count >= 2 {
                 trend(items, kind: kind, unit: unit.wrappedValue)
             }
-            AddRow(unit: unit, units: units) { value in
-                await add(kind: kind, displayValue: value, unit: unit.wrappedValue)
+            Picker("Unit", selection: unit) {
+                ForEach(units, id: \.0) { Text($0.1).tag($0.0) }
+            }
+            .pickerStyle(.segmented)
+            if kind == "height" && unit.wrappedValue == "ftin" {
+                FeetInchesInput { cm in await add(kind: kind, canonical: cm) }
+            } else {
+                NumberInput(unitLabel: unit.wrappedValue) { value in
+                    await add(kind: kind, canonical: toCanonical(value, kind: kind, unit: unit.wrappedValue))
+                }
             }
             ForEach(items) { m in
                 HStack {
@@ -116,7 +124,7 @@ struct BodyView: View {
                             .font(.caption2).foregroundStyle(.secondary)
                     }
                     Spacer()
-                    Text(format(m.value, kind: kind, unit: unit.wrappedValue) + " " + unit.wrappedValue)
+                    Text(displayString(m.value, kind: kind, unit: unit.wrappedValue))
                         .monospacedDigit().foregroundStyle(.secondary)
                 }
                 .font(.callout)
@@ -131,11 +139,11 @@ struct BodyView: View {
 
     @ViewBuilder private func trend(_ items: [BodyMeasurement], kind: String, unit: String) -> some View {
         Chart(items) { m in
-            LineMark(x: .value("Date", m.measuredOn), y: .value(unit, displayValue(m.value, kind: kind, unit: unit)))
+            LineMark(x: .value("Date", m.measuredOn), y: .value("Value", displayNumeric(m.value, kind: kind, unit: unit)))
                 .foregroundStyle(Color.brandTeal)
                 .interpolationMethod(.linear)
                 .lineStyle(StrokeStyle(lineWidth: 3))
-            PointMark(x: .value("Date", m.measuredOn), y: .value(unit, displayValue(m.value, kind: kind, unit: unit)))
+            PointMark(x: .value("Date", m.measuredOn), y: .value("Value", displayNumeric(m.value, kind: kind, unit: unit)))
                 .foregroundStyle(Color.brandTeal)
         }
         .chartXAxis(.hidden)
@@ -145,24 +153,37 @@ struct BodyView: View {
 
     // MARK: unit conversion
 
-    private func displayValue(_ canonical: Double, kind: String, unit: String) -> Double {
+    /// Full display string for a canonical value in the chosen unit.
+    private func displayString(_ canonical: Double, kind: String, unit: String) -> String {
+        switch (kind, unit) {
+        case ("weight", "lb"): return String(format: "%.1f lb", canonical * 2.20462)
+        case ("weight", _): return String(format: "%.1f kg", canonical)
+        case ("height", "ftin"):
+            let totalInches = canonical / 2.54
+            let ft = Int(totalInches / 12)
+            var inch = Int((totalInches - Double(ft) * 12).rounded())
+            if inch == 12 { return "\(ft + 1)′ 0″" }
+            if inch < 0 { inch = 0 }
+            return "\(ft)′ \(inch)″"
+        default: return String(format: "%.1f cm", canonical) // height cm
+        }
+    }
+
+    /// Numeric value for the trend chart's y-axis.
+    private func displayNumeric(_ canonical: Double, kind: String, unit: String) -> Double {
         switch (kind, unit) {
         case ("weight", "lb"): return canonical * 2.20462
-        case ("height", "in"): return canonical / 2.54
+        case ("height", "ftin"), ("height", "in"): return canonical / 2.54 // inches
         default: return canonical
         }
     }
 
-    private func canonicalValue(_ display: Double, kind: String, unit: String) -> Double {
+    /// Convert a single-field display value back to canonical (kg / cm).
+    private func toCanonical(_ display: Double, kind: String, unit: String) -> Double {
         switch (kind, unit) {
         case ("weight", "lb"): return display / 2.20462
-        case ("height", "in"): return display * 2.54
-        default: return display
+        default: return display // weight kg, height cm
         }
-    }
-
-    private func format(_ canonical: Double, kind: String, unit: String) -> String {
-        String(format: "%.1f", displayValue(canonical, kind: kind, unit: unit))
     }
 
     // MARK: actions
@@ -188,9 +209,8 @@ struct BodyView: View {
         }
     }
 
-    private func add(kind: String, displayValue value: Double, unit: String) async {
+    private func add(kind: String, canonical: Double) async {
         do {
-            let canonical = canonicalValue(value, kind: kind, unit: unit)
             _ = try await store.api.addBody(profileId: profile.id, kind: kind, value: canonical, measuredOn: nil)
             measurements = try await store.api.bodyMeasurements(profileId: profile.id)
             error = nil
@@ -245,10 +265,9 @@ struct BodyView: View {
     }
 }
 
-/// Inline "add a reading" row: a number field, a unit picker, and an Add button.
-private struct AddRow: View {
-    @Binding var unit: String
-    let units: [String]
+/// Single number field + an Add button (for weight, and height in cm).
+private struct NumberInput: View {
+    let unitLabel: String
     let onAdd: (Double) async -> Void
 
     @State private var text = ""
@@ -258,23 +277,53 @@ private struct AddRow: View {
         HStack {
             TextField("Add reading", text: $text)
                 .keyboardType(.decimalPad)
-            Picker("", selection: $unit) {
-                ForEach(units, id: \.self) { Text($0).tag($0) }
-            }
-            .pickerStyle(.segmented)
-            .frame(width: 96)
-            Button {
-                guard let v = Double(text), v > 0 else { return }
-                busy = true
-                Task {
-                    await onAdd(v)
-                    text = ""
-                    busy = false
-                }
-            } label: {
-                Image(systemName: "plus.circle.fill")
-            }
-            .disabled(busy || Double(text) == nil)
+            Text(unitLabel).foregroundStyle(.secondary)
+            Spacer()
+            Button(action: submit) { Image(systemName: "plus.circle.fill") }
+                .disabled(busy || Double(text) == nil)
+        }
+    }
+
+    private func submit() {
+        guard let v = Double(text), v > 0 else { return }
+        busy = true
+        Task {
+            await onAdd(v)
+            text = ""
+            busy = false
+        }
+    }
+}
+
+/// Feet + inches fields for height; passes the canonical centimetres to `onAdd`.
+private struct FeetInchesInput: View {
+    let onAdd: (Double) async -> Void
+
+    @State private var feet = ""
+    @State private var inches = ""
+    @State private var busy = false
+
+    var body: some View {
+        HStack(spacing: 6) {
+            TextField("ft", text: $feet).keyboardType(.numberPad).frame(width: 44)
+            Text("′").foregroundStyle(.secondary)
+            TextField("in", text: $inches).keyboardType(.numberPad).frame(width: 44)
+            Text("″").foregroundStyle(.secondary)
+            Spacer()
+            Button(action: submit) { Image(systemName: "plus.circle.fill") }
+                .disabled(busy || (feet.isEmpty && inches.isEmpty))
+        }
+    }
+
+    private func submit() {
+        let totalInches = (Double(feet) ?? 0) * 12 + (Double(inches) ?? 0)
+        guard totalInches > 0 else { return }
+        busy = true
+        Task {
+            await onAdd(totalInches * 2.54)
+            feet = ""
+            inches = ""
+            busy = false
         }
     }
 }
