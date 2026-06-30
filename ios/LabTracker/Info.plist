@@ -51,6 +51,8 @@
 	<string>Unlock Lab Tracker with Face ID.</string>
 	<key>NSHealthShareUsageDescription</key>
 	<string>Import your weight and height from Apple Health to track them alongside your lab results.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Lab Tracker only reads your weight and height from Apple Health; it never writes data back.</string>
 	<!-- Dev: allow http to localhost (the dev backend). Prod uses https. -->
 	<key>NSAppTransportSecurity</key>
 	<dict>
