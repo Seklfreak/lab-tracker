@@ -11,6 +11,7 @@ struct SettingsView: View {
     @State private var check: ServerCheck = .idle
     @State private var signingIn = false
     @State private var authError: String?
+    @State private var lockUnavailable = false
 
     private var canSave: Bool {
         check.isOK || url.trimmingCharacters(in: .whitespaces).isEmpty
@@ -58,12 +59,32 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    Toggle(isOn: Binding(
+                        get: { store.biometricLockEnabled },
+                        set: { on in
+                            if on && !Biometrics.isAvailable { lockUnavailable = true } else { store.biometricLockEnabled = on }
+                        }
+                    )) {
+                        Label("Require \(Biometrics.name)", systemImage: "lock.fill")
+                    }
+                } header: {
+                    Text("Privacy")
+                } footer: {
+                    Text("Ask for \(Biometrics.name) when the app opens or returns from the background.")
+                }
+
+                Section {
                     NavigationLink {
                         AboutView()
                     } label: {
                         Label("About", systemImage: "info.circle")
                     }
                 }
+            }
+            .alert("Can’t enable lock", isPresented: $lockUnavailable) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("Set up Face ID, Touch ID, or a device passcode in iOS Settings first.")
             }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)

@@ -12,6 +12,10 @@ final class Store {
     var selectedProfileId: String? {
         didSet { UserDefaults.standard.set(selectedProfileId, forKey: "selectedProfileId") }
     }
+    /// Require Face ID / Touch ID to open the app (opt-in).
+    var biometricLockEnabled: Bool {
+        didSet { UserDefaults.standard.set(biometricLockEnabled, forKey: "biometricLock") }
+    }
 
     /// OIDC issuer + client id are discovered from the server (not hardcoded), so
     /// the only thing configured here is the server URL.
@@ -22,6 +26,7 @@ final class Store {
         // No default: an unset server URL drives the first-run onboarding flow.
         self.serverURL = d.string(forKey: "serverURL") ?? ""
         self.selectedProfileId = d.string(forKey: "selectedProfileId")
+        self.biometricLockEnabled = d.bool(forKey: "biometricLock")
     }
 
     var api: APIClient { APIClient(baseURL: serverURL, auth: auth) }

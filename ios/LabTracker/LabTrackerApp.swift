@@ -6,8 +6,10 @@ struct LabTrackerApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView()
-                .environment(store)
+            LockGate {
+                RootView()
+            }
+            .environment(store)
         }
     }
 }

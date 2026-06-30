@@ -47,6 +47,8 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Unlock Lab Tracker with Face ID.</string>
 	<!-- Dev: allow http to localhost (the dev backend). Prod uses https. -->
 	<key>NSAppTransportSecurity</key>
 	<dict>
