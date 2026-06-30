@@ -90,6 +90,75 @@ struct APIClient {
         try await request("/health", as: Health.self)
     }
 
+    func updateProfile(profileId: String, name: String, dateOfBirth: String?) async throws -> Profile {
+        try await send("/api/profiles/\(profileId)", method: "PATCH",
+                       body: ProfileUpdate(name: name, dateOfBirth: dateOfBirth), as: Profile.self)
+    }
+
+    func bodyMeasurements(profileId: String) async throws -> [BodyMeasurement] {
+        try await request("/api/profiles/\(profileId)/body", as: [BodyMeasurement].self)
+    }
+
+    func addBody(profileId: String, kind: String, value: Double, measuredOn: String?) async throws -> BodyMeasurement {
+        try await send("/api/profiles/\(profileId)/body", method: "POST",
+                       body: BodyAdd(kind: kind, value: value, measuredOn: measuredOn), as: BodyMeasurement.self)
+    }
+
+    func deleteBody(profileId: String, measurementId: String) async throws {
+        try await mutate("/api/profiles/\(profileId)/body/\(measurementId)", method: "DELETE", body: nil)
+    }
+
+    /// Request with a JSON body that decodes a response. Mirrors request()/mutate()
+    /// auth + 401-refresh handling.
+    private func send<B: Encodable, T: Decodable>(_ path: String, method: String, body: B, as _: T.Type) async throws -> T {
+        let trimmed = baseURL.hasSuffix("/") ? String(baseURL.dropLast()) : baseURL
+        guard let url = URL(string: trimmed + path) else { throw APIError.badURL }
+        let payload = try JSONEncoder().encode(body)
+
+        func run(_ token: String?) async throws -> (Data, HTTPURLResponse) {
+            var req = URLRequest(url: url)
+            req.httpMethod = method
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.httpBody = payload
+            if let token, !token.isEmpty {
+                req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            }
+            let (data, resp) = try await URLSession.shared.data(for: req)
+            guard let http = resp as? HTTPURLResponse else { throw APIError.http(0, "no response") }
+            return (data, http)
+        }
+
+        var (data, http) = try await run(await bearer())
+        if http.statusCode == 401, let auth {
+            try? await auth.refresh()
+            if let fresh = await auth.validAccessToken(), !fresh.isEmpty {
+                (data, http) = try await run(fresh)
+            }
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            throw APIError.http(http.statusCode, String(data: data, encoding: .utf8) ?? "")
+        }
+        do {
+            return try JSONDecoder().decode(T.self, from: data)
+        } catch {
+            throw APIError.decoding(error.localizedDescription)
+        }
+    }
+}
+
+private struct ProfileUpdate: Encodable {
+    let name: String
+    let dateOfBirth: String?
+}
+
+private struct BodyAdd: Encodable {
+    let kind: String
+    let value: Double
+    let measuredOn: String?
+}
+
+extension APIClient {
+
     func addFavorite(profileId: String, analyteId: String) async throws {
         try await mutate("/api/profiles/\(profileId)/favorites", method: "POST", body: ["analyteId": analyteId])
     }

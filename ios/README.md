@@ -91,6 +91,8 @@ tag; the build number is the workflow run number.
   versions + diagnostics), `MarkdownText`.
 - `LabTracker/Views/ServerCheck.swift` — probes `{url}/health` to validate a
   server URL (shared by onboarding + settings).
+- `LabTracker/Views/BodyView.swift` — per-profile birthdate + weight/height
+  tracking (kg/lb, cm/in) with BMI; opened from the dashboard toolbar.
 - `LabTracker/Views/AppLock.swift` — optional Face ID / Touch ID app lock
   (`LocalAuthentication`); `LockGate` covers content until auth succeeds, on
   launch and on return from the background. Toggle in Settings → Privacy.

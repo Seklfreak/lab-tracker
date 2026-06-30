@@ -11,6 +11,7 @@ struct RootView: View {
     @State private var canReauth = false
     @State private var signingIn = false
     @State private var showSettings = false
+    @State private var showBody = false
 
     private var selected: Profile? {
         profiles.first { $0.id == store.selectedProfileId } ?? profiles.first
@@ -79,6 +80,13 @@ struct RootView: View {
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
+                    if selected != nil {
+                        Button { showBody = true } label: {
+                            Image(systemName: "figure")
+                        }
+                    }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
                     Button { showSettings = true } label: {
                         Image(systemName: "gearshape")
                     }
@@ -86,6 +94,11 @@ struct RootView: View {
             }
             .sheet(isPresented: $showSettings) {
                 SettingsView()
+            }
+            .sheet(isPresented: $showBody) {
+                if let selected {
+                    BodyView(profile: selected)
+                }
             }
             .task(id: store.serverURL) { await load() }
             .onChange(of: store.auth.isSignedIn) { _, _ in Task { await load() } }

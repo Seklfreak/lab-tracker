@@ -77,3 +77,12 @@ struct Health: Codable {
     let status: String
     let version: String
 }
+
+/// A self-entered body metric. Value is canonical: weight in kilograms, height
+/// in centimetres (the UI converts for display).
+struct BodyMeasurement: Codable, Identifiable, Hashable {
+    let id: String
+    let kind: String // "weight" | "height"
+    let value: Double
+    let measuredOn: String // YYYY-MM-DD
+}
