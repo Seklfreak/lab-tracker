@@ -4,8 +4,8 @@ WHERE profile_id = $1
 ORDER BY measured_on DESC, created_at DESC;
 
 -- name: AddBodyMeasurement :one
-INSERT INTO body_measurements (profile_id, kind, value, measured_on)
-VALUES ($1, $2, $3, $4)
+INSERT INTO body_measurements (profile_id, kind, value, measured_on, source)
+VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
 -- name: DeleteBodyMeasurement :exec

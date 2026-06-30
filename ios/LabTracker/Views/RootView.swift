@@ -95,11 +95,11 @@ struct RootView: View {
             .sheet(isPresented: $showSettings) {
                 SettingsView()
             }
-            .sheet(isPresented: $showBody) {
+            .sheet(isPresented: $showBody, onDismiss: { Task { await load() } }, content: {
                 if let selected {
                     BodyView(profile: selected)
                 }
-            }
+            })
             .task(id: store.serverURL) { await load() }
             .onChange(of: store.auth.isSignedIn) { _, _ in Task { await load() } }
             .refreshable { await load() }

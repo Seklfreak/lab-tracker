@@ -63,6 +63,7 @@ type addBodyReq struct {
 	Kind       string  `json:"kind"`
 	Value      float64 `json:"value"`
 	MeasuredOn *string `json:"measuredOn"`
+	Source     *string `json:"source"`
 }
 
 func (s *Server) addBody(w http.ResponseWriter, r *http.Request) {
@@ -87,11 +88,16 @@ func (s *Server) addBody(w http.ResponseWriter, r *http.Request) {
 	if !measured.Valid {
 		measured = pgtype.Date{Time: time.Now(), Valid: true}
 	}
+	source := "manual"
+	if req.Source != nil && *req.Source != "" {
+		source = *req.Source
+	}
 	m, err := s.q.AddBodyMeasurement(r.Context(), sqlc.AddBodyMeasurementParams{
 		ProfileID:  p.ID,
 		Kind:       req.Kind,
 		Value:      req.Value,
 		MeasuredOn: measured,
+		Source:     source,
 	})
 	if err != nil {
 		s.log.Error("add body measurement", "err", err)

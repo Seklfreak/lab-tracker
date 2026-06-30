@@ -10,6 +10,7 @@ struct BodyView: View {
     let profile: Profile
 
     @State private var measurements: [BodyMeasurement] = []
+    @State private var profileName = ""
     @State private var hasDOB = false
     @State private var dob = Date()
     @State private var loading = false
@@ -109,7 +110,11 @@ struct BodyView: View {
             }
             ForEach(items) { m in
                 HStack {
-                    Text(LabDate.pretty(m.measuredOn) ?? m.measuredOn)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(LabDate.pretty(m.measuredOn) ?? m.measuredOn)
+                        Text(Self.prettySource(m.source))
+                            .font(.caption2).foregroundStyle(.secondary)
+                    }
                     Spacer()
                     Text(format(m.value, kind: kind, unit: unit.wrappedValue) + " " + unit.wrappedValue)
                         .monospacedDigit().foregroundStyle(.secondary)
@@ -165,11 +170,17 @@ struct BodyView: View {
     private func load() async {
         loading = true
         defer { loading = false }
-        if let dobStr = profile.dateOfBirth, let parsed = Self.parse(dobStr) {
-            dob = parsed
-            hasDOB = true
-        }
         do {
+            // Re-fetch the profile so a just-saved birthdate shows on reopen — the
+            // profile passed in from the dashboard can be stale after an edit.
+            let current = try await store.api.profiles().first { $0.id == profile.id }
+            profileName = current?.name ?? profile.name
+            if let dobStr = current?.dateOfBirth, let parsed = Self.parse(dobStr) {
+                dob = parsed
+                hasDOB = true
+            } else {
+                hasDOB = false
+            }
             measurements = try await store.api.bodyMeasurements(profileId: profile.id)
             error = nil
         } catch {
@@ -203,11 +214,19 @@ struct BodyView: View {
         defer { saving = false }
         do {
             _ = try await store.api.updateProfile(
-                profileId: profile.id, name: profile.name,
+                profileId: profile.id, name: profileName.isEmpty ? profile.name : profileName,
                 dateOfBirth: hasDOB ? Self.format(dob) : nil)
             dismiss()
         } catch {
             self.error = error.localizedDescription
+        }
+    }
+
+    static func prettySource(_ s: String?) -> String {
+        switch s ?? "manual" {
+        case "apple_health": return "Apple Health"
+        case "manual": return "Manual entry"
+        default: return (s ?? "manual").capitalized
         }
     }
 

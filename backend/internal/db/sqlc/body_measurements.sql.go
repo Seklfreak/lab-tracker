@@ -13,9 +13,9 @@ import (
 )
 
 const addBodyMeasurement = `-- name: AddBodyMeasurement :one
-INSERT INTO body_measurements (profile_id, kind, value, measured_on)
-VALUES ($1, $2, $3, $4)
-RETURNING id, profile_id, kind, value, measured_on, created_at
+INSERT INTO body_measurements (profile_id, kind, value, measured_on, source)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, profile_id, kind, value, measured_on, created_at, source
 `
 
 type AddBodyMeasurementParams struct {
@@ -23,6 +23,7 @@ type AddBodyMeasurementParams struct {
 	Kind       string      `json:"kind"`
 	Value      float64     `json:"value"`
 	MeasuredOn pgtype.Date `json:"measured_on"`
+	Source     string      `json:"source"`
 }
 
 func (q *Queries) AddBodyMeasurement(ctx context.Context, arg AddBodyMeasurementParams) (BodyMeasurement, error) {
@@ -31,6 +32,7 @@ func (q *Queries) AddBodyMeasurement(ctx context.Context, arg AddBodyMeasurement
 		arg.Kind,
 		arg.Value,
 		arg.MeasuredOn,
+		arg.Source,
 	)
 	var i BodyMeasurement
 	err := row.Scan(
@@ -40,6 +42,7 @@ func (q *Queries) AddBodyMeasurement(ctx context.Context, arg AddBodyMeasurement
 		&i.Value,
 		&i.MeasuredOn,
 		&i.CreatedAt,
+		&i.Source,
 	)
 	return i, err
 }
@@ -60,7 +63,7 @@ func (q *Queries) DeleteBodyMeasurement(ctx context.Context, arg DeleteBodyMeasu
 }
 
 const listBodyMeasurements = `-- name: ListBodyMeasurements :many
-SELECT id, profile_id, kind, value, measured_on, created_at FROM body_measurements
+SELECT id, profile_id, kind, value, measured_on, created_at, source FROM body_measurements
 WHERE profile_id = $1
 ORDER BY measured_on DESC, created_at DESC
 `
@@ -81,6 +84,7 @@ func (q *Queries) ListBodyMeasurements(ctx context.Context, profileID uuid.UUID)
 			&i.Value,
 			&i.MeasuredOn,
 			&i.CreatedAt,
+			&i.Source,
 		); err != nil {
 			return nil, err
 		}

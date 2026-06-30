@@ -28,6 +28,9 @@ const toCanonical = (display: number, kind: string, unit: string) => {
   return display;
 };
 
+const prettySource = (s?: string) =>
+  s === "apple_health" ? "Apple Health" : s === "manual" || !s ? "Manual entry" : s;
+
 function bmiCategory(v: number): { label: string; tone: "good" | "warn" | "bad" } {
   if (v < 18.5) return { label: "Underweight", tone: "warn" };
   if (v < 25) return { label: "Healthy", tone: "good" };
@@ -249,7 +252,10 @@ function MetricCard({
         <ul className="mt-3 divide-y divide-border text-sm">
           {items.map((m) => (
             <li key={m.id} className="flex items-center justify-between py-1.5">
-              <span className="text-muted">{m.measuredOn}</span>
+              <span className="flex flex-col">
+                <span>{m.measuredOn}</span>
+                <span className="text-xs text-muted">{prettySource(m.source)}</span>
+              </span>
               <span className="flex items-center gap-3">
                 <span className="tabular-nums">
                   {toDisplay(m.value, kind, unit).toFixed(1)} {unit}

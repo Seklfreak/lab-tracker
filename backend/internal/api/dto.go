@@ -30,6 +30,7 @@ type BodyMeasurementDTO struct {
 	Kind       string    `json:"kind"` // "weight" | "height"
 	Value      float64   `json:"value"`
 	MeasuredOn string    `json:"measuredOn"` // YYYY-MM-DD
+	Source     string    `json:"source"`     // "manual" | "apple_health" | …
 }
 
 func toBodyMeasurementDTO(m sqlc.BodyMeasurement) BodyMeasurementDTO {
@@ -38,6 +39,7 @@ func toBodyMeasurementDTO(m sqlc.BodyMeasurement) BodyMeasurementDTO {
 		Kind:       m.Kind,
 		Value:      m.Value,
 		MeasuredOn: m.MeasuredOn.Time.Format(dateLayout),
+		Source:     m.Source,
 	}
 }
 

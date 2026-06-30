@@ -41,6 +41,7 @@ type BodyMeasurement struct {
 	Value      float64            `json:"value"`
 	MeasuredOn pgtype.Date        `json:"measured_on"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	Source     string             `json:"source"`
 }
 
 type Favorite struct {
