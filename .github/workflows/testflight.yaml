@@ -2,20 +2,22 @@ name: TestFlight
 
 # Build the iOS app and upload it to TestFlight on every version tag.
 #
-# Signing is done with an App Store Connect API key ("cloud signing" via
-# xcodebuild -allowProvisioningUpdates), so there are NO certificates or
-# provisioning profiles to manage in the repo or as secrets — Apple mints the
-# distribution cert + App Store profile on the fly and registers the App ID.
+# Signing uses a STORED Apple Distribution certificate + App Store provisioning
+# profile (manual signing). Ephemeral runners have no keychain, so the previous
+# "cloud signing" approach minted a fresh cert every run and quickly exhausted
+# Apple's per-account certificate limit. Importing one stored cert fixes that —
+# no certificates are ever created on CI now.
 #
 # Dormant by design: if the App Store Connect secrets are absent the job logs a
 # notice and exits 0, so this never red-X's a release before the account is
-# wired up. Set the four secrets below to switch it on.
+# wired up.
 #
 # Required repository secrets:
-#   APP_STORE_CONNECT_KEY_ID     - App Store Connect API key ID
-#   APP_STORE_CONNECT_ISSUER_ID  - the key's Issuer ID
-#   APP_STORE_CONNECT_API_KEY    - contents of the AuthKey_XXXX.p8 file
-#   APP_STORE_TEAM_ID            - paid Apple Developer Team ID
+#   APP_STORE_CONNECT_KEY_ID / _ISSUER_ID / _API_KEY  - App Store Connect API key (upload)
+#   APP_STORE_TEAM_ID                                 - paid Apple Developer Team ID
+#   APPLE_DIST_CERT_P12                               - base64 of the Apple Distribution .p12
+#   APPLE_DIST_CERT_PASSWORD                          - the .p12 export password
+#   APP_STORE_PROFILE                                 - base64 of the App Store .mobileprovision
 on:
   push:
     tags: ["v*.*.*"]
@@ -69,31 +71,56 @@ jobs:
           mkdir -p ~/.appstoreconnect/private_keys
           printf '%s' "$API_KEY" > ~/.appstoreconnect/private_keys/AuthKey_"$KEY_ID".p8
 
-      - name: Archive (cloud-signed)
+      - name: Import signing certificate + profile
+        if: steps.gate.outputs.ready == 'true'
+        env:
+          CERT_P12: ${{ secrets.APPLE_DIST_CERT_P12 }}
+          CERT_PW: ${{ secrets.APPLE_DIST_CERT_PASSWORD }}
+          PROFILE_B64: ${{ secrets.APP_STORE_PROFILE }}
+        run: |
+          set -euo pipefail
+          KEYCHAIN="$RUNNER_TEMP/build.keychain-db"
+          KPW="$(openssl rand -base64 24)"
+          security create-keychain -p "$KPW" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KPW" "$KEYCHAIN"
+          # Prepend our keychain to the user search list so codesign finds the identity.
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | sed 's/"//g')
+
+          echo "$CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN" -P "$CERT_PW" -A -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KPW" "$KEYCHAIN" >/dev/null 2>&1 || true
+
+          echo "$PROFILE_B64" | base64 --decode > "$RUNNER_TEMP/pp.mobileprovision"
+          security cms -D -i "$RUNNER_TEMP/pp.mobileprovision" > "$RUNNER_TEMP/pp.plist"
+          UUID=$(/usr/libexec/PlistBuddy -c "Print :UUID" "$RUNNER_TEMP/pp.plist")
+          NAME=$(/usr/libexec/PlistBuddy -c "Print :Name" "$RUNNER_TEMP/pp.plist")
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          cp "$RUNNER_TEMP/pp.mobileprovision" "$HOME/Library/MobileDevice/Provisioning Profiles/$UUID.mobileprovision"
+          echo "PROFILE_NAME=$NAME" >> "$GITHUB_ENV"
+          echo "Installed profile '$NAME' ($UUID)"
+
+      - name: Archive (manual signing)
         if: steps.gate.outputs.ready == 'true'
         working-directory: ios
         env:
           TEAM_ID: ${{ secrets.APP_STORE_TEAM_ID }}
-          KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
-          ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           INPUT_VERSION: ${{ github.event.inputs.version }}
         run: |
           # Marketing version: dispatch input wins, else derive from the tag (vX.Y.Z -> X.Y.Z).
           VERSION="$INPUT_VERSION"
           [ -z "$VERSION" ] && VERSION="${GITHUB_REF_NAME#v}"
           BUILD="${GITHUB_RUN_NUMBER}"      # monotonic, unique per upload
-          echo "Archiving $VERSION (build $BUILD)"
+          echo "Archiving $VERSION (build $BUILD) with profile '$PROFILE_NAME'"
           xcodebuild archive \
             -project LabTracker.xcodeproj -scheme LabTracker \
             -configuration Release \
             -destination 'generic/platform=iOS' \
             -archivePath build/LabTracker.xcarchive \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath ~/.appstoreconnect/private_keys/AuthKey_"$KEY_ID".p8 \
-            -authenticationKeyID "$KEY_ID" \
-            -authenticationKeyIssuerID "$ISSUER_ID" \
             DEVELOPMENT_TEAM="$TEAM_ID" \
-            CODE_SIGN_STYLE=Automatic \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
             MARKETING_VERSION="$VERSION" \
             CURRENT_PROJECT_VERSION="$BUILD"
 
@@ -114,13 +141,17 @@ jobs:
             <key>teamID</key><string>${TEAM_ID}</string>
             <key>destination</key><string>upload</string>
             <key>uploadSymbols</key><true/>
+            <key>signingStyle</key><string>manual</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>dev.winktech.labtracker</key><string>${PROFILE_NAME}</string>
+            </dict>
           </dict>
           </plist>
           PLIST
           xcodebuild -exportArchive \
             -archivePath build/LabTracker.xcarchive \
             -exportOptionsPlist build/ExportOptions.plist \
-            -allowProvisioningUpdates \
             -authenticationKeyPath ~/.appstoreconnect/private_keys/AuthKey_"$KEY_ID".p8 \
             -authenticationKeyID "$KEY_ID" \
             -authenticationKeyIssuerID "$ISSUER_ID"
