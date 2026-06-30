@@ -84,7 +84,8 @@ npm run dev                # http://localhost:5173 (proxies /api to :8080)
 | GET | `/api/me` | current user + whether they're a super-user |
 | GET | `/api/admin/users` | (super-user) every user with owned/shared profile counts |
 | GET/POST | `/api/profiles` | list owned-or-shared / create profiles |
-| DELETE | `/api/profiles/{id}` | delete profile (owner only) |
+| PATCH/DELETE | `/api/profiles/{id}` | edit (name, birthdate) / delete (owner only) |
+| GET/POST/DELETE | `/api/profiles/{id}/body` | self-entered weight/height over time (kg, cm) |
 | GET/POST/DELETE | `/api/profiles/{id}/members` | (owner) list members / share by email / unshare |
 | POST | `/api/profiles/{id}/reports` | upload a PDF (multipart `file`) |
 | GET | `/api/profiles/{id}/reports` | list reports |
@@ -101,7 +102,8 @@ npm run dev                # http://localhost:5173 (proxies /api to :8080)
 via `owner_user_id`), `profile_members` (profiles shared with other users),
 `analytes` (canonical tests), `analyte_aliases` (raw name → analyte),
 `lab_reports` (one PDF), `lab_results` (one dated measurement — the graph unit),
-`favorites` (per-profile pinned analytes), `analyte_analyses` (stored AI analysis
+`favorites` (per-profile pinned analytes), `body_measurements` (self-entered
+weight/height over time, canonical kg/cm), `analyte_analyses` (stored AI analysis
 per profile + analyte). See `backend/internal/db/migrations`.
 
 ## Testing

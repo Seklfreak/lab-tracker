@@ -11,12 +11,14 @@ import (
 )
 
 type Querier interface {
+	AddBodyMeasurement(ctx context.Context, arg AddBodyMeasurementParams) (BodyMeasurement, error)
 	AddFavorite(ctx context.Context, arg AddFavoriteParams) error
 	AddProfileMember(ctx context.Context, arg AddProfileMemberParams) error
 	CreateAnalyte(ctx context.Context, arg CreateAnalyteParams) (Analyte, error)
 	CreateProfile(ctx context.Context, arg CreateProfileParams) (Profile, error)
 	CreateReport(ctx context.Context, arg CreateReportParams) (LabReport, error)
 	CreateResult(ctx context.Context, arg CreateResultParams) (LabResult, error)
+	DeleteBodyMeasurement(ctx context.Context, arg DeleteBodyMeasurementParams) error
 	DeleteProfile(ctx context.Context, id uuid.UUID) error
 	DeleteReport(ctx context.Context, id uuid.UUID) error
 	DeleteResult(ctx context.Context, id uuid.UUID) error
@@ -38,6 +40,7 @@ type Querier interface {
 	GetUserBySub(ctx context.Context, oidcSub string) (User, error)
 	ListAnalytes(ctx context.Context) ([]Analyte, error)
 	ListAnalytesWithDataForProfile(ctx context.Context, profileID uuid.UUID) ([]Analyte, error)
+	ListBodyMeasurements(ctx context.Context, profileID uuid.UUID) ([]BodyMeasurement, error)
 	ListLatestResultsForProfile(ctx context.Context, profileID uuid.UUID) ([]ListLatestResultsForProfileRow, error)
 	ListProfileMembers(ctx context.Context, profileID uuid.UUID) ([]ListProfileMembersRow, error)
 	// Unscoped: every profile. Only the MCP connector uses this, and only when it
@@ -60,6 +63,7 @@ type Querier interface {
 	SetReportParsed(ctx context.Context, arg SetReportParsedParams) error
 	SetReportParsing(ctx context.Context, id uuid.UUID) error
 	SetReportSaved(ctx context.Context, arg SetReportSavedParams) error
+	UpdateProfile(ctx context.Context, arg UpdateProfileParams) (Profile, error)
 	UpdateResult(ctx context.Context, arg UpdateResultParams) error
 	UpsertAlias(ctx context.Context, arg UpsertAliasParams) error
 	UpsertAnalysis(ctx context.Context, arg UpsertAnalysisParams) error

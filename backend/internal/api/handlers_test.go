@@ -162,6 +162,79 @@ func TestRequireProfileNotFound(t *testing.T) {
 	}
 }
 
+func TestAddBodyMeasurement(t *testing.T) {
+	pid := uuid.New()
+	var added sqlc.AddBodyMeasurementParams
+	q := &sqlctest.FakeQuerier{
+		GetProfileForUserFn: func(context.Context, sqlc.GetProfileForUserParams) (sqlc.Profile, error) {
+			return sqlc.Profile{ID: pid}, nil
+		},
+		AddBodyMeasurementFn: func(_ context.Context, arg sqlc.AddBodyMeasurementParams) (sqlc.BodyMeasurement, error) {
+			added = arg
+			return sqlc.BodyMeasurement{ID: uuid.New(), Kind: arg.Kind, Value: arg.Value, MeasuredOn: arg.MeasuredOn}, nil
+		},
+	}
+	rec := do(t, router(q, nil), http.MethodPost, "/api/profiles/"+pid.String()+"/body",
+		`{"kind":"weight","value":72.5,"measuredOn":"2026-06-30"}`)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d", rec.Code)
+	}
+	if added.Kind != "weight" || added.Value != 72.5 {
+		t.Errorf("added = %+v", added)
+	}
+}
+
+func TestAddBodyMeasurementBadKind(t *testing.T) {
+	q := &sqlctest.FakeQuerier{
+		GetProfileForUserFn: func(context.Context, sqlc.GetProfileForUserParams) (sqlc.Profile, error) {
+			return sqlc.Profile{ID: uuid.New()}, nil
+		},
+	}
+	rec := do(t, router(q, nil), http.MethodPost, "/api/profiles/"+uuid.New().String()+"/body",
+		`{"kind":"bmi","value":5}`)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("want 400 for bad kind, got %d", rec.Code)
+	}
+}
+
+// A user must not reach another user's body data: an inaccessible profile 404s.
+func TestBodyMeasurementsIsolation(t *testing.T) {
+	q := &sqlctest.FakeQuerier{
+		GetProfileForUserFn: func(context.Context, sqlc.GetProfileForUserParams) (sqlc.Profile, error) {
+			return sqlc.Profile{}, pgx.ErrNoRows
+		},
+	}
+	rec := do(t, router(q, nil), http.MethodPost, "/api/profiles/"+uuid.New().String()+"/body",
+		`{"kind":"weight","value":70}`)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("want 404 for inaccessible profile, got %d", rec.Code)
+	}
+}
+
+func TestUpdateProfile(t *testing.T) {
+	pid := uuid.New()
+	q := &sqlctest.FakeQuerier{
+		GetProfileForUserFn: func(context.Context, sqlc.GetProfileForUserParams) (sqlc.Profile, error) {
+			return sqlc.Profile{ID: pid, Name: "Old"}, nil
+		},
+		UpdateProfileFn: func(_ context.Context, arg sqlc.UpdateProfileParams) (sqlc.Profile, error) {
+			return sqlc.Profile{ID: arg.ID, Name: arg.Name, DateOfBirth: arg.DateOfBirth}, nil
+		},
+	}
+	rec := do(t, router(q, nil), http.MethodPatch, "/api/profiles/"+pid.String(),
+		`{"name":"New","dateOfBirth":"1990-04-12"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d", rec.Code)
+	}
+	var got ProfileDTO
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Name != "New" || got.DateOfBirth == nil || *got.DateOfBirth != "1990-04-12" {
+		t.Errorf("body = %+v", got)
+	}
+}
+
 func TestAddFavorite(t *testing.T) {
 	var added sqlc.AddFavoriteParams
 	q := &sqlctest.FakeQuerier{

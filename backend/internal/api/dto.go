@@ -23,6 +23,24 @@ func toProfileDTO(p sqlc.Profile, uid uuid.UUID) ProfileDTO {
 	}
 }
 
+// BodyMeasurementDTO is a self-entered body metric. Value is canonical: weight
+// in kilograms, height in centimetres (the UI converts for display).
+type BodyMeasurementDTO struct {
+	ID         uuid.UUID `json:"id"`
+	Kind       string    `json:"kind"` // "weight" | "height"
+	Value      float64   `json:"value"`
+	MeasuredOn string    `json:"measuredOn"` // YYYY-MM-DD
+}
+
+func toBodyMeasurementDTO(m sqlc.BodyMeasurement) BodyMeasurementDTO {
+	return BodyMeasurementDTO{
+		ID:         m.ID,
+		Kind:       m.Kind,
+		Value:      m.Value,
+		MeasuredOn: m.MeasuredOn.Time.Format(dateLayout),
+	}
+}
+
 type AnalyteDTO struct {
 	ID          uuid.UUID `json:"id"`
 	Name        string    `json:"name"`

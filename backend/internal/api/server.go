@@ -58,7 +58,7 @@ func (s *Server) Router(corsOrigins []string) http.Handler {
 	r.Use(middleware.Timeout(120 * time.Second))
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   corsOrigins,
-		AllowedMethods:   []string{"GET", "POST", "DELETE", "OPTIONS"},
+		AllowedMethods:   []string{"GET", "POST", "PATCH", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Content-Type", "Authorization"},
 		AllowCredentials: false,
 		MaxAge:           300,
@@ -88,7 +88,13 @@ func (s *Server) Router(corsOrigins []string) http.Handler {
 
 		r.Get("/profiles", s.listProfiles)
 		r.Post("/profiles", s.createProfile)
+		r.Patch("/profiles/{id}", s.updateProfile)
 		r.Delete("/profiles/{id}", s.deleteProfile)
+
+		// Self-entered body metrics (weight, height) tracked over time.
+		r.Get("/profiles/{id}/body", s.listBody)
+		r.Post("/profiles/{id}/body", s.addBody)
+		r.Delete("/profiles/{id}/body/{measurementId}", s.deleteBody)
 
 		r.Get("/profiles/{id}/members", s.listMembers)
 		r.Post("/profiles/{id}/members", s.addMember)

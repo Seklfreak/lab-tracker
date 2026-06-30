@@ -40,6 +40,26 @@ type FakeQuerier struct {
 	DeleteProfileFn                  func(context.Context, uuid.UUID) error
 	DeleteResultFn                   func(context.Context, uuid.UUID) error
 	ListUsersWithProfileCountsFn     func(context.Context) ([]sqlc.ListUsersWithProfileCountsRow, error)
+	UpdateProfileFn                  func(context.Context, sqlc.UpdateProfileParams) (sqlc.Profile, error)
+	ListBodyMeasurementsFn           func(context.Context, uuid.UUID) ([]sqlc.BodyMeasurement, error)
+	AddBodyMeasurementFn             func(context.Context, sqlc.AddBodyMeasurementParams) (sqlc.BodyMeasurement, error)
+	DeleteBodyMeasurementFn          func(context.Context, sqlc.DeleteBodyMeasurementParams) error
+}
+
+func (f *FakeQuerier) UpdateProfile(ctx context.Context, arg sqlc.UpdateProfileParams) (sqlc.Profile, error) {
+	return f.UpdateProfileFn(ctx, arg)
+}
+
+func (f *FakeQuerier) ListBodyMeasurements(ctx context.Context, profileID uuid.UUID) ([]sqlc.BodyMeasurement, error) {
+	return f.ListBodyMeasurementsFn(ctx, profileID)
+}
+
+func (f *FakeQuerier) AddBodyMeasurement(ctx context.Context, arg sqlc.AddBodyMeasurementParams) (sqlc.BodyMeasurement, error) {
+	return f.AddBodyMeasurementFn(ctx, arg)
+}
+
+func (f *FakeQuerier) DeleteBodyMeasurement(ctx context.Context, arg sqlc.DeleteBodyMeasurementParams) error {
+	return f.DeleteBodyMeasurementFn(ctx, arg)
 }
 
 func (f *FakeQuerier) ListUsersWithProfileCounts(ctx context.Context) ([]sqlc.ListUsersWithProfileCountsRow, error) {

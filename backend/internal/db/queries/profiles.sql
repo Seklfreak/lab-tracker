@@ -36,6 +36,12 @@ INSERT INTO profiles (name, date_of_birth, owner_user_id)
 VALUES ($1, $2, $3)
 RETURNING *;
 
+-- name: UpdateProfile :one
+UPDATE profiles
+SET name = $2, date_of_birth = $3
+WHERE id = $1
+RETURNING *;
+
 -- name: DeleteProfile :exec
 DELETE FROM profiles
 WHERE id = $1;

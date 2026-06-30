@@ -166,3 +166,29 @@ func (q *Queries) ListProfilesForUser(ctx context.Context, userID *uuid.UUID) ([
 	}
 	return items, nil
 }
+
+const updateProfile = `-- name: UpdateProfile :one
+UPDATE profiles
+SET name = $2, date_of_birth = $3
+WHERE id = $1
+RETURNING id, name, date_of_birth, created_at, owner_user_id
+`
+
+type UpdateProfileParams struct {
+	ID          uuid.UUID   `json:"id"`
+	Name        string      `json:"name"`
+	DateOfBirth pgtype.Date `json:"date_of_birth"`
+}
+
+func (q *Queries) UpdateProfile(ctx context.Context, arg UpdateProfileParams) (Profile, error) {
+	row := q.db.QueryRow(ctx, updateProfile, arg.ID, arg.Name, arg.DateOfBirth)
+	var i Profile
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.DateOfBirth,
+		&i.CreatedAt,
+		&i.OwnerUserID,
+	)
+	return i, err
+}

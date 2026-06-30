@@ -34,6 +34,15 @@ type AnalyteAnalysis struct {
 	GeneratedAt pgtype.Timestamptz `json:"generated_at"`
 }
 
+type BodyMeasurement struct {
+	ID         uuid.UUID          `json:"id"`
+	ProfileID  uuid.UUID          `json:"profile_id"`
+	Kind       string             `json:"kind"`
+	Value      float64            `json:"value"`
+	MeasuredOn pgtype.Date        `json:"measured_on"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
 type Favorite struct {
 	ProfileID uuid.UUID          `json:"profile_id"`
 	AnalyteID uuid.UUID          `json:"analyte_id"`
