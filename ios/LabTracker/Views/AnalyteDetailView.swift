@@ -48,7 +48,19 @@ struct AnalyteDetailView: View {
                     .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 6, trailing: 16))
                 }
                 if chartPoints.count >= 2 {
-                    Section("Trend") { chart }
+                    Section("Trend") {
+                        chart
+                        if refLow != nil || refHigh != nil {
+                            HStack(spacing: 6) {
+                                RoundedRectangle(cornerRadius: 2)
+                                    .fill(Color.statusInRange.opacity(0.25))
+                                    .frame(width: 18, height: 11)
+                                Text("Shaded band = normal range")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
                 }
                 Section("Readings") { readings }
                 Section("AI analysis") { analysisSection }
@@ -89,35 +101,38 @@ struct AnalyteDetailView: View {
 
     @ViewBuilder private var chart: some View {
         Chart {
+            // The "good" zone: a filled normal-range band with delineated edges.
+            // No area fill under the line — it competed with the band and made it
+            // unclear which region was the healthy range.
             if let lo = refLow, let hi = refHigh {
                 RectangleMark(yStart: .value("Low", lo), yEnd: .value("High", hi))
-                    .foregroundStyle(Color.statusInRange.opacity(0.12))
+                    .foregroundStyle(Color.statusInRange.opacity(0.20))
+                bound(lo)
+                bound(hi)
             } else if let hi = refHigh {
-                RuleMark(y: .value("Upper limit", hi))
-                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                    .foregroundStyle(Color.statusInRange.opacity(0.5))
+                bound(hi)
             } else if let lo = refLow {
-                RuleMark(y: .value("Lower limit", lo))
-                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                    .foregroundStyle(Color.statusInRange.opacity(0.5))
+                bound(lo)
             }
             ForEach(chartPoints) { p in
-                AreaMark(x: .value("Date", p.date), y: .value("Value", p.value))
-                    .foregroundStyle(.linearGradient(
-                        colors: [Color.brandTeal.opacity(0.22), Color.brandTeal.opacity(0.02)],
-                        startPoint: .top, endPoint: .bottom))
-                    .interpolationMethod(.linear)
                 LineMark(x: .value("Date", p.date), y: .value("Value", p.value))
                     .foregroundStyle(Color.brandTeal)
                     .interpolationMethod(.linear)
                     .lineStyle(StrokeStyle(lineWidth: 3))
                 PointMark(x: .value("Date", p.date), y: .value("Value", p.value))
                     .foregroundStyle(p.status == .unknown ? Color.brandTeal : p.status.tint)
-                    .symbolSize(p.status == .high || p.status == .low ? 60 : 26)
+                    .symbolSize(p.status == .high || p.status == .low ? 70 : 30)
             }
         }
         .frame(height: 220)
         .padding(.vertical, 6)
+    }
+
+    /// A dashed edge line marking a reference bound.
+    private func bound(_ value: Double) -> some ChartContent {
+        RuleMark(y: .value("Reference", value))
+            .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
+            .foregroundStyle(Color.statusInRange.opacity(0.6))
     }
 
     @ViewBuilder private var readings: some View {
