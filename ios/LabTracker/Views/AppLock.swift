@@ -41,38 +41,57 @@ enum Biometrics {
 struct LockGate<Content: View>: View {
     @Environment(Store.self) private var store
     @Environment(\.scenePhase) private var scenePhase
-    @State private var unlocked = false
+    // Seed from the persisted flag so a locked launch never flashes content.
+    @State private var locked = UserDefaults.standard.bool(forKey: "biometricLock")
     @State private var authenticating = false
     private let content: Content
 
     init(@ViewBuilder content: () -> Content) { self.content = content() }
 
     private var enabled: Bool { store.biometricLockEnabled }
-    private var covered: Bool { enabled && (!unlocked || scenePhase != .active) }
 
     var body: some View {
         content
             .overlay {
-                if covered {
+                if enabled && locked {
+                    // Lock screen visibility is driven only by `locked`, which
+                    // clears the instant auth succeeds — not by scenePhase, which
+                    // lags behind the Face ID prompt and left the screen (and its
+                    // tappable button) up for a beat after a successful unlock.
                     LockScreen(authenticating: authenticating) { Task { await authenticate() } }
+                } else if enabled && scenePhase == .inactive && !authenticating {
+                    PrivacyCover()
                 }
             }
             .task {
-                if enabled && !unlocked { await authenticate() }
+                if enabled && locked { await authenticate() }
             }
             .onChange(of: scenePhase) { _, phase in
                 guard enabled else { return }
-                if phase == .background { unlocked = false }
-                if phase == .active && !unlocked && !authenticating { Task { await authenticate() } }
+                if phase == .background { locked = true }
+                if phase == .active && locked && !authenticating { Task { await authenticate() } }
             }
     }
 
     private func authenticate() async {
         guard !authenticating else { return }
         authenticating = true
-        let ok = await Biometrics.authenticate(reason: "Unlock Lab Tracker")
-        unlocked = ok
+        if await Biometrics.authenticate(reason: "Unlock Lab Tracker") { locked = false }
         authenticating = false
+    }
+}
+
+/// Opaque cover for the app-switcher snapshot (scenePhase .inactive) so results
+/// aren't visible there. Separate from the lock screen so it never blocks the
+/// unlock transition.
+private struct PrivacyCover: View {
+    var body: some View {
+        ZStack {
+            Color(uiColor: .systemBackground).ignoresSafeArea()
+            Image(systemName: "lock.fill")
+                .font(.system(size: 44, weight: .semibold))
+                .foregroundStyle(Color.brandTeal)
+        }
     }
 }
 
