@@ -16,6 +16,7 @@ struct BodyView: View {
     @State private var loading = false
     @State private var saving = false
     @State private var importing = false
+    @State private var importSummary: String? // per-metric counts from the last import
     @State private var expanded: Set<String> = [] // kinds whose full history is shown
     @State private var error: String?
 
@@ -59,8 +60,14 @@ struct BodyView: View {
                         }
                         .disabled(importing)
                     } footer: {
-                        Text("Pulls your recent weight, height, body fat, waist, resting heart rate, "
-                            + "cardio fitness, blood oxygen, and blood pressure. Safe to re-run — duplicates are skipped.")
+                        if let importSummary {
+                            Text("Imported — \(importSummary)")
+                        } else {
+                            Text("Pulls your recent weight, height, body fat, waist, resting heart rate, "
+                                + "cardio fitness, blood oxygen, and blood pressure. Safe to re-run — "
+                                + "duplicates are skipped. A metric showing 0 usually means it isn’t shared "
+                                + "in Settings → Health → Data Access, or has no data.")
+                        }
                     }
                 }
                 metricSection(kind: "weight", title: "Weight", unit: $weightUnit,
@@ -254,41 +261,6 @@ extension BodyView {
         return String(format: "%.0f mmHg", m.value)
     }
 
-    // MARK: unit conversion
-
-    /// Full display string for a canonical value in the chosen unit.
-    private func displayString(_ canonical: Double, kind: String, unit: String) -> String {
-        switch (kind, unit) {
-        case ("weight", "lb"): return String(format: "%.1f lb", canonical * 2.20462)
-        case ("weight", _): return String(format: "%.1f kg", canonical)
-        case ("height", "ftin"):
-            let totalInches = canonical / 2.54
-            let ft = Int(totalInches / 12)
-            var inch = Int((totalInches - Double(ft) * 12).rounded())
-            if inch == 12 { return "\(ft + 1)′ 0″" }
-            if inch < 0 { inch = 0 }
-            return "\(ft)′ \(inch)″"
-        default: return String(format: "%.1f cm", canonical) // height cm
-        }
-    }
-
-    /// Numeric value for the trend chart's y-axis.
-    private func displayNumeric(_ canonical: Double, kind: String, unit: String) -> Double {
-        switch (kind, unit) {
-        case ("weight", "lb"): return canonical * 2.20462
-        case ("height", "ftin"), ("height", "in"): return canonical / 2.54 // inches
-        default: return canonical
-        }
-    }
-
-    /// Convert a single-field display value back to canonical (kg / cm).
-    private func toCanonical(_ display: Double, kind: String, unit: String) -> Double {
-        switch (kind, unit) {
-        case ("weight", "lb"): return display / 2.20462
-        default: return display // weight kg, height cm
-        }
-    }
-
     // MARK: actions
 
     private func load() async {
@@ -324,26 +296,46 @@ extension BodyView {
 
     private func importFromHealth() async {
         importing = true
+        importSummary = nil
         defer { importing = false }
         do {
             let importer = HealthImporter()
             try await importer.requestAuthorization()
+            var counts: [(String, Int)] = []
             for kind in importer.scalarKinds {
-                for sample in try await importer.samples(kind: kind) {
+                let samples = try await importer.samples(kind: kind)
+                for sample in samples {
                     _ = try await store.api.addBody(
                         profileId: profile.id, kind: kind, value: sample.value, value2: sample.value2,
                         measuredOn: Self.format(sample.date), source: "apple_health", externalId: sample.uuid)
                 }
+                counts.append((Self.metricLabel(kind), samples.count))
             }
-            for sample in try await importer.bloodPressureSamples() {
+            let bp = try await importer.bloodPressureSamples()
+            for sample in bp {
                 _ = try await store.api.addBody(
                     profileId: profile.id, kind: "blood_pressure", value: sample.value, value2: sample.value2,
                     measuredOn: Self.format(sample.date), source: "apple_health", externalId: sample.uuid)
             }
+            counts.append(("Blood pressure", bp.count))
             measurements = try await store.api.bodyMeasurements(profileId: profile.id)
+            importSummary = counts.map { "\($0.0) \($0.1)" }.joined(separator: " · ")
             error = nil
         } catch {
             self.error = error.localizedDescription
+        }
+    }
+
+    static func metricLabel(_ kind: String) -> String {
+        switch kind {
+        case "weight": return "Weight"
+        case "height": return "Height"
+        case "body_fat": return "Body fat"
+        case "waist": return "Waist"
+        case "resting_heart_rate": return "Resting HR"
+        case "vo2max": return "Cardio"
+        case "oxygen": return "Oxygen"
+        default: return kind.capitalized
         }
     }
 

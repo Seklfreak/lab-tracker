@@ -66,39 +66,60 @@ final class HealthImporter {
     /// Scalar samples for one kind, newest first.
     func samples(kind: String) async throws -> [HealthSample] {
         guard let m = metric(for: kind) else { return [] }
-        let sort = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
-        let samples: [HKQuantitySample] = try await withCheckedThrowingContinuation { cont in
-            let query = HKSampleQuery(sampleType: m.type, predicate: nil, limit: limit, sortDescriptors: [sort]) { _, results, error in
-                if let error { cont.resume(throwing: error); return }
-                cont.resume(returning: (results as? [HKQuantitySample]) ?? [])
-            }
-            store.execute(query)
-        }
-        return samples.map {
-            HealthSample(value: $0.quantity.doubleValue(for: m.unit) * m.scale, value2: nil,
-                         date: $0.endDate, uuid: $0.uuid.uuidString)
+        let raw = try await rawSamples(m.type)
+        return raw.compactMap { sample in
+            guard let q = sample as? HKQuantitySample else { return nil }
+            return HealthSample(value: q.quantity.doubleValue(for: m.unit) * m.scale, value2: nil,
+                                date: q.endDate, uuid: q.uuid.uuidString)
         }
     }
 
-    /// Blood pressure correlations → systolic in `value`, diastolic in `value2`.
+    /// Blood pressure → systolic in `value`, diastolic in `value2`. Most sources
+    /// store readings as a correlation; some leave loose systolic/diastolic
+    /// samples, so fall back to pairing those by timestamp.
     func bloodPressureSamples() async throws -> [HealthSample] {
-        let correlation = HKCorrelationType(.bloodPressure)
+        let viaCorrelation = try await correlationBP()
+        if !viaCorrelation.isEmpty { return viaCorrelation }
+        return try await pairedBP()
+    }
+
+    private func correlationBP() async throws -> [HealthSample] {
+        let mmHg = HKUnit.millimeterOfMercury()
         let systolic = HKQuantityType(.bloodPressureSystolic)
         let diastolic = HKQuantityType(.bloodPressureDiastolic)
-        let mmHg = HKUnit.millimeterOfMercury()
-        let sort = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
-        let samples: [HKCorrelation] = try await withCheckedThrowingContinuation { cont in
-            let query = HKSampleQuery(sampleType: correlation, predicate: nil, limit: limit, sortDescriptors: [sort]) { _, results, error in
-                if let error { cont.resume(throwing: error); return }
-                cont.resume(returning: (results as? [HKCorrelation]) ?? [])
-            }
-            store.execute(query)
-        }
-        return samples.compactMap { reading in
-            guard let sys = (reading.objects(for: systolic).first as? HKQuantitySample)?.quantity.doubleValue(for: mmHg),
+        let raw = try await rawSamples(HKCorrelationType(.bloodPressure))
+        return raw.compactMap { sample in
+            guard let reading = sample as? HKCorrelation,
+                  let sys = (reading.objects(for: systolic).first as? HKQuantitySample)?.quantity.doubleValue(for: mmHg),
                   let dia = (reading.objects(for: diastolic).first as? HKQuantitySample)?.quantity.doubleValue(for: mmHg)
             else { return nil }
             return HealthSample(value: sys, value2: dia, date: reading.endDate, uuid: reading.uuid.uuidString)
+        }
+    }
+
+    private func pairedBP() async throws -> [HealthSample] {
+        let mmHg = HKUnit.millimeterOfMercury()
+        let systolic = (try await rawSamples(HKQuantityType(.bloodPressureSystolic))).compactMap { $0 as? HKQuantitySample }
+        let diastolic = (try await rawSamples(HKQuantityType(.bloodPressureDiastolic))).compactMap { $0 as? HKQuantitySample }
+        // Systolic & diastolic of one reading share a timestamp — index diastolic by it.
+        var diaByTime: [TimeInterval: HKQuantitySample] = [:]
+        for d in diastolic { diaByTime[d.startDate.timeIntervalSince1970] = d }
+        return systolic.compactMap { s in
+            guard let d = diaByTime[s.startDate.timeIntervalSince1970] else { return nil }
+            return HealthSample(value: s.quantity.doubleValue(for: mmHg), value2: d.quantity.doubleValue(for: mmHg),
+                                date: s.endDate, uuid: s.uuid.uuidString)
+        }
+    }
+
+    /// Most-recent samples for a type, newest first.
+    private func rawSamples(_ type: HKSampleType) async throws -> [HKSample] {
+        let sort = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
+        return try await withCheckedThrowingContinuation { cont in
+            let query = HKSampleQuery(sampleType: type, predicate: nil, limit: limit, sortDescriptors: [sort]) { _, results, error in
+                if let error { cont.resume(throwing: error); return }
+                cont.resume(returning: results ?? [])
+            }
+            store.execute(query)
         }
     }
 }
