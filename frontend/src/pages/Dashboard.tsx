@@ -462,8 +462,13 @@ function BodyMetricCard({ item }: { item: BodyDashItem }) {
   return (
     <Link to="/body">
       <Card className="transition hover:border-accent">
-        <div className="font-medium">{item.label}</div>
-        <div className="mt-2 text-2xl font-semibold">{item.value}</div>
+        <div className="flex items-start justify-between gap-2">
+          <div className="font-medium">{item.label}</div>
+          {item.status && <Badge tone={item.tone ?? "muted"}>{item.status}</Badge>}
+        </div>
+        <div className={clsx("mt-2 text-2xl font-semibold", item.tone === "bad" && "text-bad")}>
+          {item.value}
+        </div>
         <div className="mt-1 flex items-center justify-between text-xs text-muted">
           <span>{item.date}</span>
           <span className="shrink-0">

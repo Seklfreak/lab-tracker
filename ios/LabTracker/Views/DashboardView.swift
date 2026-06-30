@@ -117,10 +117,16 @@ struct DashboardView: View {
                 Section("Body") {
                     ForEach(bodyItems) { item in
                         Button { showBody = true } label: {
-                            HStack {
+                            HStack(spacing: 8) {
                                 Text(item.label).foregroundStyle(.primary)
-                                Spacer()
-                                Text(item.value).monospacedDigit().foregroundStyle(.secondary)
+                                Spacer(minLength: 8)
+                                if let status = item.status {
+                                    Text(status)
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(item.tint ?? .secondary)
+                                }
+                                Text(item.value).monospacedDigit()
+                                    .foregroundStyle(item.tint ?? .secondary)
                             }
                         }
                         .buttonStyle(.plain)
@@ -240,6 +246,26 @@ struct BodyDashItem: Identifiable {
     let id: String
     let label: String
     let value: String
+    var tint: Color?    // value/status color for graded metrics (BMI, blood pressure)
+    var status: String? // category label, e.g. "Healthy", "Stage 2"
+}
+
+/// BMI category + color (WHO bands).
+func bmiStatus(_ bmi: Double) -> (label: String, tint: Color) {
+    switch bmi {
+    case ..<18.5: return ("Underweight", .statusWarn)
+    case ..<25: return ("Healthy", .statusInRange)
+    case ..<30: return ("Overweight", .statusWarn)
+    default: return ("Obese", .statusHigh)
+    }
+}
+
+/// Blood-pressure category + color (ACC/AHA bands).
+func bpStatus(systolic sys: Double, diastolic dia: Double) -> (label: String, tint: Color) {
+    if sys >= 140 || dia >= 90 { return ("Stage 2", .statusHigh) }
+    if sys >= 130 || dia >= 80 { return ("Stage 1", .statusWarn) }
+    if sys >= 120 { return ("Elevated", .statusWarn) }
+    return ("Normal", .statusInRange)
 }
 
 /// Latest changing body stats in display order; empty metrics are skipped.
@@ -254,12 +280,17 @@ func bodyDashItems(_ rows: [BodyMeasurement], weightUnit: String) -> [BodyDashIt
     }
     if let w = latest("weight"), let h = latest("height"), h.value > 0 {
         let m = h.value / 100
-        items.append(BodyDashItem(id: "bmi", label: "BMI", value: String(format: "%.1f", w.value / (m * m))))
+        let bmi = w.value / (m * m)
+        let s = bmiStatus(bmi)
+        items.append(BodyDashItem(id: "bmi", label: "BMI", value: String(format: "%.1f", bmi),
+                                  tint: s.tint, status: s.label))
     }
     if let bp = latest("blood_pressure") {
         let value = bp.value2.map { String(format: "%.0f/%.0f mmHg", bp.value, $0) }
             ?? String(format: "%.0f mmHg", bp.value)
-        items.append(BodyDashItem(id: "bp", label: "Blood Pressure", value: value))
+        let s = bp.value2.map { bpStatus(systolic: bp.value, diastolic: $0) }
+        items.append(BodyDashItem(id: "bp", label: "Blood Pressure", value: value,
+                                  tint: s?.tint, status: s?.label))
     }
     if let m = latest("resting_heart_rate") {
         items.append(BodyDashItem(id: "rhr", label: "Resting Heart Rate", value: String(format: "%.0f bpm", m.value)))

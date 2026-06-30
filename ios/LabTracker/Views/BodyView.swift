@@ -109,12 +109,7 @@ struct BodyView: View {
     }
 
     private func bmiCategory(_ v: Double) -> (String, Color) {
-        switch v {
-        case ..<18.5: return ("Underweight", .statusLow)
-        case 18.5..<25: return ("Healthy", .statusInRange)
-        case 25..<30: return ("Overweight", .statusHigh)
-        default: return ("Obese", .statusHigh)
-        }
+        bmiStatus(v) // shared with the dashboard so colors/labels match
     }
 
     // MARK: weight / height sections

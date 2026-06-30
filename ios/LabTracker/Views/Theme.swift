@@ -9,6 +9,7 @@ extension Color {
     static let statusInRange = Color(red: 0.059, green: 0.620, blue: 0.557) // #0F9E8E
     static let statusHigh = Color(red: 0.878, green: 0.404, blue: 0.227)    // #E0673A
     static let statusLow = Color(red: 0.357, green: 0.424, blue: 0.878)     // #5B6CE0
+    static let statusWarn = Color(red: 0.878, green: 0.647, blue: 0.227)    // #E0A53A — caution (amber)
 }
 
 /// Where a reading sits relative to its reference interval.
