@@ -89,4 +89,44 @@ struct APIClient {
     func health() async throws -> Health {
         try await request("/health", as: Health.self)
     }
+
+    func addFavorite(profileId: String, analyteId: String) async throws {
+        try await mutate("/api/profiles/\(profileId)/favorites", method: "POST", body: ["analyteId": analyteId])
+    }
+
+    func removeFavorite(profileId: String, analyteId: String) async throws {
+        try await mutate("/api/profiles/\(profileId)/favorites/\(analyteId)", method: "DELETE", body: nil)
+    }
+
+    /// POST/DELETE with no decoded response. Mirrors request()'s auth + 401-refresh.
+    private func mutate(_ path: String, method: String, body: [String: String]?) async throws {
+        let trimmed = baseURL.hasSuffix("/") ? String(baseURL.dropLast()) : baseURL
+        guard let url = URL(string: trimmed + path) else { throw APIError.badURL }
+
+        func send(_ token: String?) async throws -> (Data, HTTPURLResponse) {
+            var req = URLRequest(url: url)
+            req.httpMethod = method
+            if let body {
+                req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                req.httpBody = try JSONEncoder().encode(body)
+            }
+            if let token, !token.isEmpty {
+                req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            }
+            let (data, resp) = try await URLSession.shared.data(for: req)
+            guard let http = resp as? HTTPURLResponse else { throw APIError.http(0, "no response") }
+            return (data, http)
+        }
+
+        var (data, http) = try await send(await bearer())
+        if http.statusCode == 401, let auth {
+            try? await auth.refresh()
+            if let fresh = await auth.validAccessToken(), !fresh.isEmpty {
+                (data, http) = try await send(fresh)
+            }
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            throw APIError.http(http.statusCode, String(data: data, encoding: .utf8) ?? "")
+        }
+    }
 }

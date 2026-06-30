@@ -90,6 +90,11 @@ and rough notes so they aren't lost.
     each row. The detail screen gained a value hero + a trend chart with the
     reference band shaded behind the line. See
     [`Views/RangeTrack.swift`](../ios/LabTracker/Views/RangeTrack.swift).
+  - [x] **Onboarding + Face ID + dashboard parity (2026-06-29)** — first-run
+    server-URL onboarding (live-validated against `/health`, no default URL); an
+    optional Face ID / Touch ID app lock; an About screen; and dashboard parity
+    with web — sort options (category / name / readings / recent), favorites
+    pinned on top (swipe to toggle), and a tappable out-of-range filter.
   - [ ] **Smooth out the sign-in / auth flow** — works, but the transition into
     and out of the web-auth sheet is a bit janky; polish later.
   - [ ] **PDF upload** from the phone (share sheet / camera scan).
