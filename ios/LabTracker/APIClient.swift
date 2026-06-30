@@ -99,10 +99,11 @@ struct APIClient {
         try await request("/api/profiles/\(profileId)/body", as: [BodyMeasurement].self)
     }
 
-    func addBody(profileId: String, kind: String, value: Double, measuredOn: String?,
+    func addBody(profileId: String, kind: String, value: Double, value2: Double? = nil, measuredOn: String?,
                  source: String = "manual", externalId: String? = nil) async throws -> BodyMeasurement {
         try await send("/api/profiles/\(profileId)/body", method: "POST",
-                       body: BodyAdd(kind: kind, value: value, measuredOn: measuredOn, source: source, externalId: externalId),
+                       body: BodyAdd(kind: kind, value: value, value2: value2, measuredOn: measuredOn,
+                                     source: source, externalId: externalId),
                        as: BodyMeasurement.self)
     }
 
@@ -156,6 +157,7 @@ private struct ProfileUpdate: Encodable {
 private struct BodyAdd: Encodable {
     let kind: String
     let value: Double
+    let value2: Double?
     let measuredOn: String?
     let source: String
     let externalId: String?

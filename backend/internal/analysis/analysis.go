@@ -257,28 +257,41 @@ func ageYears(dob pgtype.Date) int {
 // so the model can interpret results in light of the person's build. `body` is
 // ordered newest-first, so the first of each kind is the latest.
 func writeBodyContext(b *strings.Builder, body []sqlc.BodyMeasurement) {
-	var w, h float64
-	var hasW, hasH bool
+	// body is newest-first, so the first row per kind is the latest reading.
+	latest := make(map[string]sqlc.BodyMeasurement, len(body))
 	for _, m := range body {
-		switch m.Kind {
-		case "weight":
-			if !hasW {
-				w, hasW = m.Value, true
-			}
-		case "height":
-			if !hasH {
-				h, hasH = m.Value, true
-			}
+		if _, ok := latest[m.Kind]; !ok {
+			latest[m.Kind] = m
 		}
 	}
-	if hasW {
-		fmt.Fprintf(b, "Weight: %.1f kg.\n", w)
+	if w, ok := latest["weight"]; ok {
+		fmt.Fprintf(b, "Weight: %.1f kg.\n", w.Value)
 	}
-	if hasH {
-		fmt.Fprintf(b, "Height: %.0f cm.\n", h)
+	if h, ok := latest["height"]; ok {
+		fmt.Fprintf(b, "Height: %.0f cm.\n", h.Value)
 	}
-	if hasW && hasH && h > 0 {
-		m := h / 100
-		fmt.Fprintf(b, "BMI: %.1f.\n", w/(m*m))
+	if w, okW := latest["weight"]; okW {
+		if h, okH := latest["height"]; okH && h.Value > 0 {
+			m := h.Value / 100
+			fmt.Fprintf(b, "BMI: %.1f.\n", w.Value/(m*m))
+		}
+	}
+	if v, ok := latest["body_fat"]; ok {
+		fmt.Fprintf(b, "Body fat: %.1f%%.\n", v.Value)
+	}
+	if v, ok := latest["waist"]; ok {
+		fmt.Fprintf(b, "Waist: %.0f cm.\n", v.Value)
+	}
+	if v, ok := latest["resting_heart_rate"]; ok {
+		fmt.Fprintf(b, "Resting heart rate: %.0f bpm.\n", v.Value)
+	}
+	if v, ok := latest["blood_pressure"]; ok && v.Value2.Valid {
+		fmt.Fprintf(b, "Blood pressure: %.0f/%.0f mmHg.\n", v.Value, v.Value2.Float64)
+	}
+	if v, ok := latest["vo2max"]; ok {
+		fmt.Fprintf(b, "VO2 max: %.1f mL/kg/min.\n", v.Value)
+	}
+	if v, ok := latest["oxygen"]; ok {
+		fmt.Fprintf(b, "Blood oxygen: %.0f%%.\n", v.Value)
 	}
 }

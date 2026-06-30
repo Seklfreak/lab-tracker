@@ -82,8 +82,9 @@ struct Health: Codable {
 /// in centimetres (the UI converts for display).
 struct BodyMeasurement: Codable, Identifiable, Hashable {
     let id: String
-    let kind: String // "weight" | "height"
+    let kind: String // weight | height | body_fat | blood_pressure | …
     let value: Double
+    let value2: Double? // diastolic for blood_pressure; nil otherwise
     let measuredOn: String // YYYY-MM-DD
     let source: String // "manual" | "apple_health" | …
 }

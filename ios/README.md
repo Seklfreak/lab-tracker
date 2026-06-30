@@ -92,12 +92,14 @@ tag; the build number is the workflow run number.
 - `LabTracker/Views/ServerCheck.swift` — probes `{url}/health` to validate a
   server URL (shared by onboarding + settings).
 - `LabTracker/Views/BodyView.swift` — per-profile birthdate + weight/height
-  tracking (kg/lb, cm or ft·in) with BMI; opened from the dashboard toolbar.
-  Includes an **Import from Apple Health** button.
-- `LabTracker/HealthImport.swift` — reads weight/height from HealthKit for the
-  import (needs the HealthKit entitlement in `LabTracker.entitlements` +
-  `NSHealthShareUsageDescription`). Imports are idempotent (sample UUID → the
-  server's `external_id`).
+  tracking (kg/lb, cm or ft·in) with BMI, plus read-only vitals (blood pressure,
+  resting heart rate, body fat, waist, VO₂max, blood oxygen) shown once imported;
+  opened from the dashboard toolbar, with an **Import from Apple Health** button.
+  `BodyInputs.swift` holds the weight/height entry fields.
+- `LabTracker/HealthImport.swift` — reads weight, height, and the vitals above
+  from HealthKit (blood pressure via an `HKCorrelation`) for the import (needs the
+  HealthKit entitlement in `LabTracker.entitlements` + the `NSHealth*` usage
+  strings). Imports are idempotent (sample UUID → the server's `external_id`).
 - `LabTracker/Views/AppLock.swift` — optional Face ID / Touch ID app lock
   (`LocalAuthentication`); `LockGate` covers content until auth succeeds, on
   launch and on return from the background. Toggle in Settings → Privacy.

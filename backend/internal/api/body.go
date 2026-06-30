@@ -60,11 +60,18 @@ func (s *Server) listBody(w http.ResponseWriter, r *http.Request) {
 }
 
 type addBodyReq struct {
-	Kind       string  `json:"kind"`
-	Value      float64 `json:"value"`
-	MeasuredOn *string `json:"measuredOn"`
-	Source     *string `json:"source"`
-	ExternalID *string `json:"externalId"`
+	Kind       string   `json:"kind"`
+	Value      float64  `json:"value"`
+	Value2     *float64 `json:"value2"` // diastolic for blood_pressure
+	MeasuredOn *string  `json:"measuredOn"`
+	Source     *string  `json:"source"`
+	ExternalID *string  `json:"externalId"`
+}
+
+// Body-metric kinds we accept. Mirrors the DB CHECK constraint (migration 018).
+var validBodyKinds = map[string]bool{
+	"weight": true, "height": true, "body_fat": true, "resting_heart_rate": true,
+	"waist": true, "vo2max": true, "oxygen": true, "blood_pressure": true,
 }
 
 func (s *Server) addBody(w http.ResponseWriter, r *http.Request) {
@@ -77,8 +84,8 @@ func (s *Server) addBody(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid body")
 		return
 	}
-	if req.Kind != "weight" && req.Kind != "height" {
-		writeError(w, http.StatusBadRequest, "kind must be weight or height")
+	if !validBodyKinds[req.Kind] {
+		writeError(w, http.StatusBadRequest, "invalid kind")
 		return
 	}
 	if req.Value <= 0 {
@@ -93,6 +100,10 @@ func (s *Server) addBody(w http.ResponseWriter, r *http.Request) {
 	if req.Source != nil && *req.Source != "" {
 		source = *req.Source
 	}
+	var value2 pgtype.Float8
+	if req.Value2 != nil {
+		value2 = pgtype.Float8{Float64: *req.Value2, Valid: true}
+	}
 	m, err := s.q.AddBodyMeasurement(r.Context(), sqlc.AddBodyMeasurementParams{
 		ProfileID:  p.ID,
 		Kind:       req.Kind,
@@ -100,6 +111,7 @@ func (s *Server) addBody(w http.ResponseWriter, r *http.Request) {
 		MeasuredOn: measured,
 		Source:     source,
 		ExternalID: ptrToText(req.ExternalID),
+		Value2:     value2,
 	})
 	if err != nil {
 		s.log.Error("add body measurement", "err", err)

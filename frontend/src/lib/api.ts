@@ -8,10 +8,21 @@ export interface Profile {
 }
 
 // Self-entered body metric. Value is canonical: weight in kg, height in cm.
+export type BodyKind =
+  | "weight"
+  | "height"
+  | "body_fat"
+  | "resting_heart_rate"
+  | "waist"
+  | "vo2max"
+  | "oxygen"
+  | "blood_pressure";
+
 export interface BodyMeasurement {
   id: string;
-  kind: "weight" | "height";
+  kind: BodyKind;
   value: number;
+  value2?: number; // diastolic for blood_pressure
   measuredOn: string; // YYYY-MM-DD
   source: string; // "manual" | "apple_health" | …
 }

@@ -59,13 +59,24 @@ struct BodyView: View {
                         }
                         .disabled(importing)
                     } footer: {
-                        Text("Pulls your recent weight & height from Apple Health. Safe to re-run — duplicates are skipped.")
+                        Text("Pulls your recent weight, height, body fat, waist, resting heart rate, "
+                            + "cardio fitness, blood oxygen, and blood pressure. Safe to re-run — duplicates are skipped.")
                     }
                 }
                 metricSection(kind: "weight", title: "Weight", unit: $weightUnit,
                               units: [("kg", "kg"), ("lb", "lb")])
                 metricSection(kind: "height", title: "Height", unit: $heightUnit,
                               units: [("cm", "cm"), ("ftin", "ft / in")])
+                vitalSection(kind: "blood_pressure", title: "Blood Pressure", format: Self.bp)
+                vitalSection(kind: "resting_heart_rate", title: "Resting Heart Rate") {
+                    String(format: "%.0f bpm", $0.value)
+                }
+                vitalSection(kind: "body_fat", title: "Body Fat") { String(format: "%.1f%%", $0.value) }
+                vitalSection(kind: "waist", title: "Waist") { String(format: "%.0f cm", $0.value) }
+                vitalSection(kind: "vo2max", title: "Cardio Fitness (VO₂max)") {
+                    String(format: "%.1f mL/kg·min", $0.value)
+                }
+                vitalSection(kind: "oxygen", title: "Blood Oxygen") { String(format: "%.0f%%", $0.value) }
             }
             .navigationTitle("Body")
             .navigationBarTitleDisplayMode(.inline)
@@ -184,6 +195,70 @@ struct BodyView: View {
 
 // Conversions + actions live in an extension to keep the main view body small.
 extension BodyView {
+    // MARK: vital sections (read-only; appear once imported)
+
+    /// A read-only metric section (latest + trend + history), rendered only when
+    /// the kind has data. Used for the Apple Health vitals.
+    @ViewBuilder
+    fileprivate func vitalSection(kind: String, title: String,
+                                  format: @escaping (BodyMeasurement) -> String) -> some View {
+        let items = measurements.filter { $0.kind == kind }
+        if !items.isEmpty {
+            Section(title) {
+                if let latest = items.first {
+                    HStack {
+                        Text(format(latest)).font(.title3.weight(.semibold)).monospacedDigit()
+                        Spacer()
+                        Text(LabDate.pretty(latest.measuredOn) ?? latest.measuredOn)
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                if items.count >= 2 { vitalChart(items) }
+                ForEach(expanded.contains(kind) ? items : Array(items.prefix(10))) { m in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(LabDate.pretty(m.measuredOn) ?? m.measuredOn)
+                            Text(Self.prettySource(m.source)).font(.caption2).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Text(format(m)).monospacedDigit().foregroundStyle(.secondary)
+                    }
+                    .font(.callout)
+                    .swipeActions { Button("Delete", role: .destructive) { Task { await remove(m) } } }
+                }
+                if items.count > 10 {
+                    Button(expanded.contains(kind) ? "Show less" : "Show all \(items.count) readings") {
+                        if expanded.contains(kind) { expanded.remove(kind) } else { expanded.insert(kind) }
+                    }
+                    .font(.callout)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func vitalChart(_ items: [BodyMeasurement]) -> some View {
+        Chart(items) { m in
+            LineMark(x: .value("Date", m.measuredOn), y: .value("Value", m.value))
+                .foregroundStyle(Color.brandTeal)
+                .interpolationMethod(.linear)
+                .lineStyle(StrokeStyle(lineWidth: 2.5))
+            if items.count <= 40 {
+                PointMark(x: .value("Date", m.measuredOn), y: .value("Value", m.value))
+                    .foregroundStyle(Color.brandTeal)
+            }
+        }
+        .chartXAxis(.hidden)
+        .frame(height: 120)
+        .padding(.vertical, 4)
+    }
+
+    /// "120/80 mmHg" when diastolic is present.
+    static func bp(_ m: BodyMeasurement) -> String {
+        if let dia = m.value2 { return String(format: "%.0f/%.0f mmHg", m.value, dia) }
+        return String(format: "%.0f mmHg", m.value)
+    }
+
     // MARK: unit conversion
 
     /// Full display string for a canonical value in the chosen unit.
@@ -258,12 +333,17 @@ extension BodyView {
         do {
             let importer = HealthImporter()
             try await importer.requestAuthorization()
-            for kind in ["weight", "height"] {
+            for kind in importer.scalarKinds {
                 for sample in try await importer.samples(kind: kind) {
                     _ = try await store.api.addBody(
-                        profileId: profile.id, kind: kind, value: sample.value,
+                        profileId: profile.id, kind: kind, value: sample.value, value2: sample.value2,
                         measuredOn: Self.format(sample.date), source: "apple_health", externalId: sample.uuid)
                 }
+            }
+            for sample in try await importer.bloodPressureSamples() {
+                _ = try await store.api.addBody(
+                    profileId: profile.id, kind: "blood_pressure", value: sample.value, value2: sample.value2,
+                    measuredOn: Self.format(sample.date), source: "apple_health", externalId: sample.uuid)
             }
             measurements = try await store.api.bodyMeasurements(profileId: profile.id)
             error = nil
@@ -315,68 +395,5 @@ extension BodyView {
         f.dateFormat = "yyyy-MM-dd"
         f.timeZone = .gmt
         return f.string(from: d)
-    }
-}
-
-/// Single number field + an Add button (for weight, and height in cm).
-private struct NumberInput: View {
-    let unitLabel: String
-    let onAdd: (Double) async -> Void
-
-    @State private var text = ""
-    @State private var busy = false
-
-    var body: some View {
-        HStack {
-            TextField("Add reading", text: $text)
-                .keyboardType(.decimalPad)
-            Text(unitLabel).foregroundStyle(.secondary)
-            Spacer()
-            Button(action: submit) { Image(systemName: "plus.circle.fill") }
-                .disabled(busy || Double(text) == nil)
-        }
-    }
-
-    private func submit() {
-        guard let v = Double(text), v > 0 else { return }
-        busy = true
-        Task {
-            await onAdd(v)
-            text = ""
-            busy = false
-        }
-    }
-}
-
-/// Feet + inches fields for height; passes the canonical centimetres to `onAdd`.
-private struct FeetInchesInput: View {
-    let onAdd: (Double) async -> Void
-
-    @State private var feet = ""
-    @State private var inches = ""
-    @State private var busy = false
-
-    var body: some View {
-        HStack(spacing: 6) {
-            TextField("ft", text: $feet).keyboardType(.numberPad).frame(width: 44)
-            Text("′").foregroundStyle(.secondary)
-            TextField("in", text: $inches).keyboardType(.numberPad).frame(width: 44)
-            Text("″").foregroundStyle(.secondary)
-            Spacer()
-            Button(action: submit) { Image(systemName: "plus.circle.fill") }
-                .disabled(busy || (feet.isEmpty && inches.isEmpty))
-        }
-    }
-
-    private func submit() {
-        let totalInches = (Double(feet) ?? 0) * 12 + (Double(inches) ?? 0)
-        guard totalInches > 0 else { return }
-        busy = true
-        Task {
-            await onAdd(totalInches * 2.54)
-            feet = ""
-            inches = ""
-            busy = false
-        }
     }
 }

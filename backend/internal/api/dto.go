@@ -27,20 +27,25 @@ func toProfileDTO(p sqlc.Profile, uid uuid.UUID) ProfileDTO {
 // in kilograms, height in centimetres (the UI converts for display).
 type BodyMeasurementDTO struct {
 	ID         uuid.UUID `json:"id"`
-	Kind       string    `json:"kind"` // "weight" | "height"
+	Kind       string    `json:"kind"` // weight | height | body_fat | blood_pressure | …
 	Value      float64   `json:"value"`
-	MeasuredOn string    `json:"measuredOn"` // YYYY-MM-DD
-	Source     string    `json:"source"`     // "manual" | "apple_health" | …
+	Value2     *float64  `json:"value2,omitempty"` // diastolic for blood_pressure; else null
+	MeasuredOn string    `json:"measuredOn"`       // YYYY-MM-DD
+	Source     string    `json:"source"`           // "manual" | "apple_health" | …
 }
 
 func toBodyMeasurementDTO(m sqlc.BodyMeasurement) BodyMeasurementDTO {
-	return BodyMeasurementDTO{
+	dto := BodyMeasurementDTO{
 		ID:         m.ID,
 		Kind:       m.Kind,
 		Value:      m.Value,
 		MeasuredOn: m.MeasuredOn.Time.Format(dateLayout),
 		Source:     m.Source,
 	}
+	if m.Value2.Valid {
+		dto.Value2 = &m.Value2.Float64
+	}
+	return dto
 }
 
 type AnalyteDTO struct {

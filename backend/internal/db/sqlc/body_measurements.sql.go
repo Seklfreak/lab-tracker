@@ -13,20 +13,21 @@ import (
 )
 
 const addBodyMeasurement = `-- name: AddBodyMeasurement :one
-INSERT INTO body_measurements (profile_id, kind, value, measured_on, source, external_id)
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO body_measurements (profile_id, kind, value, measured_on, source, external_id, value2)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 ON CONFLICT (profile_id, source, external_id) DO UPDATE
-  SET value = EXCLUDED.value, measured_on = EXCLUDED.measured_on
-RETURNING id, profile_id, kind, value, measured_on, created_at, source, external_id
+  SET value = EXCLUDED.value, value2 = EXCLUDED.value2, measured_on = EXCLUDED.measured_on
+RETURNING id, profile_id, kind, value, measured_on, created_at, source, external_id, value2
 `
 
 type AddBodyMeasurementParams struct {
-	ProfileID  uuid.UUID   `json:"profile_id"`
-	Kind       string      `json:"kind"`
-	Value      float64     `json:"value"`
-	MeasuredOn pgtype.Date `json:"measured_on"`
-	Source     string      `json:"source"`
-	ExternalID pgtype.Text `json:"external_id"`
+	ProfileID  uuid.UUID     `json:"profile_id"`
+	Kind       string        `json:"kind"`
+	Value      float64       `json:"value"`
+	MeasuredOn pgtype.Date   `json:"measured_on"`
+	Source     string        `json:"source"`
+	ExternalID pgtype.Text   `json:"external_id"`
+	Value2     pgtype.Float8 `json:"value2"`
 }
 
 // Upsert: a row with a real external_id re-imported from the same source updates
@@ -40,6 +41,7 @@ func (q *Queries) AddBodyMeasurement(ctx context.Context, arg AddBodyMeasurement
 		arg.MeasuredOn,
 		arg.Source,
 		arg.ExternalID,
+		arg.Value2,
 	)
 	var i BodyMeasurement
 	err := row.Scan(
@@ -51,6 +53,7 @@ func (q *Queries) AddBodyMeasurement(ctx context.Context, arg AddBodyMeasurement
 		&i.CreatedAt,
 		&i.Source,
 		&i.ExternalID,
+		&i.Value2,
 	)
 	return i, err
 }
@@ -71,7 +74,7 @@ func (q *Queries) DeleteBodyMeasurement(ctx context.Context, arg DeleteBodyMeasu
 }
 
 const listBodyMeasurements = `-- name: ListBodyMeasurements :many
-SELECT id, profile_id, kind, value, measured_on, created_at, source, external_id FROM body_measurements
+SELECT id, profile_id, kind, value, measured_on, created_at, source, external_id, value2 FROM body_measurements
 WHERE profile_id = $1
 ORDER BY measured_on DESC, created_at DESC
 `
@@ -94,6 +97,7 @@ func (q *Queries) ListBodyMeasurements(ctx context.Context, profileID uuid.UUID)
 			&i.CreatedAt,
 			&i.Source,
 			&i.ExternalID,
+			&i.Value2,
 		); err != nil {
 			return nil, err
 		}

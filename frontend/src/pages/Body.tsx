@@ -9,7 +9,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { api, type BodyMeasurement } from "@/lib/api";
+import { api, type BodyKind, type BodyMeasurement } from "@/lib/api";
 import { useProfile } from "@/lib/profile";
 import { useThemeColors } from "@/lib/theme";
 import { Badge, Button, Card, Input, Select, Spinner } from "@/components/ui";
@@ -42,6 +42,21 @@ const unitLabel = (u: string) => (u === "ftin" ? "ft / in" : u);
 
 const prettySource = (s: string) =>
   s === "apple_health" ? "Apple Health" : s === "manual" ? "Manual entry" : s;
+
+// Read-only vitals (imported from Apple Health), with how to render each value.
+const VITALS: { kind: BodyKind; title: string; format: (m: BodyMeasurement) => string }[] = [
+  {
+    kind: "blood_pressure",
+    title: "Blood Pressure",
+    format: (m) =>
+      m.value2 != null ? `${m.value.toFixed(0)}/${m.value2.toFixed(0)} mmHg` : `${m.value.toFixed(0)} mmHg`,
+  },
+  { kind: "resting_heart_rate", title: "Resting Heart Rate", format: (m) => `${m.value.toFixed(0)} bpm` },
+  { kind: "body_fat", title: "Body Fat", format: (m) => `${m.value.toFixed(1)}%` },
+  { kind: "waist", title: "Waist", format: (m) => `${m.value.toFixed(0)} cm` },
+  { kind: "vo2max", title: "Cardio Fitness (VO₂max)", format: (m) => `${m.value.toFixed(1)} mL/kg·min` },
+  { kind: "oxygen", title: "Blood Oxygen", format: (m) => `${m.value.toFixed(0)}%` },
+];
 
 function bmiCategory(v: number): { label: string; tone: "good" | "warn" | "bad" } {
   if (v < 18.5) return { label: "Underweight", tone: "warn" };
@@ -165,6 +180,16 @@ export function Body() {
         onAdd={(value) => add.mutate({ kind: "height", value })}
         onDelete={(id) => del.mutate(id)}
       />
+
+      {VITALS.map((v) => (
+        <VitalCard
+          key={v.kind}
+          title={v.title}
+          items={rows.filter((m) => m.kind === v.kind)}
+          format={v.format}
+          onDelete={(id) => del.mutate(id)}
+        />
+      ))}
     </div>
   );
 }
@@ -319,6 +344,89 @@ function MetricCard({
           ))}
         </ul>
       )}
+      {items.length > 10 && (
+        <button
+          className="mt-2 text-sm font-medium text-accent hover:underline"
+          onClick={() => setShowAll((s) => !s)}
+        >
+          {showAll ? "Show less" : `Show all ${items.length} readings`}
+        </button>
+      )}
+    </Card>
+  );
+}
+
+// Read-only card for an imported vital: latest + trend + history, no input.
+function VitalCard({
+  title,
+  items,
+  format,
+  onDelete,
+}: {
+  title: string;
+  items: BodyMeasurement[];
+  format: (m: BodyMeasurement) => string;
+  onDelete: (id: string) => void;
+}) {
+  const colors = useThemeColors();
+  const [showAll, setShowAll] = useState(false);
+  if (items.length === 0) return null;
+  const latest = items[0];
+  const visible = showAll ? items : items.slice(0, 10);
+  const chartData = [...items]
+    .reverse()
+    .map((m) => ({ date: m.measuredOn, value: Number(m.value.toFixed(1)) }));
+
+  return (
+    <Card>
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="font-semibold">{title}</h2>
+        <span className="tabular-nums">{format(latest)}</span>
+      </div>
+
+      {chartData.length >= 2 && (
+        <div className="mb-3 h-40 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={chartData} margin={{ top: 8, right: 12, bottom: 0, left: -12 }}>
+              <CartesianGrid stroke={colors.border} strokeDasharray="3 3" />
+              <XAxis dataKey="date" stroke={colors.muted} fontSize={11} />
+              <YAxis stroke={colors.muted} fontSize={11} domain={["auto", "auto"]} />
+              <Tooltip
+                contentStyle={{
+                  background: colors.panel,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: 8,
+                  color: colors.text,
+                }}
+              />
+              <Line
+                type="monotone"
+                dataKey="value"
+                stroke={colors.accent}
+                strokeWidth={2}
+                dot={chartData.length <= 40}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      <ul className="divide-y divide-border text-sm">
+        {visible.map((m) => (
+          <li key={m.id} className="flex items-center justify-between py-1.5">
+            <span className="flex flex-col">
+              <span>{m.measuredOn}</span>
+              <span className="text-xs text-muted">{prettySource(m.source)}</span>
+            </span>
+            <span className="flex items-center gap-3">
+              <span className="tabular-nums">{format(m)}</span>
+              <button className="text-muted hover:text-bad" title="Delete" onClick={() => onDelete(m.id)}>
+                ✕
+              </button>
+            </span>
+          </li>
+        ))}
+      </ul>
       {items.length > 10 && (
         <button
           className="mt-2 text-sm font-medium text-accent hover:underline"

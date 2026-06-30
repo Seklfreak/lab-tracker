@@ -102,10 +102,12 @@ npm run dev                # http://localhost:5173 (proxies /api to :8080)
 via `owner_user_id`), `profile_members` (profiles shared with other users),
 `analytes` (canonical tests), `analyte_aliases` (raw name → analyte),
 `lab_reports` (one PDF), `lab_results` (one dated measurement — the graph unit),
-`favorites` (per-profile pinned analytes), `body_measurements` (weight/height
-over time, canonical kg/cm, with a `source` — manual or `apple_health` — and an
-`external_id` so HealthKit imports are idempotent), `analyte_analyses` (stored AI
-analysis per profile + analyte). See `backend/internal/db/migrations`.
+`favorites` (per-profile pinned analytes), `body_measurements` (weight, height,
+and vitals — body fat, waist, resting heart rate, VO₂max, blood oxygen, blood
+pressure — over time, with a `source` (manual or `apple_health`) and an
+`external_id` so HealthKit imports are idempotent; `value2` holds blood-pressure
+diastolic), `analyte_analyses` (stored AI analysis per profile + analyte). See
+`backend/internal/db/migrations`.
 
 ## Testing
 
