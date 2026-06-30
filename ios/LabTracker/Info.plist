@@ -49,6 +49,8 @@
 	</array>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Unlock Lab Tracker with Face ID.</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>Import your weight and height from Apple Health to track them alongside your lab results.</string>
 	<!-- Dev: allow http to localhost (the dev backend). Prod uses https. -->
 	<key>NSAppTransportSecurity</key>
 	<dict>

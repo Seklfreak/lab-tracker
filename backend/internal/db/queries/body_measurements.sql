@@ -4,8 +4,13 @@ WHERE profile_id = $1
 ORDER BY measured_on DESC, created_at DESC;
 
 -- name: AddBodyMeasurement :one
-INSERT INTO body_measurements (profile_id, kind, value, measured_on, source)
-VALUES ($1, $2, $3, $4, $5)
+-- Upsert: a row with a real external_id re-imported from the same source updates
+-- in place (idempotent); manual rows (external_id NULL) never conflict, so they
+-- always insert.
+INSERT INTO body_measurements (profile_id, kind, value, measured_on, source, external_id)
+VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (profile_id, source, external_id) DO UPDATE
+  SET value = EXCLUDED.value, measured_on = EXCLUDED.measured_on
 RETURNING *;
 
 -- name: DeleteBodyMeasurement :exec

@@ -11,6 +11,9 @@ import (
 )
 
 type Querier interface {
+	// Upsert: a row with a real external_id re-imported from the same source updates
+	// in place (idempotent); manual rows (external_id NULL) never conflict, so they
+	// always insert.
 	AddBodyMeasurement(ctx context.Context, arg AddBodyMeasurementParams) (BodyMeasurement, error)
 	AddFavorite(ctx context.Context, arg AddFavoriteParams) error
 	AddProfileMember(ctx context.Context, arg AddProfileMemberParams) error

@@ -64,6 +64,7 @@ type addBodyReq struct {
 	Value      float64 `json:"value"`
 	MeasuredOn *string `json:"measuredOn"`
 	Source     *string `json:"source"`
+	ExternalID *string `json:"externalId"`
 }
 
 func (s *Server) addBody(w http.ResponseWriter, r *http.Request) {
@@ -98,6 +99,7 @@ func (s *Server) addBody(w http.ResponseWriter, r *http.Request) {
 		Value:      req.Value,
 		MeasuredOn: measured,
 		Source:     source,
+		ExternalID: ptrToText(req.ExternalID),
 	})
 	if err != nil {
 		s.log.Error("add body measurement", "err", err)

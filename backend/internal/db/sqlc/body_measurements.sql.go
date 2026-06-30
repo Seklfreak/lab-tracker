@@ -13,9 +13,11 @@ import (
 )
 
 const addBodyMeasurement = `-- name: AddBodyMeasurement :one
-INSERT INTO body_measurements (profile_id, kind, value, measured_on, source)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, profile_id, kind, value, measured_on, created_at, source
+INSERT INTO body_measurements (profile_id, kind, value, measured_on, source, external_id)
+VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (profile_id, source, external_id) DO UPDATE
+  SET value = EXCLUDED.value, measured_on = EXCLUDED.measured_on
+RETURNING id, profile_id, kind, value, measured_on, created_at, source, external_id
 `
 
 type AddBodyMeasurementParams struct {
@@ -24,8 +26,12 @@ type AddBodyMeasurementParams struct {
 	Value      float64     `json:"value"`
 	MeasuredOn pgtype.Date `json:"measured_on"`
 	Source     string      `json:"source"`
+	ExternalID pgtype.Text `json:"external_id"`
 }
 
+// Upsert: a row with a real external_id re-imported from the same source updates
+// in place (idempotent); manual rows (external_id NULL) never conflict, so they
+// always insert.
 func (q *Queries) AddBodyMeasurement(ctx context.Context, arg AddBodyMeasurementParams) (BodyMeasurement, error) {
 	row := q.db.QueryRow(ctx, addBodyMeasurement,
 		arg.ProfileID,
@@ -33,6 +39,7 @@ func (q *Queries) AddBodyMeasurement(ctx context.Context, arg AddBodyMeasurement
 		arg.Value,
 		arg.MeasuredOn,
 		arg.Source,
+		arg.ExternalID,
 	)
 	var i BodyMeasurement
 	err := row.Scan(
@@ -43,6 +50,7 @@ func (q *Queries) AddBodyMeasurement(ctx context.Context, arg AddBodyMeasurement
 		&i.MeasuredOn,
 		&i.CreatedAt,
 		&i.Source,
+		&i.ExternalID,
 	)
 	return i, err
 }
@@ -63,7 +71,7 @@ func (q *Queries) DeleteBodyMeasurement(ctx context.Context, arg DeleteBodyMeasu
 }
 
 const listBodyMeasurements = `-- name: ListBodyMeasurements :many
-SELECT id, profile_id, kind, value, measured_on, created_at, source FROM body_measurements
+SELECT id, profile_id, kind, value, measured_on, created_at, source, external_id FROM body_measurements
 WHERE profile_id = $1
 ORDER BY measured_on DESC, created_at DESC
 `
@@ -85,6 +93,7 @@ func (q *Queries) ListBodyMeasurements(ctx context.Context, profileID uuid.UUID)
 			&i.MeasuredOn,
 			&i.CreatedAt,
 			&i.Source,
+			&i.ExternalID,
 		); err != nil {
 			return nil, err
 		}

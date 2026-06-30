@@ -15,6 +15,7 @@ struct BodyView: View {
     @State private var dob = Date()
     @State private var loading = false
     @State private var saving = false
+    @State private var importing = false
     @State private var error: String?
 
     @AppStorage("weightUnit") private var weightUnit = "lb"   // kg | lb
@@ -42,6 +43,23 @@ struct BodyView: View {
                 }
                 if let bmi {
                     Section("BMI") { bmiRow(bmi) }
+                }
+                if HealthImporter.isAvailable {
+                    Section {
+                        Button {
+                            Task { await importFromHealth() }
+                        } label: {
+                            HStack {
+                                Label("Import from Apple Health", systemImage: "heart.fill")
+                                    .foregroundStyle(Color.statusHigh)
+                                Spacer()
+                                if importing { ProgressView() }
+                            }
+                        }
+                        .disabled(importing)
+                    } footer: {
+                        Text("Pulls your recent weight & height from Apple Health. Safe to re-run — duplicates are skipped.")
+                    }
                 }
                 metricSection(kind: "weight", title: "Weight", unit: $weightUnit,
                               units: [("kg", "kg"), ("lb", "lb")])
@@ -151,6 +169,10 @@ struct BodyView: View {
         .padding(.vertical, 4)
     }
 
+}
+
+// Conversions + actions live in an extension to keep the main view body small.
+extension BodyView {
     // MARK: unit conversion
 
     /// Full display string for a canonical value in the chosen unit.
@@ -212,6 +234,26 @@ struct BodyView: View {
     private func add(kind: String, canonical: Double) async {
         do {
             _ = try await store.api.addBody(profileId: profile.id, kind: kind, value: canonical, measuredOn: nil)
+            measurements = try await store.api.bodyMeasurements(profileId: profile.id)
+            error = nil
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    private func importFromHealth() async {
+        importing = true
+        defer { importing = false }
+        do {
+            let importer = HealthImporter()
+            try await importer.requestAuthorization()
+            for kind in ["weight", "height"] {
+                for sample in try await importer.samples(kind: kind) {
+                    _ = try await store.api.addBody(
+                        profileId: profile.id, kind: kind, value: sample.value,
+                        measuredOn: Self.format(sample.date), source: "apple_health", externalId: sample.uuid)
+                }
+            }
             measurements = try await store.api.bodyMeasurements(profileId: profile.id)
             error = nil
         } catch {
