@@ -7,6 +7,14 @@ export interface Profile {
   isOwner: boolean;
 }
 
+// Self-entered body metric. Value is canonical: weight in kg, height in cm.
+export interface BodyMeasurement {
+  id: string;
+  kind: "weight" | "height";
+  value: number;
+  measuredOn: string; // YYYY-MM-DD
+}
+
 export interface Member {
   userId: string;
   email: string | null;
@@ -192,6 +200,19 @@ export const api = {
     req<Profile>("/api/profiles", json({ name, dateOfBirth })),
   deleteProfile: (id: string) =>
     req<void>(`/api/profiles/${id}`, { method: "DELETE" }),
+  updateProfile: (id: string, name: string, dateOfBirth: string | null) =>
+    req<Profile>(`/api/profiles/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, dateOfBirth }),
+    }),
+
+  bodyMeasurements: (profileId: string) =>
+    req<BodyMeasurement[]>(`/api/profiles/${profileId}/body`),
+  addBody: (profileId: string, kind: "weight" | "height", value: number, measuredOn: string | null) =>
+    req<BodyMeasurement>(`/api/profiles/${profileId}/body`, json({ kind, value, measuredOn })),
+  deleteBody: (profileId: string, id: string) =>
+    req<void>(`/api/profiles/${profileId}/body/${id}`, { method: "DELETE" }),
 
   listMembers: (profileId: string) =>
     req<Member[]>(`/api/profiles/${profileId}/members`),

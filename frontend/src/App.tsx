@@ -9,6 +9,7 @@ import {
   Upload as UploadIcon,
   FileText,
   LogOut,
+  PersonStanding,
   Shield,
 } from "lucide-react";
 import { ProfileSwitcher } from "@/components/ProfileSwitcher";
@@ -26,6 +27,7 @@ const AnalyteDetail = lazy(() =>
 const Upload = lazy(() => import("@/pages/Upload").then((m) => ({ default: m.Upload })));
 const Reports = lazy(() => import("@/pages/Reports").then((m) => ({ default: m.Reports })));
 const Compare = lazy(() => import("@/pages/Compare").then((m) => ({ default: m.Compare })));
+const Body = lazy(() => import("@/pages/Body").then((m) => ({ default: m.Body })));
 const Admin = lazy(() => import("@/pages/Admin").then((m) => ({ default: m.Admin })));
 
 // RequireAuth gates the app behind OIDC login (no-op when auth is disabled).
@@ -199,6 +201,7 @@ function AppShell() {
               <NavItem to="/" icon={<LayoutGrid size={16} />} label="Dashboard" />
               <NavItem to="/upload" icon={<UploadIcon size={16} />} label="Upload" />
               <NavItem to="/reports" icon={<FileText size={16} />} label="Reports" />
+              <NavItem to="/body" icon={<PersonStanding size={16} />} label="Body" />
               {me.data?.isAdmin && (
                 <NavItem to="/admin" icon={<Shield size={16} />} label="Admin" />
               )}
@@ -216,6 +219,7 @@ function AppShell() {
                 <Route path="/analytes/:analyteId" element={<AnalyteDetail />} />
                 <Route path="/upload" element={<Upload />} />
                 <Route path="/compare" element={<Compare />} />
+                <Route path="/body" element={<Body />} />
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/admin" element={<Admin />} />
               </Routes>

@@ -5,6 +5,14 @@ and rough notes so they aren't lost.
 
 ## Done
 
+- [x] **Birthdate + weight/height + BMI** (2026-06-30) — profiles gained an edit
+  path (`PATCH /api/profiles/{id}`) for birthdate; a `body_measurements` table
+  tracks self-entered weight/height over time (canonical kg/cm), exposed at
+  `/api/profiles/{id}/body`. BMI is derived from the latest weight/height, and
+  age/weight/height/BMI now feed the AI analysis. Web (Body page) and iOS (Body
+  sheet) both let you edit birthdate and add/track measurements with unit
+  toggles (kg/lb, cm/in). Kept separate from `lab_results` so the PDF pipeline is
+  untouched.
 - [x] **Version display** (2026-06-27) — web/api/mcp are stamped with the release
   version at build time (Vite define / Go ldflags). The web footer shows its own
   version plus the api's (read from the public `/health`, which now also returns
