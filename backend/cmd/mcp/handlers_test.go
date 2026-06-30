@@ -243,6 +243,7 @@ func TestGenerateAnalysisHandler(t *testing.T) {
 			}, nil
 		},
 		ListLatestResultsForProfileFn: func(context.Context, uuid.UUID) ([]sqlc.ListLatestResultsForProfileRow, error) { return nil, nil },
+		ListBodyMeasurementsFn:        func(context.Context, uuid.UUID) ([]sqlc.BodyMeasurement, error) { return nil, nil },
 		UpsertAnalysisFn:              func(context.Context, sqlc.UpsertAnalysisParams) error { return nil },
 	}
 	args := map[string]any{"profileId": uuid.New().String(), "analyteId": uuid.New().String()}

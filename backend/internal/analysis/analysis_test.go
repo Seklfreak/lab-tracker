@@ -49,7 +49,7 @@ func TestBuildAnalysisPrompt(t *testing.T) {
 		ObservedDate:  pgtype.Date{Time: time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC), Valid: true},
 	}}
 
-	prompt := buildAnalysisPrompt(sqlc.Profile{Name: "X"}, a, series, nil)
+	prompt := buildAnalysisPrompt(sqlc.Profile{Name: "X"}, nil, a, series, nil)
 
 	for _, want := range []string{
 		"Glucose", "mg/dL", "95", "70-99", "2026-01-02",

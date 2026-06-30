@@ -33,6 +33,9 @@ func TestGenerate(t *testing.T) {
 		ListLatestResultsForProfileFn: func(context.Context, uuid.UUID) ([]sqlc.ListLatestResultsForProfileRow, error) {
 			return nil, nil
 		},
+		ListBodyMeasurementsFn: func(context.Context, uuid.UUID) ([]sqlc.BodyMeasurement, error) {
+			return nil, nil
+		},
 		UpsertAnalysisFn: func(_ context.Context, p sqlc.UpsertAnalysisParams) error {
 			upserted = p
 			return nil

@@ -46,8 +46,12 @@ func Generate(ctx context.Context, q sqlc.Querier, ex *llm.Extractor, profileID,
 	if err != nil {
 		return "", 0, err
 	}
+	body, err := q.ListBodyMeasurements(ctx, profileID)
+	if err != nil {
+		return "", 0, err
+	}
 
-	content, err := ex.Complete(ctx, buildAnalysisPrompt(profile, analyte, series, others), 2000)
+	content, err := ex.Complete(ctx, buildAnalysisPrompt(profile, body, analyte, series, others), 2000)
 	if err != nil {
 		return "", 0, err
 	}
@@ -79,7 +83,11 @@ func GeneratePanel(ctx context.Context, q sqlc.Querier, ex *llm.Extractor, profi
 	if len(latest) == 0 {
 		return "", 0, ErrNoResults
 	}
-	content, err := ex.Complete(ctx, buildPanelPrompt(profile, latest), 2000)
+	body, err := q.ListBodyMeasurements(ctx, profileID)
+	if err != nil {
+		return "", 0, err
+	}
+	content, err := ex.Complete(ctx, buildPanelPrompt(profile, body, latest), 2000)
 	if err != nil {
 		return "", 0, err
 	}
@@ -112,7 +120,7 @@ A brief, non-alarmist summary; general lifestyle context only if clearly appropr
 
 Keep it concise (~200-350 words), specific, and free of hedging filler. Do not diagnose or prescribe. End with one italic line reminding the reader to discuss results with their healthcare provider.`
 
-func buildAnalysisPrompt(p sqlc.Profile, a sqlc.Analyte, series []sqlc.ListResultsForProfileAnalyteRow, others []sqlc.ListLatestResultsForProfileRow) string {
+func buildAnalysisPrompt(p sqlc.Profile, body []sqlc.BodyMeasurement, a sqlc.Analyte, series []sqlc.ListResultsForProfileAnalyteRow, others []sqlc.ListLatestResultsForProfileRow) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "Analyte: %s", a.Name)
 	if a.DefaultUnit.Valid && a.DefaultUnit.String != "" {
@@ -125,6 +133,7 @@ func buildAnalysisPrompt(p sqlc.Profile, a sqlc.Analyte, series []sqlc.ListResul
 	if age := ageYears(p.DateOfBirth); age > 0 {
 		fmt.Fprintf(&b, "Patient age: %d years.\n", age)
 	}
+	writeBodyContext(&b, body)
 
 	b.WriteString("\nReadings over time (oldest first):\n")
 	for _, r := range series {
@@ -174,11 +183,12 @@ Optional and non-alarmist: what to keep an eye on or raise with a provider. Omit
 
 Keep it concise (~200-350 words), specific to the values above, and free of hedging filler. Do not diagnose or prescribe. End with one italic line reminding the reader to discuss results with their healthcare provider.`
 
-func buildPanelPrompt(p sqlc.Profile, latest []sqlc.ListLatestResultsForProfileRow) string {
+func buildPanelPrompt(p sqlc.Profile, body []sqlc.BodyMeasurement, latest []sqlc.ListLatestResultsForProfileRow) string {
 	var b strings.Builder
 	if age := ageYears(p.DateOfBirth); age > 0 {
 		fmt.Fprintf(&b, "Patient age: %d years.\n", age)
 	}
+	writeBodyContext(&b, body)
 	b.WriteString("\nLatest result per analyte (value, reference range, date):\n")
 	for _, r := range latest {
 		fmt.Fprintf(&b, "- %s: %s%s (reference %s, %s)\n",
@@ -241,4 +251,34 @@ func ageYears(dob pgtype.Date) int {
 		years--
 	}
 	return years
+}
+
+// writeBodyContext appends the latest weight/height and derived BMI, when known,
+// so the model can interpret results in light of the person's build. `body` is
+// ordered newest-first, so the first of each kind is the latest.
+func writeBodyContext(b *strings.Builder, body []sqlc.BodyMeasurement) {
+	var w, h float64
+	var hasW, hasH bool
+	for _, m := range body {
+		switch m.Kind {
+		case "weight":
+			if !hasW {
+				w, hasW = m.Value, true
+			}
+		case "height":
+			if !hasH {
+				h, hasH = m.Value, true
+			}
+		}
+	}
+	if hasW {
+		fmt.Fprintf(b, "Weight: %.1f kg.\n", w)
+	}
+	if hasH {
+		fmt.Fprintf(b, "Height: %.0f cm.\n", h)
+	}
+	if hasW && hasH && h > 0 {
+		m := h / 100
+		fmt.Fprintf(b, "BMI: %.1f.\n", w/(m*m))
+	}
 }

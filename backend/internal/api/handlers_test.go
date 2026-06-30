@@ -502,6 +502,7 @@ func TestAnalyzeAnalyte(t *testing.T) {
 			}, nil
 		},
 		ListLatestResultsForProfileFn: func(context.Context, uuid.UUID) ([]sqlc.ListLatestResultsForProfileRow, error) { return nil, nil },
+		ListBodyMeasurementsFn:        func(context.Context, uuid.UUID) ([]sqlc.BodyMeasurement, error) { return nil, nil },
 		UpsertAnalysisFn:              func(context.Context, sqlc.UpsertAnalysisParams) error { return nil },
 	}
 	path := "/api/profiles/" + uuid.New().String() + "/analytes/" + uuid.New().String() + "/analysis"
