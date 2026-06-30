@@ -22,16 +22,15 @@ enum APIError: LocalizedError {
 }
 
 /// Thin REST client for the lab-tracker API. Uses the OIDC access token when
-/// signed in (refreshing + retrying once on a 401), else a manually-pasted
-/// token, else none (a local AUTH_DISABLED backend).
+/// signed in (refreshing + retrying once on a 401), else none (a local
+/// AUTH_DISABLED backend).
 struct APIClient {
     var baseURL: String
-    var staticToken: String?
     var auth: AuthSession?
 
     private func bearer() async -> String? {
-        if let t = await auth?.validAccessToken(), !t.isEmpty { return t }
-        return staticToken
+        guard let t = await auth?.validAccessToken(), !t.isEmpty else { return nil }
+        return t
     }
 
     private func request<T: Decodable>(_ path: String, as _: T.Type) async throws -> T {

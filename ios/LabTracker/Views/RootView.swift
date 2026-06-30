@@ -17,6 +17,14 @@ struct RootView: View {
     }
 
     var body: some View {
+        if store.serverURL.isEmpty {
+            OnboardingView()
+        } else {
+            navigationContent
+        }
+    }
+
+    private var navigationContent: some View {
         NavigationStack {
             Group {
                 if loading && profiles.isEmpty {

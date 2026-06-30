@@ -20,16 +20,19 @@ open LabTracker.xcodeproj      # or build from the CLI (below)
 
 ## Run
 
-The only thing you configure is the **server URL** (gear → Settings):
+First launch shows an onboarding screen: enter your **server URL**, which is
+live-tested against `{serverURL}/health` (a Lab Tracker server answers with its
+version) before **Continue** is enabled. There's no default — you can change it
+later under gear → Settings, where the same validation applies.
 
-- **Local dev:** `http://localhost:8080` (the default). Run the backend with
+- **Local dev:** enter `http://localhost:8080`. Run the backend with
   `AUTH_DISABLED=true`; the simulator reaches the host's localhost and no auth is
   needed.
 - **A real server:** its https URL, then tap **Sign in**. The app reads the
   server's published OIDC config from `{serverURL}/config.js` (the same one the
   web app uses — nothing hardcoded), runs Authorization Code + PKCE via
   `ASWebAuthenticationSession`, and stores the tokens in the Keychain (auto-
-  refresh). A pasted Bearer token works as an alternative.
+  refresh).
 
 ## Run on your iPhone
 
@@ -82,9 +85,12 @@ tag; the build number is the workflow run number.
 - `LabTracker/APIClient.swift` — async REST client (sends a Bearer token if set).
 - `LabTracker/Store.swift` — `@Observable` app state (server URL, token,
   selected profile), persisted to `UserDefaults`.
-- `LabTracker/Views/` — `RootView` (profiles + settings), `DashboardView`
-  (latest per analyte), `AnalyteDetailView` (Swift Charts trend + AI analysis),
-  `SettingsView`, `AboutView` (app/API versions + diagnostics), `MarkdownText`.
+- `LabTracker/Views/` — `OnboardingView` (first-run server setup), `RootView`
+  (profiles + settings), `DashboardView` (latest per analyte), `AnalyteDetailView`
+  (Swift Charts trend + AI analysis), `SettingsView`, `AboutView` (app/API
+  versions + diagnostics), `MarkdownText`.
+- `LabTracker/Views/ServerCheck.swift` — probes `{url}/health` to validate a
+  server URL (shared by onboarding + settings).
 - `LabTracker/Views/Theme.swift` — brand teal + the in-range/high/low status
   palette, and `LabResult.status`.
 - `LabTracker/Views/RangeTrack.swift` — the reference-range gauge: a value's
