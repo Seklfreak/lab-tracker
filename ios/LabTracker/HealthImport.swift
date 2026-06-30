@@ -67,11 +67,11 @@ final class HealthImporter {
         guard HKHealthStore.isHealthDataAvailable() else { throw HealthImportError.unavailable }
         var types = Set<HKObjectType>()
         for kind in scalarKinds { if let m = metric(for: kind) { types.insert(m.type) } }
-        // Blood pressure: request the components *and* the correlation type — some
-        // iOS versions only surface "Blood Pressure" in the prompt with the latter.
+        // Blood pressure is read via its component quantity types — iOS groups them
+        // as "Blood Pressure" in the prompt. (Requesting the *correlation* type for
+        // read raises an exception and crashes, so we must not include it here.)
         types.insert(HKQuantityType(.bloodPressureSystolic))
         types.insert(HKQuantityType(.bloodPressureDiastolic))
-        types.insert(HKCorrelationType(.bloodPressure))
         try await store.requestAuthorization(toShare: [], read: types)
     }
 
