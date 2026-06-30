@@ -99,19 +99,31 @@ struct AnalyteDetailView: View {
         }
     }
 
+    /// Y-axis range covering the readings and the reference bounds, padded a bit.
+    /// Pinned explicitly so a one-sided band can extend to the chart edge.
+    private var yDomain: ClosedRange<Double> {
+        var vals = chartPoints.map(\.value)
+        if let lo = refLow { vals.append(lo) }
+        if let hi = refHigh { vals.append(hi) }
+        guard let mn = vals.min(), let mx = vals.max() else { return 0...1 }
+        let pad = max((mx - mn) * 0.12, 1)
+        return (mn - pad)...(mx + pad)
+    }
+
     @ViewBuilder private var chart: some View {
         Chart {
-            // The "good" zone: a filled normal-range band with delineated edges.
-            // No area fill under the line — it competed with the band and made it
-            // unclear which region was the healthy range.
+            // The shaded "good" zone. A one-sided range (> x / < x) shades from
+            // the bound to the edge of the chart, so the healthy region is always
+            // filled — not just marked with a line.
             if let lo = refLow, let hi = refHigh {
-                RectangleMark(yStart: .value("Low", lo), yEnd: .value("High", hi))
-                    .foregroundStyle(Color.statusInRange.opacity(0.20))
+                band(from: lo, to: hi)
                 bound(lo)
                 bound(hi)
             } else if let hi = refHigh {
+                band(from: yDomain.lowerBound, to: hi)
                 bound(hi)
             } else if let lo = refLow {
+                band(from: lo, to: yDomain.upperBound)
                 bound(lo)
             }
             ForEach(chartPoints) { p in
@@ -124,8 +136,15 @@ struct AnalyteDetailView: View {
                     .symbolSize(p.status == .high || p.status == .low ? 70 : 30)
             }
         }
+        .chartYScale(domain: yDomain)
         .frame(height: 220)
         .padding(.vertical, 6)
+    }
+
+    /// The shaded normal-range band between two y-values.
+    private func band(from lo: Double, to hi: Double) -> some ChartContent {
+        RectangleMark(yStart: .value("From", lo), yEnd: .value("To", hi))
+            .foregroundStyle(Color.statusInRange.opacity(0.20))
     }
 
     /// A dashed edge line marking a reference bound.
