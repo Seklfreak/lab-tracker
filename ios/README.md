@@ -89,7 +89,8 @@ tag; the build number is the workflow run number.
   (profiles + settings), `DashboardView` (latest per analyte, plus a Body section
   of tracked body stats that opens the Body sheet), `AnalyteDetailView`
   (Swift Charts trend + AI analysis), `SettingsView`, `AboutView` (app/API
-  versions + diagnostics), `MarkdownText`.
+  versions + diagnostics, incl. a `HealthKitDebugView` showing per-type readable
+  sample counts), `MarkdownText`.
 - `LabTracker/Views/ServerCheck.swift` — probes `{url}/health` to validate a
   server URL (shared by onboarding + settings).
 - `LabTracker/Views/BodyView.swift` — per-profile birthdate + weight/height

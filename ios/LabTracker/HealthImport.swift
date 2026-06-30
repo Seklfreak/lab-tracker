@@ -12,6 +12,15 @@ struct HealthSample {
     let uuid: String
 }
 
+/// One row in the HealthKit debug screen: how many samples of a type Lab Tracker
+/// can read, and the latest value.
+struct HealthDiag: Identifiable {
+    let id: String
+    let label: String
+    let count: Int
+    let latest: String?
+}
+
 enum HealthImportError: LocalizedError {
     case unavailable
 
@@ -109,6 +118,29 @@ final class HealthImporter {
             return HealthSample(value: s.quantity.doubleValue(for: mmHg), value2: d.quantity.doubleValue(for: mmHg),
                                 date: s.endDate, uuid: s.uuid.uuidString)
         }
+    }
+
+    /// What Lab Tracker can actually read per type — powers the HealthKit debug
+    /// screen. A count of 0 means the type is unshared (read denials are hidden
+    /// from apps) or genuinely empty.
+    func diagnostics() async -> [HealthDiag] {
+        var out: [HealthDiag] = []
+        for kind in scalarKinds {
+            let s = (try? await samples(kind: kind)) ?? []
+            out.append(HealthDiag(id: kind, label: BodyView.metricLabel(kind), count: s.count,
+                                  latest: s.first.map { String(format: "%.1f", $0.value) }))
+        }
+        let sys = (try? await rawSamples(HKQuantityType(.bloodPressureSystolic)))?.count ?? 0
+        let dia = (try? await rawSamples(HKQuantityType(.bloodPressureDiastolic)))?.count ?? 0
+        out.append(HealthDiag(id: "bp_sys", label: "BP systolic (raw)", count: sys, latest: nil))
+        out.append(HealthDiag(id: "bp_dia", label: "BP diastolic (raw)", count: dia, latest: nil))
+        let corr = (try? await correlationBP()) ?? []
+        out.append(HealthDiag(id: "bp_corr", label: "BP via correlation", count: corr.count,
+                              latest: corr.first.map { String(format: "%.0f/%.0f", $0.value, $0.value2 ?? 0) }))
+        let loose = (try? await pairedBP()) ?? []
+        out.append(HealthDiag(id: "bp_loose", label: "BP via paired samples", count: loose.count,
+                              latest: loose.first.map { String(format: "%.0f/%.0f", $0.value, $0.value2 ?? 0) }))
+        return out
     }
 
     /// Most-recent samples for a type, newest first.

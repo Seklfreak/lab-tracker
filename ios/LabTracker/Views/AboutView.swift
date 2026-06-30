@@ -45,6 +45,16 @@ struct AboutView: View {
                 LabeledContent("Model", value: UIDevice.current.model)
             }
 
+            if HealthImporter.isAvailable {
+                Section("Diagnostics") {
+                    NavigationLink {
+                        HealthKitDebugView()
+                    } label: {
+                        Label("HealthKit", systemImage: "heart.text.square")
+                    }
+                }
+            }
+
             Section {
                 if let url = URL(string: "https://github.com/Seklfreak/lab-tracker") {
                     Link(destination: url) {
