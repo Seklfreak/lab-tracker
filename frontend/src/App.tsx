@@ -151,15 +151,16 @@ function NavItem({
     <NavLink
       to={to}
       end={to === "/"}
+      title={label}
       className={({ isActive }) =>
         clsx(
-          "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition",
+          "flex items-center gap-2 rounded-md px-2.5 py-2 text-sm font-medium transition sm:px-3",
           isActive ? "bg-accent/15 text-accent" : "text-muted hover:bg-panel2",
         )
       }
     >
       {icon}
-      {label}
+      <span className="hidden sm:inline">{label}</span>
     </NavLink>
   );
 }

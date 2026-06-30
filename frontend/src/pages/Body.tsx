@@ -109,16 +109,14 @@ export function Body() {
       <h1 className="text-xl font-semibold">Body</h1>
 
       <Card>
-        <div className="flex flex-wrap items-end gap-3">
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="text-muted">Birthdate</span>
-            <Input
-              type="date"
-              value={dobValue}
-              onChange={(e) => setDob(e.target.value)}
-              className="w-44"
-            />
-          </label>
+        <div className="mb-1.5 text-sm text-muted">Birthdate</div>
+        <div className="flex items-center gap-2">
+          <Input
+            type="date"
+            value={dobValue}
+            onChange={(e) => setDob(e.target.value)}
+            className="min-w-0 flex-1"
+          />
           <Button
             onClick={() => saveDob.mutate(dobValue || null)}
             disabled={saveDob.isPending || dobValue === (profile?.dateOfBirth ?? "")}
