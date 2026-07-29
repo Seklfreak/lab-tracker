@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from "react";
-import { NavLink, Route, Routes } from "react-router-dom";
+import { NavLink, Route, Routes } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { clsx } from "clsx";
 import { useAuth } from "react-oidc-context";

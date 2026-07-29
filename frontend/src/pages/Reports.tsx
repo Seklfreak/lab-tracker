@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { api, type Report, type ReportStatus } from "@/lib/api";
 import { useProfile } from "@/lib/profile";
 import { Badge, Button, Card, Spinner } from "@/components/ui";
