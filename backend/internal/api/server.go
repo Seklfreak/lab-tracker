@@ -67,6 +67,9 @@ func (s *Server) Router(corsOrigins []string) http.Handler {
 	// Public: also carries the build version so the web footer can show it
 	// without an authed request (a 401 there would trigger a re-login redirect).
 	r.Get("/health", func(w http.ResponseWriter, _ *http.Request) {
+		// no-store for the same reason as /api below: a heuristically cached
+		// response would pin a stale version in the footer after an update.
+		w.Header().Set("Cache-Control", "no-store")
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "version": BuildVersion})
 	})
 
