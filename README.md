@@ -138,15 +138,10 @@ since the last tag, then tags the new version, publishes a GitHub Release with t
 notes, and builds `backend`/`frontend`/`mcp` images tagged `X.Y.Z` + `X.Y` + `latest`
 for that exact commit. Claude may also decide a commit needs **no release** (docs/markdown
 or CI-only changes), in which case nothing is tagged. (No API key → it falls back to a
-patch bump, or skips when only non-shipping paths changed.) Deployments should pin an
-explicit version (not `latest`), so what's running is always reproducible.
+patch bump, or skips when only non-shipping paths changed.)
 
 - **Minor / major release:** tag it yourself — `git tag v0.2.0 && git push origin v0.2.0`.
   The auto-bumper continues from the highest tag (next auto release would be `v0.2.1`).
-- **Deploys are automatic**: a GitOps setup (e.g. Flux image update automation) can watch
-  ghcr for new tags and roll them out with no manual steps — a push here is live minutes
-  later. **Roll back** by shipping a revert (a new patch release); with tag-scanning
-  automation in place, pinning an older tag by hand just gets re-bumped.
 
 ## Roadmap
 
