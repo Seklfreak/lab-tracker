@@ -4,7 +4,8 @@ import globals from "globals";
 
 // Focused lint: parse TS/TSX and enforce the Rules of Hooks (the class of bug
 // that TypeScript and `vite build` can't catch). Intentionally minimal — not a
-// full style ruleset — so it stays signal, not noise.
+// full style ruleset — so it stays signal, not noise. Mirrored in
+// grocery-snap/frontend/eslint.config.js — keep edits in sync.
 export default tseslint.config(
   { ignores: ["dist/**"] },
   {
