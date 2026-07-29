@@ -80,3 +80,11 @@ are shared with them**.
 `.github/workflows/test.yaml` runs `go test` and the frontend
 `lint` + `build` + `test` on every push/PR. Green `main` auto-cuts a versioned
 release. Keep both jobs green.
+
+Deployment is automated end to end: the release builds the images, then Flux
+image automation in the homelab repo commits the tag bump and rolls it out —
+push-to-live is ~5 min with no manual steps (docs/CI-only changes cut no
+release). To watch a rollout land:
+`KUBECONFIG=~/workspace/kubeconfigs/k3s.yaml kubectl get deploy -n lab-tracker
+-o jsonpath='{range .items[*]}{.metadata.name}: {.spec.template.spec
+.containers[0].image}{"\n"}{end}'` (mcp lives in `-n mcp`).

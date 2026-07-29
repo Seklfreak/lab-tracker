@@ -143,9 +143,12 @@ explicit version (not `latest`), so what's running is always reproducible.
 
 - **Minor / major release:** tag it yourself — `git tag v0.2.0 && git push origin v0.2.0`.
   The auto-bumper continues from the highest tag (next auto release would be `v0.2.1`).
-- **Deploy a release** (homelab repo): bump the image tag on the `lab-tracker` deployments
-  (`apps/lab-tracker/lab-tracker.yaml` api+web, `apps/mcp/lab-tracker-mcp.yaml` mcp) and
-  commit — Flux rolls it out. **Roll back** by pointing those tags at a prior version.
+- **Deploys are automatic**: Flux image automation in the homelab repo
+  (`infra/image-automation.yaml`) scans ghcr for new tags, commits the pinned-tag bump
+  (`apps/lab-tracker/lab-tracker.yaml` api+web, `apps/mcp/lab-tracker-mcp.yaml` mcp) as
+  `fluxcdbot`, and rolls it out — a push here is live ~5 minutes later. **Roll back** by
+  shipping a revert (a new patch release); pinning an older tag by hand gets re-bumped by
+  the automation within a minute unless you suspend it first.
 
 ## Roadmap
 
