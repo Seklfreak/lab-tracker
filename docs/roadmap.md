@@ -85,6 +85,14 @@ and rough notes so they aren't lost.
       in-flight task. A 401 on load also offers a **Sign in** button right in the
       error view, so a broken session can be recovered without digging through
       Settings to sign out + back in.
+    - [x] **Don't drop the refresh token on transient errors (2026-07-31)** —
+      the refresh path treated *any* non-200 from Authentik's token endpoint as a
+      revoked token and wiped the Keychain, forcing a full re-login. A brief 5xx
+      while Authentik was restarting/redeploying (or a gateway 502/503) therefore
+      discarded a still-valid 30-day refresh token — roughly daily given the 4h
+      access token. Refresh now signs out only on the definitive signal (RFC 6749
+      §5.2 `400 invalid_grant`); other failures keep the token so the next request
+      retries.
   - [x] **TestFlight via CI (2026-06-29)** — bundle id moved to
     `dev.winktech.labtracker` (US paid Apple Developer account) and a tag-triggered
     [`testflight.yaml`](../.github/workflows/testflight.yaml) archives + uploads

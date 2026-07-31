@@ -40,6 +40,11 @@ private struct TokenResponse: Decodable {
     let expiresIn: Int?
 }
 
+/// The `{ "error": "…" }` shape of an OAuth2 token-endpoint error (RFC 6749 §5.2).
+private struct OAuthError: Decodable {
+    let error: String
+}
+
 /// OIDC discovery/token responses are snake_case on the wire.
 private let oidcDecoder: JSONDecoder = {
     let decoder = JSONDecoder()
@@ -160,11 +165,42 @@ final class AuthSession: NSObject, ASWebAuthenticationPresentationContextProvidi
             "refresh_token": rt,
             "client_id": config.clientID,
         ])
-        guard (resp as? HTTPURLResponse)?.statusCode == 200 else {
-            signOut() // refresh token expired/revoked
+        let status = (resp as? HTTPURLResponse)?.statusCode ?? 0
+        switch Self.classifyRefresh(status: status, body: data) {
+        case .refreshed:
+            store(try oidcDecoder.decode(TokenResponse.self, from: data))
+        case .revoked:
+            signOut() // refresh token expired/revoked — a fresh sign-in is required
             throw OIDCError.token("refresh rejected")
+        case let .keepRetry(code):
+            // A transient failure — Authentik restarting/redeploying, or a gateway
+            // 5xx — must NOT discard a still-valid refresh token. Surface the error
+            // and keep the token so the next request simply retries.
+            throw OIDCError.token("refresh failed (status \(code))")
         }
-        store(try oidcDecoder.decode(TokenResponse.self, from: data))
+    }
+
+    /// What the token endpoint's refresh response means for our stored tokens:
+    /// store the new ones, sign out, or keep the current token and retry later.
+    /// Only a definitively revoked/expired refresh token signs the user out —
+    /// per RFC 6749 §5.2 that's HTTP 400 `invalid_grant`. Everything else (5xx
+    /// from an Authentik restart/redeploy, gateway 502/503, other 4xx) preserves
+    /// the refresh token so a transient blip doesn't force a re-login.
+    enum RefreshOutcome: Equatable {
+        case refreshed
+        case revoked
+        case keepRetry(Int)
+    }
+
+    /// Pure (no I/O) so it can be unit-tested without a live IdP.
+    nonisolated static func classifyRefresh(status: Int, body: Data) -> RefreshOutcome {
+        if status == 200 { return .refreshed }
+        if status == 400,
+           let err = try? oidcDecoder.decode(OAuthError.self, from: body),
+           err.error == "invalid_grant" {
+            return .revoked
+        }
+        return .keepRetry(status)
     }
 
     // MARK: - private
