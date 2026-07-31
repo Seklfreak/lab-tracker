@@ -79,6 +79,14 @@ One-time setup on the Apple side: register the explicit App ID
 Connect (the first upload fails without it). The marketing version comes from the
 tag; the build number is the workflow run number.
 
+TestFlight builds expire 90 days after upload. Since releases are sporadic, a
+monthly cron —
+[`.github/workflows/testflight-refresh.yaml`](../.github/workflows/testflight-refresh.yaml)
+— rebuilds the latest tag if the most recent TestFlight build is more than ~30
+days old, so testers always have a valid build. It just dispatches
+`testflight.yaml`, so it inherits the same signing and dormant-if-unset
+behaviour; run it from the Actions tab with `force: true` to refresh immediately.
+
 ## Layout
 
 - `LabTracker/Models.swift` — Codable mirrors of the API DTOs.

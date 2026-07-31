@@ -93,6 +93,12 @@ and rough notes so they aren't lost.
       access token. Refresh now signs out only on the definitive signal (RFC 6749
       §5.2 `400 invalid_grant`); other failures keep the token so the next request
       retries.
+  - [x] **Monthly TestFlight refresh (2026-07-31)** — TestFlight builds expire
+    after 90 days, and releases are too sporadic to reliably beat that. A monthly
+    cron [`testflight-refresh.yaml`](../.github/workflows/testflight-refresh.yaml)
+    rebuilds the latest tag when the most recent TestFlight build is more than
+    ~30 days old (measured from `testflight.yaml`'s own successful runs, so it
+    self-throttles), keeping a valid build available for testers.
   - [x] **TestFlight via CI (2026-06-29)** — bundle id moved to
     `dev.winktech.labtracker` (US paid Apple Developer account) and a tag-triggered
     [`testflight.yaml`](../.github/workflows/testflight.yaml) archives + uploads
