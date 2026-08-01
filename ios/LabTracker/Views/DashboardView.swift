@@ -112,6 +112,8 @@ struct DashboardView: View {
                 .listRowSeparator(.hidden)
             }
 
+            HealthSnapshotSection(profile: profile, currentCount: results.count)
+
             let bodyItems = bodyDashItems(bodyMeasurements, weightUnit: weightUnit)
             if !bodyItems.isEmpty {
                 Section("Body") {

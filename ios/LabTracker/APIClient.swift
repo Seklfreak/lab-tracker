@@ -85,6 +85,13 @@ struct APIClient {
         try await request("/api/profiles/\(profileId)/analytes/\(analyteId)/analysis", as: AnalysisEnvelope.self).analysis
     }
 
+    /// On-demand whole-panel AI summary of the profile's latest results. Not
+    /// stored server-side — callers cache the result (see `HealthSnapshotSection`).
+    func generatePanelSummary(profileId: String) async throws -> PanelSummary {
+        try await send("/api/profiles/\(profileId)/summary", method: "POST",
+                       body: EmptyBody(), as: PanelSummary.self)
+    }
+
     /// Public health endpoint (no auth) — used by the About screen for the API version.
     func health() async throws -> Health {
         try await request("/health", as: Health.self)
@@ -148,6 +155,9 @@ struct APIClient {
         }
     }
 }
+
+/// Empty JSON body for POSTs that take no payload (the server ignores it).
+private struct EmptyBody: Encodable {}
 
 private struct ProfileUpdate: Encodable {
     let name: String

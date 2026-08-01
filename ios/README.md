@@ -94,13 +94,19 @@ behaviour; run it from the Actions tab with `force: true` to refresh immediately
 - `LabTracker/Store.swift` — `@Observable` app state (server URL, token,
   selected profile), persisted to `UserDefaults`.
 - `LabTracker/Views/` — `OnboardingView` (first-run server setup), `RootView`
-  (profiles + settings), `DashboardView` (latest per analyte, plus a Body section
+  (profiles + settings), `DashboardView` (latest per analyte, a collapsible
+  **Health snapshot** — an on-demand whole-panel AI summary — plus a Body section
   of tracked body stats that opens the Body sheet), `AnalyteDetailView`
   (Swift Charts trend + AI analysis), `SettingsView`, `AboutView` (app/API
   versions + diagnostics, incl. a `HealthKitDebugView` showing per-type readable
   sample counts), `MarkdownText`.
 - `LabTracker/Views/ServerCheck.swift` — probes `{url}/health` to validate a
   server URL (shared by onboarding + settings).
+- `LabTracker/Views/HealthSnapshot.swift` — the dashboard's collapsible **Health
+  snapshot** card: an on-demand whole-panel AI summary (`POST …/summary`). The
+  server doesn't store it, so the result is cached per profile in `UserDefaults`
+  (mirroring the web app), with a staleness dot when the latest-result count has
+  changed since it was generated.
 - `LabTracker/Views/BodyView.swift` — per-profile birthdate + weight/height
   tracking (kg/lb, cm or ft·in) with BMI, plus read-only vitals (blood pressure,
   resting heart rate, body fat, waist, VO₂max, blood oxygen) shown once imported;

@@ -72,6 +72,16 @@ struct AnalysisEnvelope: Codable {
     let analysis: Analysis?
 }
 
+/// On-demand, whole-panel AI summary of a profile's latest results
+/// (`POST /profiles/{id}/summary`). The server doesn't store it, so the client
+/// caches it. `basedOnCount` is how many latest results it summarized — compare
+/// to the current count to detect that new results have landed since.
+struct PanelSummary: Codable, Hashable {
+    let content: String
+    let generatedAt: String
+    let basedOnCount: Int
+}
+
 /// Public /health payload — carries the running server's build version.
 struct Health: Codable {
     let status: String
