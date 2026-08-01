@@ -159,3 +159,42 @@ jobs:
             -authenticationKeyPath ~/.appstoreconnect/private_keys/AuthKey_"$KEY_ID".p8 \
             -authenticationKeyID "$KEY_ID" \
             -authenticationKeyIssuerID "$ISSUER_ID"
+
+      # Push this release's changelog to TestFlight as the build's "What to Test"
+      # notes. The changelog is the GitHub Release body for the tag (Claude writes
+      # it in release.yaml); the refresh cron reuses the same tag's notes. Best-
+      # effort — a failure here only warns, the build is already uploaded.
+      - name: Set up Python
+        if: steps.gate.outputs.ready == 'true'
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Push changelog to TestFlight (What to Test)
+        if: steps.gate.outputs.ready == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+        run: |
+          set -euo pipefail
+          pip install --quiet pyjwt cryptography
+
+          VERSION="$INPUT_VERSION"
+          [ -z "$VERSION" ] && VERSION="${GITHUB_REF_NAME#v}"
+          TAG="v$VERSION"
+          BUILD="${GITHUB_RUN_NUMBER}"   # must match the archive's CURRENT_PROJECT_VERSION
+
+          # Changelog = the tag's GitHub Release notes; fall back to a generic line
+          # (e.g. a manual dispatch on a ref with no release).
+          NOTES="$(gh release view "$TAG" --json body -q .body 2>/dev/null || true)"
+          [ -z "$NOTES" ] && NOTES="Bug fixes and improvements."
+          printf '%s' "$NOTES" > "$RUNNER_TEMP/whats_new.md"
+
+          python scripts/testflight_whats_new.py \
+            --bundle-id dev.winktech.labtracker \
+            --version "$VERSION" --build "$BUILD" \
+            --notes-file "$RUNNER_TEMP/whats_new.md" \
+            --key-id "$KEY_ID" --issuer-id "$ISSUER_ID" \
+            --key-path ~/.appstoreconnect/private_keys/AuthKey_"$KEY_ID".p8

@@ -93,6 +93,13 @@ and rough notes so they aren't lost.
       access token. Refresh now signs out only on the definitive signal (RFC 6749
       §5.2 `400 invalid_grant`); other failures keep the token so the next request
       retries.
+  - [x] **Changelog to TestFlight (2026-07-31)** — every upload now sets the
+    build's TestFlight **What to Test** notes to that release's changelog (the
+    tag's GitHub Release body, written by `release.yaml`). After the upload,
+    [`testflight.yaml`](../.github/workflows/testflight.yaml) polls the App Store
+    Connect API for the build and sets its `betaBuildLocalizations` `whatsNew`
+    via [`scripts/testflight_whats_new.py`](../scripts/testflight_whats_new.py) —
+    reusing the existing API key, best-effort (warns, never fails the upload).
   - [x] **Monthly TestFlight refresh (2026-07-31)** — TestFlight builds expire
     after 90 days, and releases are too sporadic to reliably beat that. A monthly
     cron [`testflight-refresh.yaml`](../.github/workflows/testflight-refresh.yaml)

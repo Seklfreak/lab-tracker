@@ -11,6 +11,9 @@ secrets.*
 /backend/server
 /backend/bin/
 
+# Python
+__pycache__/
+
 # Node
 /frontend/node_modules/
 /frontend/dist/

@@ -79,6 +79,15 @@ One-time setup on the Apple side: register the explicit App ID
 Connect (the first upload fails without it). The marketing version comes from the
 tag; the build number is the workflow run number.
 
+**Changelog → "What to Test":** after the upload, the job sets the build's
+TestFlight test notes to that release's changelog (the tag's GitHub Release body,
+which `release.yaml` writes). It polls the App Store Connect API for the freshly
+uploaded build, then creates/updates its `betaBuildLocalizations` `whatsNew`
+(see [`scripts/testflight_whats_new.py`](../scripts/testflight_whats_new.py)).
+This reuses the existing `APP_STORE_CONNECT_*` key (App Manager can write
+TestFlight notes) — no new secrets. It's best-effort: if the build is still
+processing past the timeout, it warns rather than failing the upload.
+
 TestFlight builds expire 90 days after upload. Since releases are sporadic, a
 monthly cron —
 [`.github/workflows/testflight-refresh.yaml`](../.github/workflows/testflight-refresh.yaml)
