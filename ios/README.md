@@ -69,21 +69,21 @@ vitals, blood pressure) into a chosen profile. Two layers:
   app becomes active and uploads anything new. No entitlement, works in the
   Simulator.
 - **True background delivery** (the app syncs even when closed, ~hourly) needs the
-  `com.apple.developer.healthkit.background-delivery` entitlement. The code already
-  calls `enableBackgroundDelivery`; it simply no-ops until the entitlement is
-  present, so nothing breaks without it. To light it up **on a real signed build**:
+  `com.apple.developer.healthkit.background-delivery` entitlement (present in
+  [`LabTracker/LabTracker.entitlements`](LabTracker/LabTracker.entitlements)). The
+  code already calls `enableBackgroundDelivery`; it simply no-ops until the App ID
+  and provisioning profile also carry the entitlement. **Before merging this to
+  `main`** (a merged entitlement with no matching profile fails App Store
+  validation and breaks the TestFlight upload):
 
-  1. Add the key to [`LabTracker/LabTracker.entitlements`](LabTracker/LabTracker.entitlements):
-     `com.apple.developer.healthkit.background-delivery` = `true`.
-  2. In the Apple Developer portal, enable **HealthKit → background delivery** on
+  1. In the Apple Developer portal, enable **HealthKit → background delivery** on
      the `dev.winktech.labtracker` App ID and regenerate the **App Store
      provisioning profile**.
-  3. Update the `APP_STORE_PROFILE` repository secret with the new profile (base64),
+  2. Update the `APP_STORE_PROFILE` repository secret with the new profile (base64),
      so [`testflight.yaml`](../.github/workflows/testflight.yaml) signs with it.
 
-  Until steps 1–3 are done, leave the entitlement out — adding it to the file
-  without a matching profile fails App Store validation and would break the
-  TestFlight upload.
+  Once both are done, merging activates background delivery on the next release —
+  no further code change.
 
 ## TestFlight (CI)
 
