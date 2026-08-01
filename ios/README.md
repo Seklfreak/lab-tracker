@@ -68,22 +68,25 @@ vitals, blood pressure) into a chosen profile. Two layers:
 - **Auto-sync on open** works out of the box — an anchored query runs whenever the
   app becomes active and uploads anything new. No entitlement, works in the
   Simulator.
-- **True background delivery** (the app syncs even when closed, ~hourly) needs the
-  `com.apple.developer.healthkit.background-delivery` entitlement (present in
-  [`LabTracker/LabTracker.entitlements`](LabTracker/LabTracker.entitlements)). The
-  code already calls `enableBackgroundDelivery`; it simply no-ops until the App ID
-  and provisioning profile also carry the entitlement. **Before merging this to
-  `main`** (a merged entitlement with no matching profile fails App Store
-  validation and breaks the TestFlight upload):
+- **True background delivery** (the app syncs even when closed, ~hourly) uses the
+  `com.apple.developer.healthkit.background-delivery` entitlement (in
+  [`LabTracker/LabTracker.entitlements`](LabTracker/LabTracker.entitlements)) — now
+  live: the App ID has HealthKit background delivery enabled, the App Store
+  provisioning profile carries the entitlement, and `APP_STORE_PROFILE` holds that
+  profile so [`testflight.yaml`](../.github/workflows/testflight.yaml) signs with
+  it. If the entitlement ever needs re-provisioning (e.g. a new distribution
+  cert/profile), regenerate the App Store profile for `dev.winktech.labtracker` and
+  refresh the `APP_STORE_PROFILE` secret — an entitlement in the app without a
+  matching profile fails App Store validation.
 
-  1. In the Apple Developer portal, enable **HealthKit → background delivery** on
-     the `dev.winktech.labtracker` App ID and regenerate the **App Store
-     provisioning profile**.
-  2. Update the `APP_STORE_PROFILE` repository secret with the new profile (base64),
-     so [`testflight.yaml`](../.github/workflows/testflight.yaml) signs with it.
-
-  Once both are done, merging activates background delivery on the next release —
-  no further code change.
+**Checking it works:** Settings → Apple Health shows **Last synced** (with the
+count of new samples) and **Last background sync** — the latter advances only when
+an observer fires with the app closed, so if it moves while you haven't opened the
+app, background delivery is working. `HealthSync` also logs via `os.Logger`
+(subsystem `dev.winktech.labtracker`, category `healthsync`); with the iPhone
+connected to a Mac, filter that subsystem in **Console.app** to watch
+`background wake: observer fired` / `sync done` lines live, even during a
+background wake.
 
 ## TestFlight (CI)
 
@@ -160,7 +163,9 @@ behaviour; run it from the Actions tab with `force: true` to refresh immediately
   background via `HKObserverQuery` + `enableBackgroundDelivery` — the observer
   queries are registered from a tiny `UIApplicationDelegate` in `LabTrackerApp` so a
   background launch wires them up before any scene exists. Enabled from Settings →
-  Apple Health, which also picks the target profile. See **Background sync** below.
+  Apple Health, which also picks the target profile and shows last-synced /
+  last-background-sync status. Logs via `os.Logger` (category `healthsync`) for
+  Console.app. See **Apple Health background sync** below.
 - `LabTracker/Views/AppLock.swift` — optional Face ID / Touch ID app lock
   (`LocalAuthentication`); `LockGate` covers content until auth succeeds, on
   launch and on return from the background. Toggle in Settings → Privacy.

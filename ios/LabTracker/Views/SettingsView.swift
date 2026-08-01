@@ -141,6 +141,10 @@ struct SettingsView: View {
                 }
             }
 
+            if healthSync.isEnabled {
+                healthStatusRows
+            }
+
             if let healthError {
                 Text(healthError).font(.caption).foregroundStyle(Color.statusHigh)
             } else if let syncError = healthSync.lastError, healthSync.isEnabled {
@@ -153,6 +157,32 @@ struct SettingsView: View {
                 + "Syncs when you open the app; on a signed build with the background-delivery "
                 + "entitlement it also syncs in the background.")
         }
+    }
+
+    @ViewBuilder private var healthStatusRows: some View {
+        if let last = healthSync.lastSyncAt {
+            LabeledContent("Last synced") {
+                Text(Self.relative(last) + (healthSync.lastSyncNewCount > 0 ? " · \(healthSync.lastSyncNewCount) new" : ""))
+            }
+            .font(.caption)
+        } else {
+            Text("Waiting for first sync…").font(.caption).foregroundStyle(.secondary)
+        }
+        // Updates only when an observer fires with the app closed — the signal that
+        // true background delivery is working.
+        if let bg = healthSync.lastBackgroundSyncAt {
+            LabeledContent("Last background sync", value: Self.relative(bg)).font(.caption)
+        }
+    }
+
+    private static let relativeFormatter: RelativeDateTimeFormatter = {
+        let f = RelativeDateTimeFormatter()
+        f.unitsStyle = .abbreviated
+        return f
+    }()
+
+    private static func relative(_ date: Date) -> String {
+        relativeFormatter.localizedString(for: date, relativeTo: Date())
     }
 
     private func toggleHealthSync(_ on: Bool) async {

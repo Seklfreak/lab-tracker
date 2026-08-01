@@ -1,5 +1,6 @@
 import Foundation
 import HealthKit
+import os
 
 /// Background/foreground sync of Apple Health body metrics into Lab Tracker.
 ///
@@ -24,11 +25,21 @@ import HealthKit
 final class HealthSync {
     static let shared = HealthSync()
 
+    /// What kicked off a sync — for logging and the "last background sync" stat.
+    enum SyncTrigger: String { case foreground, background, enable }
+
     private enum Key {
         static let enabled = "healthSyncEnabled"
         static let profile = "healthSyncProfileId"
+        static let lastSyncAt = "healthSyncLastAt"
+        static let lastSyncCount = "healthSyncLastCount"
+        static let lastBackgroundAt = "healthSyncLastBackgroundAt"
         static func anchor(_ id: String) -> String { "healthSyncAnchor.\(id)" }
     }
+
+    /// Logs to Console.app (subsystem `dev.winktech.labtracker`, category
+    /// `healthsync`) — visible even during a background wake with the app closed.
+    private let log = Logger(subsystem: "dev.winktech.labtracker", category: "healthsync")
 
     /// Whether new Health data is imported automatically. Persisted.
     private(set) var isEnabled: Bool
@@ -37,14 +48,27 @@ final class HealthSync {
     /// Set after the last sync attempt so Settings can surface failures.
     var lastError: String?
 
+    // Observable, persisted sync status surfaced in Settings → Apple Health.
+    /// When the last sync (foreground or background) finished.
+    private(set) var lastSyncAt: Date?
+    /// How many samples that last sync uploaded (0 = nothing new).
+    private(set) var lastSyncNewCount: Int
+    /// When an observer last fired with the app in the background — the signal that
+    /// true background delivery is working (updates while the app is closed).
+    private(set) var lastBackgroundSyncAt: Date?
+
     private let store = HKHealthStore()
     private var observers: [HKObserverQuery] = []
     private var observersStarted = false
+    private var syncing = false   // coalesce overlapping runs (e.g. foreground + observer)
 
     private init() {
         let d = UserDefaults.standard
         isEnabled = d.bool(forKey: Key.enabled)
         targetProfileId = d.string(forKey: Key.profile)
+        lastSyncAt = d.object(forKey: Key.lastSyncAt) as? Date
+        lastSyncNewCount = d.integer(forKey: Key.lastSyncCount)
+        lastBackgroundSyncAt = d.object(forKey: Key.lastBackgroundAt) as? Date
     }
 
     static var isAvailable: Bool { HKHealthStore.isHealthDataAvailable() }
@@ -59,9 +83,10 @@ final class HealthSync {
         UserDefaults.standard.set(profileId, forKey: Key.profile)
         isEnabled = true
         UserDefaults.standard.set(true, forKey: Key.enabled)
+        log.info("enabled for profile \(profileId, privacy: .public)")
         startObservers()
         await enableBackgroundDelivery()
-        await syncNow()
+        await syncNow(trigger: .enable)
     }
 
     func disable() async {
@@ -69,6 +94,7 @@ final class HealthSync {
         UserDefaults.standard.set(false, forKey: Key.enabled)
         stopObservers()
         try? await store.disableAllBackgroundDelivery()
+        log.info("disabled")
         // Anchors are kept so re-enabling doesn't re-import the whole history.
     }
 
@@ -86,17 +112,28 @@ final class HealthSync {
         guard isEnabled, Self.isAvailable, !observersStarted else { return }
         observersStarted = true
         for desc in HealthImporter.syncDescriptors() {
-            let query = HKObserverQuery(sampleType: desc.sampleType, predicate: nil) { [weak self] _, completion, _ in
+            let query = HKObserverQuery(sampleType: desc.sampleType, predicate: nil) { [weak self] _, completion, error in
                 // The completion handler MUST be called (even on failure) or iOS
                 // throttles/stops delivery. Sync, then always signal done.
                 Task { @MainActor in
-                    await self?.syncNow()
+                    guard let self else { completion(); return }
+                    let type = desc.sampleType.identifier
+                    if let error {
+                        self.log.error("observer error [\(type, privacy: .public)]: \(error.localizedDescription, privacy: .public)")
+                    } else {
+                        // The moment a background wake fires — the proof point.
+                        self.log.notice("background wake: observer fired [\(type, privacy: .public)]")
+                        self.lastBackgroundSyncAt = Date()
+                        UserDefaults.standard.set(self.lastBackgroundSyncAt, forKey: Key.lastBackgroundAt)
+                    }
+                    await self.syncNow(trigger: .background)
                     completion()
                 }
             }
             store.execute(query)
             observers.append(query)
         }
+        log.info("registered \(self.observers.count) observer(s)")
     }
 
     private func stopObservers() {
@@ -118,8 +155,14 @@ final class HealthSync {
     /// Pull new samples for every synced type and upload them. Safe to call often:
     /// it no-ops unless enabled, targeted at a profile, and reachable; anchors mean
     /// each run only sees samples added since the last one.
-    func syncNow() async {
+    func syncNow(trigger: SyncTrigger = .foreground) async {
         guard isEnabled, let profileId = targetProfileId, let api = Self.makeAPI() else { return }
+        guard !syncing else { log.debug("sync already in progress; skipping \(trigger.rawValue, privacy: .public)"); return }
+        syncing = true
+        defer { syncing = false }
+
+        log.info("sync start (\(trigger.rawValue, privacy: .public))")
+        var uploaded = 0
         var failed = false
         for desc in HealthImporter.syncDescriptors() {
             do {
@@ -129,15 +172,24 @@ final class HealthSync {
                     _ = try await api.addBody(profileId: profileId, kind: desc.kind, value: s.value,
                                               value2: s.value2, measuredOn: Self.day(s.date),
                                               source: "apple_health", externalId: s.uuid)
+                    uploaded += 1
                 }
+                if !added.isEmpty { log.info("\(desc.kind, privacy: .public): \(added.count) new sample(s)") }
                 // Advance the anchor only after every upload for this type landed,
                 // so a mid-batch failure just retries (idempotently) next time.
                 if let newAnchor { saveAnchor(newAnchor, desc.sampleType.identifier) }
             } catch {
                 failed = true
+                log.error("\(desc.kind, privacy: .public) sync failed: \(error.localizedDescription, privacy: .public)")
             }
         }
+
+        lastSyncAt = Date()
+        lastSyncNewCount = uploaded
+        UserDefaults.standard.set(lastSyncAt, forKey: Key.lastSyncAt)
+        UserDefaults.standard.set(uploaded, forKey: Key.lastSyncCount)
         lastError = failed ? "Some Health data couldn’t be synced; will retry." : nil
+        log.info("sync done (\(trigger.rawValue, privacy: .public)): \(uploaded) uploaded, failed=\(failed)")
     }
 
     /// New samples for a type since its stored anchor, plus the anchor to persist.
