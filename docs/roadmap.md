@@ -133,6 +133,17 @@ and rough notes so they aren't lost.
     in `UserDefaults` (the server doesn't store it), with a staleness dot + Regenerate
     when the latest-result count has changed. See
     [`Views/HealthSnapshot.swift`](../ios/LabTracker/Views/HealthSnapshot.swift).
+  - [x] **Apple Health auto-sync (2026-07-31)** — Settings → Apple Health turns on
+    automatic import of new body metrics (weight, vitals, blood pressure) into a
+    chosen profile, on top of the existing manual bulk import. `HealthSync` uses
+    anchored queries with per-type anchors so only new samples upload (idempotent
+    via sample UUID). Layer 1, **auto-sync on app open**, needs no entitlement and
+    works in the Simulator; layer 2, **true background delivery** (`HKObserverQuery`
+    + `enableBackgroundDelivery`, observers registered from a `UIApplicationDelegate`
+    so a background launch wires them up), activates once the
+    `healthkit.background-delivery` entitlement + provisioning profile are added —
+    the code no-ops without it. See the
+    [iOS README](../ios/README.md#apple-health-background-sync).
   - [ ] **Smooth out the sign-in / auth flow** — works, but the transition into
     and out of the web-auth sheet is a bit janky; polish later.
   - [ ] **PDF upload** from the phone (share sheet / camera scan).
@@ -167,8 +178,10 @@ This could grow from "lab results" into a personal health chart / mini-EHR:
   pressure, heart rate, etc. Age is already captured (profile date of birth).
   These behave just like analytes (a value + unit + date + trend), so the
   existing analyte/result model likely extends to them with little change.
-- [ ] **Apple Health integration** — import biometrics / vitals / workouts from
-  HealthKit (via the iOS app) so they don't have to be entered by hand.
+- [~] **Apple Health integration** — import biometrics / vitals from HealthKit via
+  the iOS app so they don't have to be entered by hand. Manual import + automatic
+  (foreground/background) sync of weight, vitals, and blood pressure are **done**
+  (see the iOS app section above); workouts and richer biometrics are still open.
 - [ ] **Vaccinations / immunizations** — date, vaccine, dose, lot, provider.
 - [ ] **Procedures & visits** — surgeries, imaging, ED visits, encounters.
 - [ ] **Conditions / medications / allergies** — the rest of a problem list if

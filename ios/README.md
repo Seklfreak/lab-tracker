@@ -60,6 +60,31 @@ xcrun simctl install booted build/Debug-iphonesimulator/LabTracker.app
 xcrun simctl launch booted dev.winktech.labtracker
 ```
 
+## Apple Health background sync
+
+Settings → **Apple Health** turns on automatic import of new body metrics (weight,
+vitals, blood pressure) into a chosen profile. Two layers:
+
+- **Auto-sync on open** works out of the box — an anchored query runs whenever the
+  app becomes active and uploads anything new. No entitlement, works in the
+  Simulator.
+- **True background delivery** (the app syncs even when closed, ~hourly) needs the
+  `com.apple.developer.healthkit.background-delivery` entitlement. The code already
+  calls `enableBackgroundDelivery`; it simply no-ops until the entitlement is
+  present, so nothing breaks without it. To light it up **on a real signed build**:
+
+  1. Add the key to [`LabTracker/LabTracker.entitlements`](LabTracker/LabTracker.entitlements):
+     `com.apple.developer.healthkit.background-delivery` = `true`.
+  2. In the Apple Developer portal, enable **HealthKit → background delivery** on
+     the `dev.winktech.labtracker` App ID and regenerate the **App Store
+     provisioning profile**.
+  3. Update the `APP_STORE_PROFILE` repository secret with the new profile (base64),
+     so [`testflight.yaml`](../.github/workflows/testflight.yaml) signs with it.
+
+  Until steps 1–3 are done, leave the entitlement out — adding it to the file
+  without a matching profile fails App Store validation and would break the
+  TestFlight upload.
+
 ## TestFlight (CI)
 
 Every version tag uploads a build to TestFlight via
@@ -125,7 +150,17 @@ behaviour; run it from the Actions tab with `force: true` to refresh immediately
 - `LabTracker/HealthImport.swift` — reads weight, height, and the vitals above
   from HealthKit (blood pressure via an `HKCorrelation`) for the import (needs the
   HealthKit entitlement in `LabTracker.entitlements` + the `NSHealth*` usage
-  strings). Imports are idempotent (sample UUID → the server's `external_id`).
+  strings). Imports are idempotent (sample UUID → the server's `external_id`). The
+  `syncDescriptors()` table (type → lab-tracker kind + unit conversion) is shared
+  with the background sync.
+- `LabTracker/HealthSync.swift` — automatic Apple Health sync (`HealthSync.shared`).
+  Anchored queries (`HKAnchoredObjectQuery`, per-type anchors persisted in
+  `UserDefaults`) upload only *new* samples to a chosen profile. Runs on app
+  foreground (`scenePhase == .active`) and, where the entitlement allows, in the
+  background via `HKObserverQuery` + `enableBackgroundDelivery` — the observer
+  queries are registered from a tiny `UIApplicationDelegate` in `LabTrackerApp` so a
+  background launch wires them up before any scene exists. Enabled from Settings →
+  Apple Health, which also picks the target profile. See **Background sync** below.
 - `LabTracker/Views/AppLock.swift` — optional Face ID / Touch ID app lock
   (`LocalAuthentication`); `LockGate` covers content until auth succeeds, on
   launch and on return from the background. Toggle in Settings → Privacy.

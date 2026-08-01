@@ -41,7 +41,7 @@ final class HealthImporter {
     private let limit = 365
 
     /// Scalar body-metric kinds we import, in display order.
-    let scalarKinds = ["weight", "height", "body_fat", "waist", "resting_heart_rate", "vo2max", "oxygen"]
+    static let scalarKinds = ["weight", "height", "body_fat", "waist", "resting_heart_rate", "vo2max", "oxygen"]
 
     private struct Metric {
         let type: HKQuantityType
@@ -49,7 +49,7 @@ final class HealthImporter {
         let scale: Double // applied to the raw HealthKit value (e.g. fraction → %)
     }
 
-    private func metric(for kind: String) -> Metric? {
+    private static func metric(for kind: String) -> Metric? {
         switch kind {
         case "weight": return Metric(type: HKQuantityType(.bodyMass), unit: .gramUnit(with: .kilo), scale: 1)
         case "height": return Metric(type: HKQuantityType(.height), unit: .meterUnit(with: .centi), scale: 1)
@@ -66,7 +66,7 @@ final class HealthImporter {
     func requestAuthorization() async throws {
         guard HKHealthStore.isHealthDataAvailable() else { throw HealthImportError.unavailable }
         var types = Set<HKObjectType>()
-        for kind in scalarKinds { if let m = metric(for: kind) { types.insert(m.type) } }
+        for kind in Self.scalarKinds { if let m = Self.metric(for: kind) { types.insert(m.type) } }
         // Blood pressure is read via its component quantity types — iOS groups them
         // as "Blood Pressure" in the prompt. (Requesting the *correlation* type for
         // read raises an exception and crashes, so we must not include it here.)
@@ -77,7 +77,7 @@ final class HealthImporter {
 
     /// Scalar samples for one kind, newest first.
     func samples(kind: String) async throws -> [HealthSample] {
-        guard let m = metric(for: kind) else { return [] }
+        guard let m = Self.metric(for: kind) else { return [] }
         let raw = try await rawSamples(m.type)
         return raw.compactMap { sample in
             guard let q = sample as? HKQuantitySample else { return nil }
@@ -128,7 +128,7 @@ final class HealthImporter {
     /// from apps) or genuinely empty.
     func diagnostics() async -> [HealthDiag] {
         var out: [HealthDiag] = []
-        for kind in scalarKinds {
+        for kind in Self.scalarKinds {
             let s = (try? await samples(kind: kind)) ?? []
             out.append(HealthDiag(id: kind, label: BodyView.metricLabel(kind), count: s.count,
                                   latest: s.first.map { String(format: "%.1f", $0.value) }))
@@ -143,6 +143,42 @@ final class HealthImporter {
         let loose = (try? await pairedBP()) ?? []
         out.append(HealthDiag(id: "bp_loose", label: "BP via paired samples", count: loose.count,
                               latest: loose.first.map { String(format: "%.0f/%.0f", $0.value, $0.value2 ?? 0) }))
+        return out
+    }
+
+    /// One HealthKit sample type we sync, paired with how to turn its samples into
+    /// a lab-tracker body measurement. Shared by the manual bulk import and the
+    /// background sync engine so the unit/scale table lives in exactly one place.
+    struct SyncDescriptor {
+        let kind: String
+        let sampleType: HKSampleType
+        let convert: (HKSample) -> HealthSample?
+    }
+
+    /// Every type the app syncs from Apple Health. Scalars map one type → one kind;
+    /// blood pressure is read from its correlation (the common storage form — the
+    /// manual import additionally pairs loose samples, but the anchored background
+    /// sync sticks to correlations to keep each query to a single type).
+    static func syncDescriptors() -> [SyncDescriptor] {
+        var out: [SyncDescriptor] = []
+        for kind in scalarKinds {
+            guard let m = metric(for: kind) else { continue }
+            out.append(SyncDescriptor(kind: kind, sampleType: m.type) { sample in
+                guard let q = sample as? HKQuantitySample else { return nil }
+                return HealthSample(value: q.quantity.doubleValue(for: m.unit) * m.scale, value2: nil,
+                                    date: q.endDate, uuid: q.uuid.uuidString)
+            })
+        }
+        let mmHg = HKUnit.millimeterOfMercury()
+        let systolic = HKQuantityType(.bloodPressureSystolic)
+        let diastolic = HKQuantityType(.bloodPressureDiastolic)
+        out.append(SyncDescriptor(kind: "blood_pressure", sampleType: HKCorrelationType(.bloodPressure)) { sample in
+            guard let reading = sample as? HKCorrelation,
+                  let sys = (reading.objects(for: systolic).first as? HKQuantitySample)?.quantity.doubleValue(for: mmHg),
+                  let dia = (reading.objects(for: diastolic).first as? HKQuantitySample)?.quantity.doubleValue(for: mmHg)
+            else { return nil }
+            return HealthSample(value: sys, value2: dia, date: reading.endDate, uuid: reading.uuid.uuidString)
+        })
         return out
     }
 

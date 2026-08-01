@@ -5,6 +5,7 @@ import SwiftUI
 /// nothing for a local AUTH_DISABLED backend.
 struct SettingsView: View {
     @Environment(Store.self) private var store
+    @Environment(HealthSync.self) private var healthSync
     @Environment(\.dismiss) private var dismiss
 
     @State private var url = ""
@@ -12,6 +13,10 @@ struct SettingsView: View {
     @State private var signingIn = false
     @State private var authError: String?
     @State private var lockUnavailable = false
+    @State private var profiles: [Profile] = []
+    @State private var healthOn = false     // optimistic mirror of healthSync.isEnabled
+    @State private var healthBusy = false
+    @State private var healthError: String?
 
     private var canSave: Bool {
         check.isOK || url.trimmingCharacters(in: .whitespaces).isEmpty
@@ -73,6 +78,10 @@ struct SettingsView: View {
                     Text("Ask for \(Biometrics.name) when the app opens or returns from the background.")
                 }
 
+                if HealthSync.isAvailable {
+                    healthSection
+                }
+
                 Section {
                     NavigationLink {
                         AboutView()
@@ -98,7 +107,78 @@ struct SettingsView: View {
             }
             .onAppear { url = store.serverURL }
             .task(id: url) { await validate() }
+            .task {
+                if HealthSync.isAvailable {
+                    healthOn = healthSync.isEnabled
+                    await loadProfiles()
+                }
+            }
         }
+    }
+
+    // Default sync target: a profile the user owns (the common case), else the
+    // one currently selected on the dashboard.
+    private var defaultTargetProfileId: String? {
+        profiles.first(where: \.isOwner)?.id ?? store.selectedProfileId ?? profiles.first?.id
+    }
+
+    @ViewBuilder private var healthSection: some View {
+        Section {
+            Toggle(isOn: $healthOn) {
+                Label("Sync from Apple Health", systemImage: "heart.fill")
+            }
+            .disabled(healthBusy)
+            .onChange(of: healthOn) { _, on in
+                if on != healthSync.isEnabled { Task { await toggleHealthSync(on) } }
+            }
+
+            if healthSync.isEnabled, !profiles.isEmpty {
+                Picker("Save to profile", selection: Binding(
+                    get: { healthSync.targetProfileId ?? defaultTargetProfileId },
+                    set: { if let id = $0 { healthSync.setTargetProfile(id) } }
+                )) {
+                    ForEach(profiles) { Text($0.name).tag(Optional($0.id)) }
+                }
+            }
+
+            if let healthError {
+                Text(healthError).font(.caption).foregroundStyle(Color.statusHigh)
+            } else if let syncError = healthSync.lastError, healthSync.isEnabled {
+                Text(syncError).font(.caption).foregroundStyle(Color.statusWarn)
+            }
+        } header: {
+            Text("Apple Health")
+        } footer: {
+            Text("Automatically import new weight, vitals, and blood-pressure readings. "
+                + "Syncs when you open the app; on a signed build with the background-delivery "
+                + "entitlement it also syncs in the background.")
+        }
+    }
+
+    private func toggleHealthSync(_ on: Bool) async {
+        healthBusy = true
+        healthError = nil
+        defer {
+            healthBusy = false
+            healthOn = healthSync.isEnabled   // reconcile the toggle with reality
+        }
+        if on {
+            guard let target = healthSync.targetProfileId ?? defaultTargetProfileId else {
+                healthError = "Add or select a profile first, then enable syncing."
+                return
+            }
+            do {
+                try await healthSync.enable(profileId: target)
+            } catch {
+                healthError = error.localizedDescription
+            }
+        } else {
+            await healthSync.disable()
+        }
+    }
+
+    private func loadProfiles() async {
+        profiles = (try? await store.api.profiles()) ?? []
     }
 
     private func validate() async {

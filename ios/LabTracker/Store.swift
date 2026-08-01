@@ -18,8 +18,9 @@ final class Store {
     }
 
     /// OIDC issuer + client id are discovered from the server (not hardcoded), so
-    /// the only thing configured here is the server URL.
-    let auth = AuthSession()
+    /// the only thing configured here is the server URL. Shared with the background
+    /// HealthKit sync so token refreshes stay coalesced.
+    let auth = AuthSession.shared
 
     init() {
         let d = UserDefaults.standard

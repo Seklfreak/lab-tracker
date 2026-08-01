@@ -302,7 +302,7 @@ extension BodyView {
             let importer = HealthImporter()
             try await importer.requestAuthorization()
             var counts: [(String, Int)] = []
-            for kind in importer.scalarKinds {
+            for kind in HealthImporter.scalarKinds {
                 let samples = try await importer.samples(kind: kind)
                 for sample in samples {
                     _ = try await store.api.addBody(

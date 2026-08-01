@@ -58,6 +58,12 @@ private let oidcDecoder: JSONDecoder = {
 @MainActor
 @Observable
 final class AuthSession: NSObject, ASWebAuthenticationPresentationContextProviding {
+    /// One app-wide session. The UI (via `Store`) and the background HealthKit
+    /// sync must share the *same* instance: Authentik rotates the refresh token on
+    /// every use, so two sessions refreshing independently would each spend the
+    /// same token and sign the user out (see `refresh()`).
+    static let shared = AuthSession()
+
     /// Discovered from the server (see signIn(serverURL:)) and cached so refreshes
     /// survive a restart.
     private(set) var config: OIDCConfig
