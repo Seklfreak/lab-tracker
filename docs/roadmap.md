@@ -117,12 +117,15 @@ and rough notes so they aren't lost.
     optional Face ID / Touch ID app lock; an About screen; and dashboard parity
     with web — sort options (category / name / readings / recent), favorites
     pinned on top (swipe to toggle), and a tappable out-of-range filter.
-  - [x] **Health snapshot (2026-07-31)** — the dashboard gained the whole-panel
-    AI summary already on web: a collapsible card that generates an on-demand
-    overview of the latest panel (`POST …/summary`), cached per profile in
-    `UserDefaults` (the server doesn't store it), with a staleness dot + a
-    Regenerate button when the latest-result count has changed since it was made.
-    See [`Views/HealthSnapshot.swift`](../ios/LabTracker/Views/HealthSnapshot.swift).
+  - [x] **On-device AI generation (2026-07-31)** — the app can now generate the
+    AI text itself, not just display what the server had. The analyte detail screen
+    gained **Generate / Regenerate** buttons (`POST …/analysis`) with a staleness
+    banner (`basedOnCount → currentCount` readings) matching web; and the dashboard
+    gained the whole-panel **Health snapshot** — a collapsible card that generates
+    an on-demand overview of the latest panel (`POST …/summary`), cached per profile
+    in `UserDefaults` (the server doesn't store it), with a staleness dot + Regenerate
+    when the latest-result count has changed. See
+    [`Views/HealthSnapshot.swift`](../ios/LabTracker/Views/HealthSnapshot.swift).
   - [ ] **Smooth out the sign-in / auth flow** — works, but the transition into
     and out of the web-auth sheet is a bit janky; polish later.
   - [ ] **PDF upload** from the phone (share sheet / camera scan).

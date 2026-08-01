@@ -57,6 +57,22 @@ enum LabDate {
         formatter.dateFormat = "MMM d, yyyy"
         return formatter.string(from: date)
     }
+
+    /// An RFC3339 timestamp → a short local date-time, for "Generated …" captions
+    /// under the AI analysis / snapshot. Falls back to the raw string if unparseable.
+    static func prettyTimestamp(_ rfc3339: String) -> String {
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let date = iso.date(from: rfc3339) ?? {
+            let plain = ISO8601DateFormatter()
+            return plain.date(from: rfc3339)
+        }()
+        guard let date else { return rfc3339 }
+        let out = DateFormatter()
+        out.dateStyle = .medium
+        out.timeStyle = .short
+        return out.string(from: date)
+    }
 }
 
 extension LabResult {

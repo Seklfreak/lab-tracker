@@ -97,7 +97,8 @@ behaviour; run it from the Actions tab with `force: true` to refresh immediately
   (profiles + settings), `DashboardView` (latest per analyte, a collapsible
   **Health snapshot** — an on-demand whole-panel AI summary — plus a Body section
   of tracked body stats that opens the Body sheet), `AnalyteDetailView`
-  (Swift Charts trend + AI analysis), `SettingsView`, `AboutView` (app/API
+  (Swift Charts trend + AI analysis, with generate/regenerate + a staleness
+  banner), `SettingsView`, `AboutView` (app/API
   versions + diagnostics, incl. a `HealthKitDebugView` showing per-type readable
   sample counts), `MarkdownText`.
 - `LabTracker/Views/ServerCheck.swift` — probes `{url}/health` to validate a

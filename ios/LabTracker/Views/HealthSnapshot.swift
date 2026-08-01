@@ -67,7 +67,7 @@ struct HealthSnapshotSection: View {
                 }
                 MarkdownText(blocks: blocks)
                 HStack {
-                    Text("Generated \(Self.formatted(summary.generatedAt))")
+                    Text("Generated \(LabDate.prettyTimestamp(summary.generatedAt))")
                         .font(.caption2).foregroundStyle(.secondary)
                     Spacer()
                     Button { Task { await generate() } } label: {
@@ -128,18 +128,5 @@ struct HealthSnapshotSection: View {
         if let data = try? JSONEncoder().encode(s) {
             UserDefaults.standard.set(data, forKey: key(profileId))
         }
-    }
-
-    /// RFC3339 → a short local date-time for the "Generated …" caption.
-    private static func formatted(_ rfc3339: String) -> String {
-        let iso = ISO8601DateFormatter()
-        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let date = iso.date(from: rfc3339)
-            ?? { let f = ISO8601DateFormatter(); return f.date(from: rfc3339) }()
-        guard let date else { return rfc3339 }
-        let out = DateFormatter()
-        out.dateStyle = .medium
-        out.timeStyle = .short
-        return out.string(from: date)
     }
 }

@@ -18,6 +18,8 @@ struct AnalyteDetailView: View {
     @State private var analysis: Analysis?
     @State private var analysisBlocks: [MarkdownText.Block] = []
     @State private var analysisLoaded = false
+    @State private var generating = false
+    @State private var analysisError: String?
     @State private var loading = false
     @State private var error: String?
 
@@ -168,18 +170,62 @@ struct AnalyteDetailView: View {
     }
 
     @ViewBuilder private var analysisSection: some View {
-        if analysis != nil {
-            VStack(alignment: .leading, spacing: 6) {
-                if analysis?.stale == true {
-                    Label("New results since this was generated", systemImage: "clock.arrow.circlepath")
-                        .font(.caption).foregroundStyle(.orange)
+        if generating {
+            HStack(spacing: 10) {
+                ProgressView()
+                Text("Analyzing your results…").font(.callout).foregroundStyle(.secondary)
+            }
+            .padding(.vertical, 4)
+        } else if let analysis {
+            VStack(alignment: .leading, spacing: 10) {
+                if analysis.stale {
+                    let msg = "New results since this was generated "
+                        + "(\(analysis.basedOnCount) → \(analysis.currentCount) readings). Regenerate to include them."
+                    Label(msg, systemImage: "clock.arrow.circlepath")
+                        .font(.caption).foregroundStyle(Color.statusWarn)
                 }
                 MarkdownText(blocks: analysisBlocks)
+                HStack {
+                    Text("Generated \(LabDate.prettyTimestamp(analysis.generatedAt))")
+                        .font(.caption2).foregroundStyle(.secondary)
+                    Spacer()
+                    Button { Task { await generate() } } label: {
+                        Label("Regenerate", systemImage: "arrow.clockwise").font(.caption)
+                    }
+                    .buttonStyle(.borderless)
+                }
             }
+            .padding(.vertical, 2)
         } else if analysisLoaded {
-            Text("No analysis generated yet.").foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Get a plain-language explanation of this analyte, your trend over time, and how related results connect.")
+                    .font(.callout).foregroundStyle(.secondary)
+                Button { Task { await generate() } } label: {
+                    Label("Generate AI analysis", systemImage: "sparkles")
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color.brandTeal)
+            }
+            .padding(.vertical, 2)
         } else {
             ProgressView()
+        }
+
+        if let analysisError {
+            Text(analysisError).font(.caption).foregroundStyle(.red)
+        }
+    }
+
+    private func generate() async {
+        generating = true
+        analysisError = nil
+        defer { generating = false }
+        do {
+            let a = try await store.api.generateAnalysis(profileId: profile.id, analyteId: analyteId)
+            analysis = a
+            analysisBlocks = MarkdownText.parse(a.content)
+        } catch {
+            analysisError = error.localizedDescription
         }
     }
 

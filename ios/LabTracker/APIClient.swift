@@ -85,6 +85,15 @@ struct APIClient {
         try await request("/api/profiles/\(profileId)/analytes/\(analyteId)/analysis", as: AnalysisEnvelope.self).analysis
     }
 
+    /// Generate (or regenerate) an analyte's AI analysis via the LLM and store it
+    /// server-side. Returns the freshly generated (non-stale) analysis.
+    func generateAnalysis(profileId: String, analyteId: String) async throws -> Analysis {
+        let env = try await send("/api/profiles/\(profileId)/analytes/\(analyteId)/analysis",
+                                 method: "POST", body: EmptyBody(), as: AnalysisEnvelope.self)
+        guard let a = env.analysis else { throw APIError.decoding("empty analysis") }
+        return a
+    }
+
     /// On-demand whole-panel AI summary of the profile's latest results. Not
     /// stored server-side — callers cache the result (see `HealthSnapshotSection`).
     func generatePanelSummary(profileId: String) async throws -> PanelSummary {
