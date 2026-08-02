@@ -141,6 +141,22 @@ func (q *Queries) GetAnalyteByName(ctx context.Context, btrim string) (Analyte, 
 	return i, err
 }
 
+const ignoreAnalytePair = `-- name: IgnoreAnalytePair :exec
+INSERT INTO ignored_analyte_pairs (analyte_a, analyte_b)
+VALUES (LEAST($1::uuid, $2::uuid), GREATEST($1::uuid, $2::uuid))
+ON CONFLICT DO NOTHING
+`
+
+type IgnoreAnalytePairParams struct {
+	A uuid.UUID `json:"a"`
+	B uuid.UUID `json:"b"`
+}
+
+func (q *Queries) IgnoreAnalytePair(ctx context.Context, arg IgnoreAnalytePairParams) error {
+	_, err := q.db.Exec(ctx, ignoreAnalytePair, arg.A, arg.B)
+	return err
+}
+
 const listAnalytes = `-- name: ListAnalytes :many
 SELECT id, name, default_unit, loinc, category, created_at, specimens FROM analytes
 ORDER BY category NULLS LAST, name
@@ -199,6 +215,35 @@ func (q *Queries) ListAnalytesWithDataForProfile(ctx context.Context, profileID 
 			&i.CreatedAt,
 			&i.Specimens,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listIgnoredAnalytePairs = `-- name: ListIgnoredAnalytePairs :many
+SELECT analyte_a, analyte_b FROM ignored_analyte_pairs
+`
+
+type ListIgnoredAnalytePairsRow struct {
+	AnalyteA uuid.UUID `json:"analyte_a"`
+	AnalyteB uuid.UUID `json:"analyte_b"`
+}
+
+func (q *Queries) ListIgnoredAnalytePairs(ctx context.Context) ([]ListIgnoredAnalytePairsRow, error) {
+	rows, err := q.db.Query(ctx, listIgnoredAnalytePairs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListIgnoredAnalytePairsRow{}
+	for rows.Next() {
+		var i ListIgnoredAnalytePairsRow
+		if err := rows.Scan(&i.AnalyteA, &i.AnalyteB); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -316,6 +361,22 @@ type RepointResultsToAnalyteParams struct {
 // inside a transaction (see mergeAnalytes).
 func (q *Queries) RepointResultsToAnalyte(ctx context.Context, arg RepointResultsToAnalyteParams) error {
 	_, err := q.db.Exec(ctx, repointResultsToAnalyte, arg.Target, arg.Sources)
+	return err
+}
+
+const unignoreAnalytePair = `-- name: UnignoreAnalytePair :exec
+DELETE FROM ignored_analyte_pairs
+WHERE analyte_a = LEAST($1::uuid, $2::uuid)
+  AND analyte_b = GREATEST($1::uuid, $2::uuid)
+`
+
+type UnignoreAnalytePairParams struct {
+	A uuid.UUID `json:"a"`
+	B uuid.UUID `json:"b"`
+}
+
+func (q *Queries) UnignoreAnalytePair(ctx context.Context, arg UnignoreAnalytePairParams) error {
+	_, err := q.db.Exec(ctx, unignoreAnalytePair, arg.A, arg.B)
 	return err
 }
 

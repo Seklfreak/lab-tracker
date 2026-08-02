@@ -47,9 +47,11 @@ type Querier interface {
 	// signed in at least once (so a row exists) to be a share target.
 	GetUserByEmail(ctx context.Context, lower string) (User, error)
 	GetUserBySub(ctx context.Context, oidcSub string) (User, error)
+	IgnoreAnalytePair(ctx context.Context, arg IgnoreAnalytePairParams) error
 	ListAnalytes(ctx context.Context) ([]Analyte, error)
 	ListAnalytesWithDataForProfile(ctx context.Context, profileID uuid.UUID) ([]Analyte, error)
 	ListBodyMeasurements(ctx context.Context, profileID uuid.UUID) ([]BodyMeasurement, error)
+	ListIgnoredAnalytePairs(ctx context.Context) ([]ListIgnoredAnalytePairsRow, error)
 	ListLatestResultsForProfile(ctx context.Context, profileID uuid.UUID) ([]ListLatestResultsForProfileRow, error)
 	ListProfileMembers(ctx context.Context, profileID uuid.UUID) ([]ListProfileMembersRow, error)
 	// Unscoped: every profile. Only the MCP connector uses this, and only when it
@@ -77,6 +79,7 @@ type Querier interface {
 	SetReportParsed(ctx context.Context, arg SetReportParsedParams) error
 	SetReportParsing(ctx context.Context, id uuid.UUID) error
 	SetReportSaved(ctx context.Context, arg SetReportSavedParams) error
+	UnignoreAnalytePair(ctx context.Context, arg UnignoreAnalytePairParams) error
 	UpdateProfile(ctx context.Context, arg UpdateProfileParams) (Profile, error)
 	UpdateResult(ctx context.Context, arg UpdateResultParams) error
 	UpsertAlias(ctx context.Context, arg UpsertAliasParams) error

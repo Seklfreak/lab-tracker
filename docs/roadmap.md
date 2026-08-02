@@ -66,7 +66,10 @@ and rough notes so they aren't lost.
     (analyses cascade). Global + permanent, hence super-user only. Frontend: a
     search-and-select merge tool in the Admin page, plus an admin-only dashboard
     hint (`findDuplicateGroups` heuristic) that surfaces likely duplicates and
-    deep-links into the tool with them pre-selected.
+    deep-links into the tool with them pre-selected. False positives can be
+    dismissed per-group ("Not a duplicate") — stored globally in
+    `ignored_analyte_pairs` and restorable from the Admin tool — so the heuristic
+    can stay conservative without nagging.
 - [x] **Frontend ESLint** (2026-06-26) — flat-config ESLint with
   `react-hooks/rules-of-hooks` (error) + `exhaustive-deps` (warn), run in CI.
   Catches hook-order bugs that `tsc`/`vite build` can't (e.g. a hook after an

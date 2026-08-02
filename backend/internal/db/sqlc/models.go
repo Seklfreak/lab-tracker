@@ -52,6 +52,12 @@ type Favorite struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type IgnoredAnalytePair struct {
+	AnalyteA  uuid.UUID          `json:"analyte_a"`
+	AnalyteB  uuid.UUID          `json:"analyte_b"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 type LabReport struct {
 	ID               uuid.UUID          `json:"id"`
 	ProfileID        uuid.UUID          `json:"profile_id"`

@@ -81,3 +81,16 @@ ON CONFLICT DO NOTHING;
 -- Sources must no longer be referenced by lab_results (RESTRICT); aliases were
 -- repointed, and remaining favorites/analyses for the sources cascade away here.
 DELETE FROM analytes WHERE id = ANY(@sources::uuid[]);
+
+-- name: ListIgnoredAnalytePairs :many
+SELECT analyte_a, analyte_b FROM ignored_analyte_pairs;
+
+-- name: IgnoreAnalytePair :exec
+INSERT INTO ignored_analyte_pairs (analyte_a, analyte_b)
+VALUES (LEAST(@a::uuid, @b::uuid), GREATEST(@a::uuid, @b::uuid))
+ON CONFLICT DO NOTHING;
+
+-- name: UnignoreAnalytePair :exec
+DELETE FROM ignored_analyte_pairs
+WHERE analyte_a = LEAST(@a::uuid, @b::uuid)
+  AND analyte_b = GREATEST(@a::uuid, @b::uuid);

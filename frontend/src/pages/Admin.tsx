@@ -113,6 +113,12 @@ function AnalyteMerge() {
     return q ? all.filter((a) => a.name.toLowerCase().includes(q)) : all;
   }, [all, search]);
 
+  const ignoredQ = useQuery({ queryKey: ["ignored-pairs"], queryFn: api.listIgnoredPairs });
+  const unignore = useMutation({
+    mutationFn: (ids: string[]) => api.unignoreAnalytes(ids),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["ignored-pairs"] }),
+  });
+
   const merge = useMutation({
     mutationFn: () => api.mergeAnalytes(keep!, [...selected].filter((id) => id !== keep)),
     onSuccess: (a) => {
@@ -209,6 +215,32 @@ function AnalyteMerge() {
 
           {merge.error && <p className="text-sm text-bad">{String((merge.error as Error).message)}</p>}
           {done && <p className="text-sm text-good">{done}</p>}
+        </Card>
+      )}
+
+      {(ignoredQ.data?.length ?? 0) > 0 && (
+        <Card className="space-y-2">
+          <p className="text-sm font-medium">Ignored suggestions</p>
+          <p className="text-xs text-muted">
+            Pairs marked “not a duplicate”. Restore to let the dashboard suggest them again.
+          </p>
+          <ul className="divide-y divide-border">
+            {ignoredQ.data!.map((p) => (
+              <li key={`${p.analyteA}|${p.analyteB}`} className="flex items-center justify-between gap-2 py-2 text-sm">
+                <span className="min-w-0 truncate text-muted">
+                  {byId.get(p.analyteA)?.name ?? "(removed)"} · {byId.get(p.analyteB)?.name ?? "(removed)"}
+                </span>
+                <Button
+                  variant="ghost"
+                  className="shrink-0 px-2 py-1"
+                  onClick={() => unignore.mutate([p.analyteA, p.analyteB])}
+                  disabled={unignore.isPending}
+                >
+                  Restore
+                </Button>
+              </li>
+            ))}
+          </ul>
         </Card>
       )}
     </div>

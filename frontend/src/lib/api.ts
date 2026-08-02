@@ -76,6 +76,11 @@ export interface Analyte {
   specimens: string[] | null;
 }
 
+export interface IgnoredPair {
+  analyteA: string;
+  analyteB: string;
+}
+
 export interface Result {
   id: string;
   reportId: string;
@@ -237,6 +242,12 @@ export const api = {
   // Admin-only: fold duplicate analytes (sourceIds) into a kept one (targetId).
   mergeAnalytes: (targetId: string, sourceIds: string[]) =>
     req<Analyte>("/api/analytes/merge", json({ targetId, sourceIds })),
+  // Admin-only: analyte pairs marked "not duplicates" (suppresses the hint).
+  listIgnoredPairs: () => req<IgnoredPair[]>("/api/analytes/ignored-pairs"),
+  ignoreAnalytes: (analyteIds: string[]) =>
+    req<void>("/api/analytes/ignore", json({ analyteIds })),
+  unignoreAnalytes: (analyteIds: string[]) =>
+    req<void>("/api/analytes/unignore", json({ analyteIds })),
   listProfileAnalytes: (profileId: string) =>
     req<Analyte[]>(`/api/profiles/${profileId}/analytes`),
 

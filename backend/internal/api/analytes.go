@@ -130,6 +130,105 @@ func (s *Server) mergeAnalytes(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, toAnalyteDTO(merged))
 }
 
+// IgnoredPairDTO is one admin-dismissed "not a duplicate" analyte pair.
+type IgnoredPairDTO struct {
+	AnalyteA string `json:"analyteA"`
+	AnalyteB string `json:"analyteB"`
+}
+
+// getIgnoredPairs lists the analyte pairs an admin marked as not-duplicates, so
+// the dashboard hint can suppress them. Super-user only (only admins see the hint).
+func (s *Server) getIgnoredPairs(w http.ResponseWriter, r *http.Request) {
+	if !isAdmin(r.Context()) {
+		writeError(w, http.StatusForbidden, "admin access required")
+		return
+	}
+	rows, err := s.q.ListIgnoredAnalytePairs(r.Context())
+	if err != nil {
+		s.log.Error("list ignored pairs", "err", err)
+		writeError(w, http.StatusInternalServerError, "failed to list ignored pairs")
+		return
+	}
+	out := make([]IgnoredPairDTO, 0, len(rows))
+	for _, p := range rows {
+		out = append(out, IgnoredPairDTO{AnalyteA: p.AnalyteA.String(), AnalyteB: p.AnalyteB.String()})
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+type ignoreAnalytesReq struct {
+	AnalyteIDs []string `json:"analyteIds"` // a suggested duplicate group to ignore / restore
+}
+
+// parseGroup validates 2+ analyte ids for the ignore/unignore endpoints.
+func parseGroup(w http.ResponseWriter, r *http.Request) ([]uuid.UUID, bool) {
+	var req ignoreAnalytesReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid body")
+		return nil, false
+	}
+	if len(req.AnalyteIDs) < 2 {
+		writeError(w, http.StatusBadRequest, "at least two analyteIds are required")
+		return nil, false
+	}
+	ids := make([]uuid.UUID, 0, len(req.AnalyteIDs))
+	for _, raw := range req.AnalyteIDs {
+		id, err := uuid.Parse(raw)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid analyteId")
+			return nil, false
+		}
+		ids = append(ids, id)
+	}
+	return ids, true
+}
+
+// ignoreAnalytes marks every pair within a suggested group as not-a-duplicate.
+func (s *Server) ignoreAnalytes(w http.ResponseWriter, r *http.Request) {
+	if !isAdmin(r.Context()) {
+		writeError(w, http.StatusForbidden, "admin access required")
+		return
+	}
+	ids, ok := parseGroup(w, r)
+	if !ok {
+		return
+	}
+	ctx := r.Context()
+	for i := 0; i < len(ids); i++ {
+		for j := i + 1; j < len(ids); j++ {
+			if err := s.q.IgnoreAnalytePair(ctx, sqlc.IgnoreAnalytePairParams{A: ids[i], B: ids[j]}); err != nil {
+				s.log.Error("ignore analyte pair", "err", err)
+				writeError(w, http.StatusInternalServerError, "failed to ignore")
+				return
+			}
+		}
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// unignoreAnalytes restores a previously-ignored pair/group to the suggestions.
+func (s *Server) unignoreAnalytes(w http.ResponseWriter, r *http.Request) {
+	if !isAdmin(r.Context()) {
+		writeError(w, http.StatusForbidden, "admin access required")
+		return
+	}
+	ids, ok := parseGroup(w, r)
+	if !ok {
+		return
+	}
+	ctx := r.Context()
+	for i := 0; i < len(ids); i++ {
+		for j := i + 1; j < len(ids); j++ {
+			if err := s.q.UnignoreAnalytePair(ctx, sqlc.UnignoreAnalytePairParams{A: ids[i], B: ids[j]}); err != nil {
+				s.log.Error("unignore analyte pair", "err", err)
+				writeError(w, http.StatusInternalServerError, "failed to restore")
+				return
+			}
+		}
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (s *Server) listProfileAnalytes(w http.ResponseWriter, r *http.Request) {
 	p, ok := s.requireProfile(w, r)
 	if !ok {

@@ -374,6 +374,45 @@ func TestMergeAnalytes_Validation(t *testing.T) {
 	}
 }
 
+// The ignore/unignore + ignored-pairs endpoints touch the shared catalog, so
+// non-admins are rejected up front.
+func TestIgnoreEndpoints_Forbidden(t *testing.T) {
+	body := `{"analyteIds":["` + uuid.New().String() + `","` + uuid.New().String() + `"]}`
+	cases := []struct {
+		name, method, path, body string
+		fn                       func(*Server, http.ResponseWriter, *http.Request)
+	}{
+		{"list", http.MethodGet, "/api/analytes/ignored-pairs", "", (*Server).getIgnoredPairs},
+		{"ignore", http.MethodPost, "/api/analytes/ignore", body, (*Server).ignoreAnalytes},
+		{"unignore", http.MethodPost, "/api/analytes/unignore", body, (*Server).unignoreAnalytes},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			s := &Server{q: &sqlctest.FakeQuerier{}, log: slog.New(slog.NewTextHandler(io.Discard, nil))}
+			var rd io.Reader
+			if c.body != "" {
+				rd = strings.NewReader(c.body)
+			}
+			req := httptest.NewRequest(c.method, c.path, rd)
+			req = req.WithContext(context.WithValue(req.Context(), isAdminKey, false))
+			rec := httptest.NewRecorder()
+			c.fn(s, rec, req)
+			if rec.Code != http.StatusForbidden {
+				t.Errorf("%s: want 403, got %d", c.name, rec.Code)
+			}
+		})
+	}
+}
+
+// Ignoring needs at least two analytes (a pair), validated before any query.
+func TestIgnoreAnalytes_NeedsTwo(t *testing.T) {
+	rec := do(t, router(&sqlctest.FakeQuerier{}, nil), http.MethodPost, "/api/analytes/ignore",
+		`{"analyteIds":["`+uuid.New().String()+`"]}`)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("want 400 for a single id, got %d", rec.Code)
+	}
+}
+
 func TestUpdateResultBadID(t *testing.T) {
 	rec := do(t, router(&sqlctest.FakeQuerier{}, nil), http.MethodPost, "/api/results/not-a-uuid", `{"analyteId":"x"}`)
 	if rec.Code != http.StatusBadRequest {

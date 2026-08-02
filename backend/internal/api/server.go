@@ -124,6 +124,9 @@ func (s *Server) Router(corsOrigins []string) http.Handler {
 
 		r.Get("/analytes", s.listAnalytes)
 		r.Post("/analytes/merge", s.mergeAnalytes) // super-user only (see handler)
+		r.Get("/analytes/ignored-pairs", s.getIgnoredPairs)
+		r.Post("/analytes/ignore", s.ignoreAnalytes)
+		r.Post("/analytes/unignore", s.unignoreAnalytes)
 	})
 
 	return r

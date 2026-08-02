@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findDuplicateGroups, type DuplicateGroup } from "./duplicates";
+import { findDuplicateGroups, pairKey, type DuplicateGroup } from "./duplicates";
 import type { Result } from "./api";
 
 // Minimal Result factory — only the fields the heuristic reads.
@@ -42,5 +42,12 @@ describe("findDuplicateGroups", () => {
 
   it("returns nothing for a single analyte", () => {
     expect(findDuplicateGroups([a("1", "Glucose")])).toEqual([]);
+  });
+
+  it("suppresses a group whose pair is ignored", () => {
+    const results = [a("1", "Glucose"), a("2", "Glucose, Fasting")];
+    expect(findDuplicateGroups(results)).toHaveLength(1);
+    const ignored = new Set([pairKey("1", "2")]);
+    expect(findDuplicateGroups(results, ignored)).toEqual([]);
   });
 });

@@ -98,6 +98,7 @@ npm run dev                # http://localhost:5173 (proxies /api to :8080)
 | GET | `/api/reports/{id}/pdf` | stream the original PDF |
 | GET | `/api/analytes` | canonical analyte list |
 | POST | `/api/analytes/merge` | (super-user) fold duplicate analytes into one kept analyte |
+| GET/POST | `/api/analytes/ignored-pairs`, `/analytes/ignore`, `/analytes/unignore` | (super-user) manage analyte pairs the duplicate hint should ignore |
 
 ## Data model
 
@@ -109,7 +110,8 @@ via `owner_user_id`), `profile_members` (profiles shared with other users),
 and vitals — body fat, waist, resting heart rate, VO₂max, blood oxygen, blood
 pressure — over time, with a `source` (manual or `apple_health`) and an
 `external_id` so HealthKit imports are idempotent; `value2` holds blood-pressure
-diastolic), `analyte_analyses` (stored AI analysis per profile + analyte). See
+diastolic), `analyte_analyses` (stored AI analysis per profile + analyte), `ignored_analyte_pairs`
+(analyte pairs an admin marked "not duplicates", suppressing the dashboard hint). See
 `backend/internal/db/migrations`.
 
 ## Testing
