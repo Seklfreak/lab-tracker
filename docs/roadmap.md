@@ -105,6 +105,13 @@ and rough notes so they aren't lost.
       access token. Refresh now signs out only on the definitive signal (RFC 6749
       §5.2 `400 invalid_grant`); other failures keep the token so the next request
       retries.
+    - [x] **Detect a missing refresh token (2026-08-02)** — on-device logs traced a
+      recurring sign-out to the token response containing *no* refresh token at all
+      (never a `refresh:` attempt, never a `REVOKED`): the provider wasn't granting
+      `offline_access`, so the session couldn't outlive the ~4h access token (the web
+      app papers over this via the browser session cookie). `store` now logs/persists
+      a loud warning when a token response lacks a refresh token, and Settings shows
+      it while signed in — the fix is server-side (grant `offline_access`).
   - [x] **Changelog to TestFlight (2026-07-31)** — every upload now sets the
     build's TestFlight **What to Test** notes to that release's changelog (the
     tag's GitHub Release body, written by `release.yaml`). After the upload,

@@ -41,6 +41,12 @@ struct SettingsView: View {
                     if store.auth.isSignedIn {
                         Label("Signed in", systemImage: "checkmark.seal.fill")
                             .foregroundStyle(Color.statusInRange)
+                        if !store.auth.hasRefreshToken {
+                            let msg = "The server didn’t issue a refresh token, so you’ll be signed out when the "
+                                + "session expires. Enable **offline_access** on the OIDC provider to stay signed in."
+                            Label(msg, systemImage: "exclamationmark.triangle.fill")
+                                .font(.caption).foregroundStyle(Color.statusWarn)
+                        }
                         Button("Sign out", role: .destructive) { store.auth.signOut() }
                     } else {
                         Button {

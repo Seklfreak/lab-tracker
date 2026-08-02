@@ -80,6 +80,11 @@ final class AuthSession: NSObject, ASWebAuthenticationPresentationContextProvidi
 
     var isSignedIn: Bool { refreshToken != nil || accessToken != nil }
 
+    /// Whether the session can be kept alive without re-login. False means the
+    /// provider didn't issue a refresh token (see `store`), so the session dies
+    /// with the access token — surfaced as a warning in Settings.
+    var hasRefreshToken: Bool { refreshToken != nil }
+
     override init() {
         let d = UserDefaults.standard
         self.config = OIDCConfig(
@@ -268,6 +273,13 @@ final class AuthSession: NSObject, ASWebAuthenticationPresentationContextProvidi
         if let rt = tr.refreshToken { refreshToken = rt } // rotation
         expiresAt = tr.expiresIn.map { Date().addingTimeInterval(TimeInterval($0)) }
         persist()
+        // Without a refresh token the session can't outlive the (short) access
+        // token — the app must re-login on expiry. Almost always means the OIDC
+        // provider isn't granting `offline_access`. Surface it loudly for diagnosis.
+        if refreshToken == nil {
+            AppLog.auth.error("token response had NO refresh token — session cannot be refreshed")
+            AppLog.persistAuth("⚠️ server issued no refresh token (needs offline_access) — periodic re-login expected")
+        }
     }
 
     private func persist() {
