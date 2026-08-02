@@ -168,7 +168,7 @@ jobs:
         if: steps.gate.outputs.ready == 'true'
         uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: "3.14"
 
       - name: Push changelog to TestFlight (What to Test)
         if: steps.gate.outputs.ready == 'true'
