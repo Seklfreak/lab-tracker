@@ -11,16 +11,22 @@ import (
 )
 
 type Querier interface {
+	// Keep the merged-away names as aliases so future uploads map to the target.
+	AddAnalyteNamesAsAliases(ctx context.Context, arg AddAnalyteNamesAsAliasesParams) error
 	// Upsert: a row with a real external_id re-imported from the same source updates
 	// in place (idempotent); manual rows (external_id NULL) never conflict, so they
 	// always insert.
 	AddBodyMeasurement(ctx context.Context, arg AddBodyMeasurementParams) (BodyMeasurement, error)
 	AddFavorite(ctx context.Context, arg AddFavoriteParams) error
 	AddProfileMember(ctx context.Context, arg AddProfileMemberParams) error
+	CountResultsForAnalyte(ctx context.Context, analyteID uuid.UUID) (int64, error)
 	CreateAnalyte(ctx context.Context, arg CreateAnalyteParams) (Analyte, error)
 	CreateProfile(ctx context.Context, arg CreateProfileParams) (Profile, error)
 	CreateReport(ctx context.Context, arg CreateReportParams) (LabReport, error)
 	CreateResult(ctx context.Context, arg CreateResultParams) (LabResult, error)
+	// Sources must no longer be referenced by lab_results (RESTRICT); aliases were
+	// repointed, and remaining favorites/analyses for the sources cascade away here.
+	DeleteAnalytes(ctx context.Context, sources []uuid.UUID) error
 	DeleteBodyMeasurement(ctx context.Context, arg DeleteBodyMeasurementParams) error
 	DeleteProfile(ctx context.Context, id uuid.UUID) error
 	DeleteReport(ctx context.Context, id uuid.UUID) error
@@ -59,8 +65,13 @@ type Querier interface {
 	ListUsersWithProfileCounts(ctx context.Context) ([]ListUsersWithProfileCountsRow, error)
 	MatchAliasBySpecimen(ctx context.Context, arg MatchAliasBySpecimenParams) (Analyte, error)
 	MatchAnalyteBySpecimen(ctx context.Context, arg MatchAnalyteBySpecimenParams) (Analyte, error)
+	MigrateFavoritesToAnalyte(ctx context.Context, arg MigrateFavoritesToAnalyteParams) error
 	RemoveFavorite(ctx context.Context, arg RemoveFavoriteParams) error
 	RemoveProfileMember(ctx context.Context, arg RemoveProfileMemberParams) error
+	RepointAliasesToAnalyte(ctx context.Context, arg RepointAliasesToAnalyteParams) error
+	// Merge steps: fold one or more source analytes into a target. Run in order,
+	// inside a transaction (see mergeAnalytes).
+	RepointResultsToAnalyte(ctx context.Context, arg RepointResultsToAnalyteParams) error
 	ResultStatsForProfileAnalyte(ctx context.Context, arg ResultStatsForProfileAnalyteParams) (ResultStatsForProfileAnalyteRow, error)
 	SetReportError(ctx context.Context, arg SetReportErrorParams) error
 	SetReportParsed(ctx context.Context, arg SetReportParsedParams) error

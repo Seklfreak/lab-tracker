@@ -97,6 +97,7 @@ npm run dev                # http://localhost:5173 (proxies /api to :8080)
 | POST | `/api/reports/{id}/confirm` | save edited results + learn aliases |
 | GET | `/api/reports/{id}/pdf` | stream the original PDF |
 | GET | `/api/analytes` | canonical analyte list |
+| POST | `/api/analytes/merge` | (super-user) fold duplicate analytes into one kept analyte |
 
 ## Data model
 

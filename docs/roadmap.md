@@ -58,6 +58,13 @@ and rough notes so they aren't lost.
   against the JWT email) gates `/api/me` (returns `isAdmin`) and the admin-only
   `/api/admin/users`, which lists every user with their owned/shared profile
   counts. Frontend: an Admin nav link + table, shown only to admins.
+  - [x] **Merge duplicate analytes (2026-08-02)** — parsers sometimes split one
+    marker into several ("HbA1c" vs "Hemoglobin A1c"). Admin-only
+    `POST /api/analytes/merge` folds sources into a kept analyte in one
+    transaction: repoints results/aliases/favorites, adds the merged-away names as
+    aliases (so future uploads map to the target), and deletes the sources
+    (analyses cascade). Global + permanent, hence super-user only. Frontend: a
+    search-and-select merge tool in the Admin page.
 - [x] **Frontend ESLint** (2026-06-26) — flat-config ESLint with
   `react-hooks/rules-of-hooks` (error) + `exhaustive-deps` (warn), run in CI.
   Catches hook-order bugs that `tsc`/`vite build` can't (e.g. a hook after an

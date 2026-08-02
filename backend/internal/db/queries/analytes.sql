@@ -51,3 +51,33 @@ SELECT DISTINCT a.* FROM analytes a
 JOIN lab_results r ON r.analyte_id = a.id
 WHERE r.profile_id = $1
 ORDER BY a.category NULLS LAST, a.name;
+
+-- name: CountResultsForAnalyte :one
+SELECT count(*) FROM lab_results WHERE analyte_id = $1;
+
+-- Merge steps: fold one or more source analytes into a target. Run in order,
+-- inside a transaction (see mergeAnalytes).
+
+-- name: RepointResultsToAnalyte :exec
+UPDATE lab_results SET analyte_id = @target
+WHERE analyte_id = ANY(@sources::uuid[]);
+
+-- name: RepointAliasesToAnalyte :exec
+UPDATE analyte_aliases SET analyte_id = @target
+WHERE analyte_id = ANY(@sources::uuid[]);
+
+-- name: AddAnalyteNamesAsAliases :exec
+-- Keep the merged-away names as aliases so future uploads map to the target.
+INSERT INTO analyte_aliases (analyte_id, raw_name)
+SELECT @target, name FROM analytes WHERE id = ANY(@sources::uuid[])
+ON CONFLICT (raw_name) DO NOTHING;
+
+-- name: MigrateFavoritesToAnalyte :exec
+INSERT INTO favorites (profile_id, analyte_id)
+SELECT profile_id, @target FROM favorites WHERE analyte_id = ANY(@sources::uuid[])
+ON CONFLICT DO NOTHING;
+
+-- name: DeleteAnalytes :exec
+-- Sources must no longer be referenced by lab_results (RESTRICT); aliases were
+-- repointed, and remaining favorites/analyses for the sources cascade away here.
+DELETE FROM analytes WHERE id = ANY(@sources::uuid[]);

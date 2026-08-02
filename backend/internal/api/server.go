@@ -123,6 +123,7 @@ func (s *Server) Router(corsOrigins []string) http.Handler {
 		r.Delete("/results/{id}", s.deleteResult)
 
 		r.Get("/analytes", s.listAnalytes)
+		r.Post("/analytes/merge", s.mergeAnalytes) // super-user only (see handler)
 	})
 
 	return r

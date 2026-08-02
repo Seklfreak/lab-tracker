@@ -234,6 +234,9 @@ export const api = {
     req<void>(`/api/profiles/${profileId}/members/${userId}`, { method: "DELETE" }),
 
   listAnalytes: () => req<Analyte[]>("/api/analytes"),
+  // Admin-only: fold duplicate analytes (sourceIds) into a kept one (targetId).
+  mergeAnalytes: (targetId: string, sourceIds: string[]) =>
+    req<Analyte>("/api/analytes/merge", json({ targetId, sourceIds })),
   listProfileAnalytes: (profileId: string) =>
     req<Analyte[]>(`/api/profiles/${profileId}/analytes`),
 

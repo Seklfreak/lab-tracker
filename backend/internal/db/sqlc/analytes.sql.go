@@ -12,6 +12,34 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const addAnalyteNamesAsAliases = `-- name: AddAnalyteNamesAsAliases :exec
+INSERT INTO analyte_aliases (analyte_id, raw_name)
+SELECT $1, name FROM analytes WHERE id = ANY($2::uuid[])
+ON CONFLICT (raw_name) DO NOTHING
+`
+
+type AddAnalyteNamesAsAliasesParams struct {
+	Target  uuid.UUID   `json:"target"`
+	Sources []uuid.UUID `json:"sources"`
+}
+
+// Keep the merged-away names as aliases so future uploads map to the target.
+func (q *Queries) AddAnalyteNamesAsAliases(ctx context.Context, arg AddAnalyteNamesAsAliasesParams) error {
+	_, err := q.db.Exec(ctx, addAnalyteNamesAsAliases, arg.Target, arg.Sources)
+	return err
+}
+
+const countResultsForAnalyte = `-- name: CountResultsForAnalyte :one
+SELECT count(*) FROM lab_results WHERE analyte_id = $1
+`
+
+func (q *Queries) CountResultsForAnalyte(ctx context.Context, analyteID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countResultsForAnalyte, analyteID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createAnalyte = `-- name: CreateAnalyte :one
 INSERT INTO analytes (name, default_unit, category)
 VALUES ($1, $2, $3)
@@ -37,6 +65,17 @@ func (q *Queries) CreateAnalyte(ctx context.Context, arg CreateAnalyteParams) (A
 		&i.Specimens,
 	)
 	return i, err
+}
+
+const deleteAnalytes = `-- name: DeleteAnalytes :exec
+DELETE FROM analytes WHERE id = ANY($1::uuid[])
+`
+
+// Sources must no longer be referenced by lab_results (RESTRICT); aliases were
+// repointed, and remaining favorites/analyses for the sources cascade away here.
+func (q *Queries) DeleteAnalytes(ctx context.Context, sources []uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteAnalytes, sources)
+	return err
 }
 
 const getAliasByRawName = `-- name: GetAliasByRawName :one
@@ -229,6 +268,55 @@ func (q *Queries) MatchAnalyteBySpecimen(ctx context.Context, arg MatchAnalyteBy
 		&i.Specimens,
 	)
 	return i, err
+}
+
+const migrateFavoritesToAnalyte = `-- name: MigrateFavoritesToAnalyte :exec
+INSERT INTO favorites (profile_id, analyte_id)
+SELECT profile_id, $1 FROM favorites WHERE analyte_id = ANY($2::uuid[])
+ON CONFLICT DO NOTHING
+`
+
+type MigrateFavoritesToAnalyteParams struct {
+	Target  uuid.UUID   `json:"target"`
+	Sources []uuid.UUID `json:"sources"`
+}
+
+func (q *Queries) MigrateFavoritesToAnalyte(ctx context.Context, arg MigrateFavoritesToAnalyteParams) error {
+	_, err := q.db.Exec(ctx, migrateFavoritesToAnalyte, arg.Target, arg.Sources)
+	return err
+}
+
+const repointAliasesToAnalyte = `-- name: RepointAliasesToAnalyte :exec
+UPDATE analyte_aliases SET analyte_id = $1
+WHERE analyte_id = ANY($2::uuid[])
+`
+
+type RepointAliasesToAnalyteParams struct {
+	Target  uuid.UUID   `json:"target"`
+	Sources []uuid.UUID `json:"sources"`
+}
+
+func (q *Queries) RepointAliasesToAnalyte(ctx context.Context, arg RepointAliasesToAnalyteParams) error {
+	_, err := q.db.Exec(ctx, repointAliasesToAnalyte, arg.Target, arg.Sources)
+	return err
+}
+
+const repointResultsToAnalyte = `-- name: RepointResultsToAnalyte :exec
+
+UPDATE lab_results SET analyte_id = $1
+WHERE analyte_id = ANY($2::uuid[])
+`
+
+type RepointResultsToAnalyteParams struct {
+	Target  uuid.UUID   `json:"target"`
+	Sources []uuid.UUID `json:"sources"`
+}
+
+// Merge steps: fold one or more source analytes into a target. Run in order,
+// inside a transaction (see mergeAnalytes).
+func (q *Queries) RepointResultsToAnalyte(ctx context.Context, arg RepointResultsToAnalyteParams) error {
+	_, err := q.db.Exec(ctx, repointResultsToAnalyte, arg.Target, arg.Sources)
+	return err
 }
 
 const upsertAlias = `-- name: UpsertAlias :exec

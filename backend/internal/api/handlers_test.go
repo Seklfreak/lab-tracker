@@ -336,6 +336,44 @@ func TestListAllUsers_Forbidden(t *testing.T) {
 	}
 }
 
+// Merging analytes rewrites the global catalog, so a non-admin is rejected
+// before any query or transaction runs.
+func TestMergeAnalytes_Forbidden(t *testing.T) {
+	s := &Server{
+		q:   &sqlctest.FakeQuerier{},
+		log: slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+	req := httptest.NewRequest(http.MethodPost, "/api/analytes/merge",
+		strings.NewReader(`{"targetId":"`+uuid.New().String()+`","sourceIds":["`+uuid.New().String()+`"]}`))
+	req = req.WithContext(context.WithValue(req.Context(), isAdminKey, false))
+	rec := httptest.NewRecorder()
+	s.mergeAnalytes(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("non-admin: want 403, got %d", rec.Code)
+	}
+}
+
+// Validation happens before the transaction (admin context via AUTH_DISABLED).
+func TestMergeAnalytes_Validation(t *testing.T) {
+	h := router(&sqlctest.FakeQuerier{}, nil)
+	target := uuid.New().String()
+	cases := []struct {
+		name, body string
+	}{
+		{"no sources", `{"targetId":"` + target + `","sourceIds":[]}`},
+		{"bad target", `{"targetId":"nope","sourceIds":["` + uuid.New().String() + `"]}`},
+		{"target is a source", `{"targetId":"` + target + `","sourceIds":["` + target + `"]}`},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			rec := do(t, h, http.MethodPost, "/api/analytes/merge", c.body)
+			if rec.Code != http.StatusBadRequest {
+				t.Errorf("%s: want 400, got %d", c.name, rec.Code)
+			}
+		})
+	}
+}
+
 func TestUpdateResultBadID(t *testing.T) {
 	rec := do(t, router(&sqlctest.FakeQuerier{}, nil), http.MethodPost, "/api/results/not-a-uuid", `{"analyteId":"x"}`)
 	if rec.Code != http.StatusBadRequest {
