@@ -6,6 +6,8 @@ import Charts
 /// and accepts them in the chosen unit — including feet+inches for height.
 struct BodyView: View {
     @Environment(Store.self) private var store
+    @Environment(HealthSync.self) private var healthSync
+    @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dismiss) private var dismiss
     let profile: Profile
 
@@ -96,13 +98,20 @@ struct BodyView: View {
             }
             .onAppear { if heightUnit == "in" { heightUnit = "ftin" } } // migrate old total-inches
             .task { await load() }
+            // Keep the sheet live: refresh the measurements when a Health sync lands
+            // while it's open, and when the app returns to the foreground. Only the
+            // measurements are re-fetched, so an in-progress birthdate edit is kept.
+            .onChange(of: healthSync.lastSyncAt) { _, _ in Task { await refreshMeasurements() } }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .active { Task { await refreshMeasurements() } }
+            }
         }
     }
 
     // MARK: BMI
 
     @ViewBuilder private func bmiRow(_ value: Double) -> some View {
-        let (label, tint) = bmiCategory(value)
+        let (label, tint) = bmiStatus(value) // shared with the dashboard so colors/labels match
         HStack {
             Text(String(format: "%.1f", value))
                 .font(.title3.weight(.semibold)).monospacedDigit()
@@ -113,10 +122,6 @@ struct BodyView: View {
                 .padding(.horizontal, 10).padding(.vertical, 5)
                 .background(Capsule().fill(tint.opacity(0.15)))
         }
-    }
-
-    private func bmiCategory(_ v: Double) -> (String, Color) {
-        bmiStatus(v) // shared with the dashboard so colors/labels match
     }
 
     // MARK: weight / height sections
@@ -281,6 +286,15 @@ extension BodyView {
             error = nil
         } catch {
             self.error = error.localizedDescription
+        }
+    }
+
+    /// Re-fetch only the measurements (not the profile/birthdate fields), for the
+    /// live-refresh triggers. Silent — a transient failure just leaves the current
+    /// list in place rather than surfacing an error over an open sheet.
+    private func refreshMeasurements() async {
+        if let rows = try? await store.api.bodyMeasurements(profileId: profile.id) {
+            measurements = rows
         }
     }
 

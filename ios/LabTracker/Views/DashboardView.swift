@@ -19,6 +19,7 @@ enum SortKey: String, CaseIterable, Identifiable {
 /// menu, an out-of-range filter, and a tap-through to the trend + AI analysis.
 struct DashboardView: View {
     @Environment(Store.self) private var store
+    @Environment(HealthSync.self) private var healthSync
     let profile: Profile
 
     @State private var results: [LabResult] = []
@@ -99,6 +100,11 @@ struct DashboardView: View {
         .sheet(isPresented: $showBody, onDismiss: { Task { await load() } }, content: {
             BodyView(profile: profile)
         })
+        // Refresh the Body section when a Health sync lands while the dashboard is
+        // visible (lab results don't change from a sync, so only re-fetch body).
+        .onChange(of: healthSync.lastSyncAt) { _, _ in
+            Task { bodyMeasurements = (try? await store.api.bodyMeasurements(profileId: profile.id)) ?? bodyMeasurements }
+        }
     }
 
     private var list: some View {
