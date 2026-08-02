@@ -136,6 +136,7 @@ final class AuthSession: NSObject, ASWebAuthenticationPresentationContextProvidi
         refreshToken = nil
         expiresAt = nil
         persist()
+        AppLog.auth.notice("signed out (tokens cleared)")
     }
 
     /// A non-expired access token, refreshing first if it's within 30s of expiry.
@@ -165,6 +166,7 @@ final class AuthSession: NSObject, ASWebAuthenticationPresentationContextProvidi
 
     private func performRefresh() async throws {
         guard let rt = refreshToken, config.isConfigured else { return }
+        AppLog.auth.notice("refresh: requesting new access token")
         let disco = try await discover()
         let (data, resp) = try await post(disco.tokenEndpoint, form: [
             "grant_type": "refresh_token",
@@ -175,15 +177,29 @@ final class AuthSession: NSObject, ASWebAuthenticationPresentationContextProvidi
         switch Self.classifyRefresh(status: status, body: data) {
         case .refreshed:
             store(try oidcDecoder.decode(TokenResponse.self, from: data))
+            AppLog.auth.notice("refresh: ok (status \(status, privacy: .public))")
         case .revoked:
+            // The one case that forces a re-login. Log the server's reason so a
+            // recurring daily sign-out can be diagnosed from the device.
+            let body = Self.bodySnippet(data)
+            AppLog.auth.error("refresh: REVOKED — signing out (status \(status, privacy: .public), body: \(body, privacy: .public))")
             signOut() // refresh token expired/revoked — a fresh sign-in is required
             throw OIDCError.token("refresh rejected")
         case let .keepRetry(code):
             // A transient failure — Authentik restarting/redeploying, or a gateway
             // 5xx — must NOT discard a still-valid refresh token. Surface the error
             // and keep the token so the next request simply retries.
+            let body = Self.bodySnippet(data)
+            AppLog.auth.error("refresh: transient, kept token (status \(code, privacy: .public), body: \(body, privacy: .public))")
             throw OIDCError.token("refresh failed (status \(code))")
         }
+    }
+
+    /// A short, token-free snippet of a token-endpoint error body for logging
+    /// (error responses are `{"error":"…"}` — no secrets).
+    private static func bodySnippet(_ data: Data) -> String {
+        let s = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+        return s.count > 200 ? String(s.prefix(200)) + "…" : s
     }
 
     /// What the token endpoint's refresh response means for our stored tokens:
@@ -223,6 +239,7 @@ final class AuthSession: NSObject, ASWebAuthenticationPresentationContextProvidi
             throw OIDCError.token(String(data: data, encoding: .utf8) ?? "status \( (resp as? HTTPURLResponse)?.statusCode ?? 0)")
         }
         store(try oidcDecoder.decode(TokenResponse.self, from: data))
+        AppLog.auth.notice("sign-in: token exchange ok")
     }
 
     private func store(_ tr: TokenResponse) {

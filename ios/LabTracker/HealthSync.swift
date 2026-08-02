@@ -37,9 +37,9 @@ final class HealthSync {
         static func anchor(_ id: String) -> String { "healthSyncAnchor.\(id)" }
     }
 
-    /// Logs to Console.app (subsystem `dev.winktech.labtracker`, category
-    /// `healthsync`) — visible even during a background wake with the app closed.
-    private let log = Logger(subsystem: "dev.winktech.labtracker", category: "healthsync")
+    /// Logs to the unified log (category `healthsync`) — visible in the in-app log
+    /// viewer and in Console.app, even during a background wake with the app closed.
+    private let log = AppLog.healthSync
 
     /// Whether new Health data is imported automatically. Persisted.
     private(set) var isEnabled: Bool

@@ -136,8 +136,16 @@ behaviour; run it from the Actions tab with `force: true` to refresh immediately
   of tracked body stats that opens the Body sheet), `AnalyteDetailView`
   (Swift Charts trend + AI analysis, with generate/regenerate + a staleness
   banner), `SettingsView`, `AboutView` (app/API
-  versions + diagnostics, incl. a `HealthKitDebugView` showing per-type readable
-  sample counts), `MarkdownText`.
+  versions + a Diagnostics section linking a `LogViewerView` and, when available, a
+  `HealthKitDebugView` showing per-type readable sample counts), `MarkdownText`.
+- `LabTracker/Logging.swift` — `AppLog`: the shared `os.Logger` subsystem
+  (`dev.winktech.labtracker`) with `auth` / `healthsync` categories, plus a
+  `recent()` reader over this process's `OSLogStore` powering the in-app viewer.
+- `LabTracker/Views/LogViewerView.swift` — on-device log viewer (About →
+  Diagnostics → Logs): shows the app's own sign-in / token-refresh / sync log lines
+  with a category filter and share-to-export, so auth issues can be diagnosed
+  without a Mac. Auth signs out only on a `400 invalid_grant`, which is logged with
+  the server's reason.
 - `LabTracker/Views/ServerCheck.swift` — probes `{url}/health` to validate a
   server URL (shared by onboarding + settings).
 - `LabTracker/Views/HealthSnapshot.swift` — the dashboard's collapsible **Health

@@ -45,8 +45,13 @@ struct AboutView: View {
                 LabeledContent("Model", value: UIDevice.current.model)
             }
 
-            if HealthImporter.isAvailable {
-                Section("Diagnostics") {
+            Section("Diagnostics") {
+                NavigationLink {
+                    LogViewerView()
+                } label: {
+                    Label("Logs", systemImage: "doc.text.magnifyingglass")
+                }
+                if HealthImporter.isAvailable {
                     NavigationLink {
                         HealthKitDebugView()
                     } label: {
