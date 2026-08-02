@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type Analyte } from "@/lib/api";
 import { Badge, Button, Card, Input, Spinner } from "@/components/ui";
@@ -86,9 +87,23 @@ function AnalyteMerge() {
   const [target, setTarget] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [done, setDone] = useState<string | null>(null);
+  const [params] = useSearchParams();
+  const preselected = useRef(false);
+  const cardRef = useRef<HTMLDivElement>(null);
 
   const all = useMemo(() => analytes.data ?? [], [analytes.data]);
   const byId = useMemo(() => new Map(all.map((a) => [a.id, a])), [all]);
+
+  // Deep-link from the dashboard's duplicate hint: ?merge=id1,id2 pre-selects
+  // those analytes (once) and scrolls the tool into view.
+  useEffect(() => {
+    if (preselected.current || all.length === 0) return;
+    const ids = (params.get("merge") ?? "").split(",").filter((id) => byId.has(id));
+    if (ids.length === 0) return;
+    setSelected(new Set(ids));
+    preselected.current = true;
+    cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [all, params, byId]);
   const chosen = [...selected].map((id) => byId.get(id)).filter(Boolean) as Analyte[];
   // The kept analyte: an explicit pick if still selected, else the first chosen.
   const keep = (target && selected.has(target) ? target : chosen[0]?.id) ?? null;
@@ -121,7 +136,7 @@ function AnalyteMerge() {
   }
 
   return (
-    <div className="space-y-3 pt-4">
+    <div ref={cardRef} className="space-y-3 pt-4">
       <div className="flex items-baseline justify-between">
         <h1 className="text-lg font-semibold">Merge analytes</h1>
         <span className="text-sm text-muted">{all.length} in catalog</span>

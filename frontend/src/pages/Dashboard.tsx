@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { clsx } from "clsx";
@@ -8,12 +8,15 @@ import {
   ChevronRight,
   Download,
   FileDown,
+  GitMerge,
   LineChart,
   RotateCw,
   Sparkles,
   Star,
+  X,
 } from "lucide-react";
 import { api, type Result } from "@/lib/api";
+import { findDuplicateGroups } from "@/lib/duplicates";
 import { dashboardBodyItems, type BodyDashItem } from "@/lib/body";
 import { useProfile } from "@/lib/profile";
 import { Badge, Button, Card, Input, Select, Spinner } from "@/components/ui";
@@ -252,6 +255,7 @@ export function Dashboard() {
   return (
     <div className="space-y-6">
       <PanelSummaryCard key={profileId} profileId={profileId} currentCount={data.length} />
+      <DuplicateHint results={data} />
       {controls}
       {/* Floating (fixed) so selecting doesn't reflow the list under your finger. */}
       {sel.length > 0 && (
@@ -284,6 +288,46 @@ export function Dashboard() {
         </>
       )}
     </div>
+  );
+}
+
+// Admin-only nudge: the parser sometimes splits one marker into several analytes.
+// Surface likely duplicates and deep-link into the Admin merge tool with them
+// pre-selected. Dismissible for the session; hidden for non-admins (who can't merge).
+function DuplicateHint({ results }: { results: Result[] }) {
+  const me = useQuery({ queryKey: ["me"], queryFn: api.me });
+  const [dismissed, setDismissed] = useState(false);
+  const groups = useMemo(() => findDuplicateGroups(results), [results]);
+
+  if (!me.data?.isAdmin || dismissed || groups.length === 0) return null;
+
+  return (
+    <Card className="border-warn/40 bg-warn/5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 space-y-1.5">
+          <p className="flex items-center gap-1.5 text-sm font-medium">
+            <GitMerge size={15} className="text-warn" />
+            Possible duplicate {groups.length === 1 ? "marker" : "markers"}
+          </p>
+          <ul className="space-y-1 text-sm">
+            {groups.slice(0, 6).map((g) => (
+              <li key={g.analytes[0].id} className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                <span className="text-muted">{g.analytes.map((x) => x.name).join(" · ")}</span>
+                <Link
+                  to={`/admin?merge=${g.analytes.map((x) => x.id).join(",")}`}
+                  className="text-accent hover:underline"
+                >
+                  Review →
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <button onClick={() => setDismissed(true)} className="shrink-0 text-muted hover:text-text" aria-label="Dismiss">
+          <X size={16} />
+        </button>
+      </div>
+    </Card>
   );
 }
 

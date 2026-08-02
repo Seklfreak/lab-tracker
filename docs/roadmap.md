@@ -64,7 +64,9 @@ and rough notes so they aren't lost.
     transaction: repoints results/aliases/favorites, adds the merged-away names as
     aliases (so future uploads map to the target), and deletes the sources
     (analyses cascade). Global + permanent, hence super-user only. Frontend: a
-    search-and-select merge tool in the Admin page.
+    search-and-select merge tool in the Admin page, plus an admin-only dashboard
+    hint (`findDuplicateGroups` heuristic) that surfaces likely duplicates and
+    deep-links into the tool with them pre-selected.
 - [x] **Frontend ESLint** (2026-06-26) — flat-config ESLint with
   `react-hooks/rules-of-hooks` (error) + `exhaustive-deps` (warn), run in CI.
   Catches hook-order bugs that `tsc`/`vite build` can't (e.g. a hook after an
