@@ -6,6 +6,7 @@ import SwiftUI
 /// refresh, and share to export the text.
 struct LogViewerView: View {
     @State private var entries: [AppLog.Entry] = []
+    @State private var trail: [AppLog.Entry] = []
     @State private var category = "all"
 
     private var categories: [String] {
@@ -18,30 +19,31 @@ struct LogViewerView: View {
 
     var body: some View {
         List {
-            if categories.count > 2 {
-                Picker("Category", selection: $category) {
-                    ForEach(categories, id: \.self) { Text($0.capitalized).tag($0) }
+            // Persisted auth events — survive restarts, so a sign-out that happened
+            // in a background process shows up here even though the live log below
+            // only covers the current session.
+            if !trail.isEmpty {
+                Section("Auth history (saved)") {
+                    ForEach(trail) { row($0) }
                 }
-                .pickerStyle(.segmented)
-                .listRowSeparator(.hidden)
             }
 
-            if filtered.isEmpty {
-                Text("No logs yet. Sign-in, token refresh, and Health sync events will appear here.")
-                    .font(.callout).foregroundStyle(.secondary)
-            } else {
-                ForEach(filtered) { entry in
-                    VStack(alignment: .leading, spacing: 3) {
-                        HStack(spacing: 6) {
-                            Text(Self.time(entry.date)).monospaced().foregroundStyle(.secondary)
-                            Text(entry.category).fontWeight(.semibold).foregroundStyle(Color.brandTeal)
-                            Text(entry.level).foregroundStyle(color(entry.level))
-                        }
-                        .font(.caption2)
-                        Text(entry.message).font(.caption.monospaced())
+            Section {
+                if categories.count > 2 {
+                    Picker("Category", selection: $category) {
+                        ForEach(categories, id: \.self) { Text($0.capitalized).tag($0) }
                     }
-                    .padding(.vertical, 1)
+                    .pickerStyle(.segmented)
+                    .listRowSeparator(.hidden)
                 }
+                if filtered.isEmpty {
+                    Text("No logs this session. Sign-in, token refresh, and Health sync events appear here.")
+                        .font(.callout).foregroundStyle(.secondary)
+                } else {
+                    ForEach(filtered) { row($0) }
+                }
+            } header: {
+                Text("This session")
             }
         }
         .navigationTitle("Logs")
@@ -49,16 +51,35 @@ struct LogViewerView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 ShareLink(item: exportText) { Image(systemName: "square.and.arrow.up") }
-                    .disabled(entries.isEmpty)
+                    .disabled(entries.isEmpty && trail.isEmpty)
             }
         }
-        .task { entries = AppLog.recent() }
-        .refreshable { entries = AppLog.recent() }
+        .task { reload() }
+        .refreshable { reload() }
+    }
+
+    @ViewBuilder private func row(_ entry: AppLog.Entry) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 6) {
+                Text(Self.time(entry.date)).monospaced().foregroundStyle(.secondary)
+                Text(entry.category).fontWeight(.semibold).foregroundStyle(Color.brandTeal)
+                Text(entry.level).foregroundStyle(color(entry.level))
+            }
+            .font(.caption2)
+            Text(entry.message).font(.caption.monospaced())
+        }
+        .padding(.vertical, 1)
+    }
+
+    private func reload() {
+        entries = AppLog.recent()
+        trail = AppLog.authTrail()
     }
 
     private var exportText: String {
-        filtered.map { "\(Self.time($0.date)) [\($0.category)] \($0.level): \($0.message)" }
-            .joined(separator: "\n")
+        let all = trail.map { "\(Self.time($0.date)) [saved:\($0.category)] \($0.message)" }
+            + filtered.map { "\(Self.time($0.date)) [\($0.category)] \($0.level): \($0.message)" }
+        return all.joined(separator: "\n")
     }
 
     private func color(_ level: String) -> Color {

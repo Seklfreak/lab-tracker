@@ -87,11 +87,7 @@ final class AuthSession: NSObject, ASWebAuthenticationPresentationContextProvidi
             clientID: d.string(forKey: "oidc_client_id") ?? "lab-tracker"
         )
         super.init()
-        accessToken = Keychain.get("access_token")
-        refreshToken = Keychain.get("refresh_token")
-        if let s = Keychain.get("expires_at"), let t = TimeInterval(s) {
-            expiresAt = Date(timeIntervalSince1970: t)
-        }
+        reloadFromKeychain()
     }
 
     /// The only thing a user configures is the server URL: fetch the server's
@@ -139,6 +135,18 @@ final class AuthSession: NSObject, ASWebAuthenticationPresentationContextProvidi
         AppLog.auth.notice("signed out (tokens cleared)")
     }
 
+    /// (Re)load tokens from the Keychain — the source of truth shared across the
+    /// foreground app and background-launched processes.
+    private func reloadFromKeychain() {
+        accessToken = Keychain.get("access_token")
+        refreshToken = Keychain.get("refresh_token")
+        if let s = Keychain.get("expires_at"), let t = TimeInterval(s) {
+            expiresAt = Date(timeIntervalSince1970: t)
+        } else {
+            expiresAt = nil
+        }
+    }
+
     /// A non-expired access token, refreshing first if it's within 30s of expiry.
     func validAccessToken() async -> String? {
         if let exp = expiresAt, Date() < exp.addingTimeInterval(-30) { return accessToken }
@@ -179,10 +187,21 @@ final class AuthSession: NSObject, ASWebAuthenticationPresentationContextProvidi
             store(try oidcDecoder.decode(TokenResponse.self, from: data))
             AppLog.auth.notice("refresh: ok (status \(status, privacy: .public))")
         case .revoked:
-            // The one case that forces a re-login. Log the server's reason so a
-            // recurring daily sign-out can be diagnosed from the device.
+            // Another process (e.g. a background HealthKit sync) may have refreshed
+            // first — Authentik rotates the token on use, so our `invalid_grant` can
+            // just mean we raced and lost. If the Keychain now holds a *different*
+            // refresh token, adopt it instead of signing the user out.
+            if let current = Keychain.get("refresh_token"), current != rt {
+                AppLog.auth.notice("refresh: raced another process; adopting rotated token")
+                AppLog.persistAuth("refresh raced another process — adopted rotated token, kept session")
+                reloadFromKeychain()
+                return
+            }
+            // A genuine revocation — the one case that forces a re-login. Persist the
+            // server's reason so it's visible next launch even from a background process.
             let body = Self.bodySnippet(data)
             AppLog.auth.error("refresh: REVOKED — signing out (status \(status, privacy: .public), body: \(body, privacy: .public))")
+            AppLog.persistAuth("refresh REVOKED (status \(status), body: \(body)) — signed out")
             signOut() // refresh token expired/revoked — a fresh sign-in is required
             throw OIDCError.token("refresh rejected")
         case let .keepRetry(code):
@@ -191,6 +210,7 @@ final class AuthSession: NSObject, ASWebAuthenticationPresentationContextProvidi
             // and keep the token so the next request simply retries.
             let body = Self.bodySnippet(data)
             AppLog.auth.error("refresh: transient, kept token (status \(code, privacy: .public), body: \(body, privacy: .public))")
+            AppLog.persistAuth("refresh transient failure (status \(code)) — kept token")
             throw OIDCError.token("refresh failed (status \(code))")
         }
     }
@@ -240,6 +260,7 @@ final class AuthSession: NSObject, ASWebAuthenticationPresentationContextProvidi
         }
         store(try oidcDecoder.decode(TokenResponse.self, from: data))
         AppLog.auth.notice("sign-in: token exchange ok")
+        AppLog.persistAuth("signed in (token exchange ok)")
     }
 
     private func store(_ tr: TokenResponse) {

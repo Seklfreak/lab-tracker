@@ -157,6 +157,13 @@ final class HealthSync {
     /// each run only sees samples added since the last one.
     func syncNow(trigger: SyncTrigger = .foreground) async {
         guard isEnabled, let profileId = targetProfileId, let api = Self.makeAPI() else { return }
+        // On an auth-required server, don't fire doomed requests when signed out —
+        // it just spams 401s (and can't upload anyway). A local AUTH_DISABLED server
+        // has no OIDC config, so let that through.
+        if AuthSession.shared.config.isConfigured, !AuthSession.shared.isSignedIn {
+            log.info("skip sync (\(trigger.rawValue, privacy: .public)): not signed in")
+            return
+        }
         guard !syncing else { log.debug("sync already in progress; skipping \(trigger.rawValue, privacy: .public)"); return }
         syncing = true
         defer { syncing = false }

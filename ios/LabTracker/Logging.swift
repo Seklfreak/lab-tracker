@@ -41,6 +41,35 @@ enum AppLog {
         }
     }
 
+    // MARK: - Persistent auth trail
+
+    // The OSLogStore reader only sees the current process, so a sign-out that
+    // happens in a *background* launch would be invisible next time the app opens.
+    // Key auth events are also written to a small UserDefaults ring buffer that
+    // survives across process launches, so the log viewer can show them.
+    private static let authTrailKey = "authEventTrail"
+    private static let authTrailMax = 40
+
+    /// Record a key auth event to the cross-process trail (in addition to os.Logger).
+    static func persistAuth(_ message: String, at date: Date = Date()) {
+        let d = UserDefaults.standard
+        var trail = d.stringArray(forKey: authTrailKey) ?? []
+        trail.append("\(date.timeIntervalSince1970)\t\(message)")
+        if trail.count > authTrailMax { trail.removeFirst(trail.count - authTrailMax) }
+        d.set(trail, forKey: authTrailKey)
+    }
+
+    /// The persisted auth events, newest first.
+    static func authTrail() -> [Entry] {
+        let raw = UserDefaults.standard.stringArray(forKey: authTrailKey) ?? []
+        return raw.reversed().map { line in
+            let parts = line.split(separator: "\t", maxSplits: 1)
+            let date = (parts.count == 2 ? TimeInterval(parts[0]) : nil).map { Date(timeIntervalSince1970: $0) } ?? Date()
+            let msg = parts.count == 2 ? String(parts[1]) : line
+            return Entry(date: date, category: "auth", level: "saved", message: msg)
+        }
+    }
+
     private static func levelName(_ level: OSLogEntryLog.Level) -> String {
         switch level {
         case .debug: return "debug"

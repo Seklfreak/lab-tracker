@@ -144,8 +144,14 @@ behaviour; run it from the Actions tab with `force: true` to refresh immediately
 - `LabTracker/Views/LogViewerView.swift` — on-device log viewer (About →
   Diagnostics → Logs): shows the app's own sign-in / token-refresh / sync log lines
   with a category filter and share-to-export, so auth issues can be diagnosed
-  without a Mac. Auth signs out only on a `400 invalid_grant`, which is logged with
-  the server's reason.
+  without a Mac. Auth signs out only on a `400 invalid_grant`, logged with the
+  server's reason and also written to a persistent **Auth history** trail
+  (`UserDefaults`, via `AppLog.persistAuth`) so a sign-out that happened in a
+  *background* launch is still visible next time the app opens (the live OSLog
+  reader only sees the current process). Token refresh is race-safe across
+  processes: on `invalid_grant`, if the Keychain already holds a rotated refresh
+  token (another process refreshed first — e.g. a background sync), the app adopts
+  it instead of signing out.
 - `LabTracker/Views/ServerCheck.swift` — probes `{url}/health` to validate a
   server URL (shared by onboarding + settings).
 - `LabTracker/Views/HealthSnapshot.swift` — the dashboard's collapsible **Health
