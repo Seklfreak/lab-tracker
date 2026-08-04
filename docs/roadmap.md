@@ -112,6 +112,10 @@ and rough notes so they aren't lost.
       app papers over this via the browser session cookie). `store` now logs/persists
       a loud warning when a token response lacks a refresh token, and Settings shows
       it while signed in — the fix is server-side (grant `offline_access`).
+    - [x] **Don't freeze the app while loading Logs (2026-08-04)** — the Settings
+      Logs screen read `OSLogStore` synchronously on the main actor; `getEntries`
+      can take seconds, hanging the whole UI. The store is now read off the main
+      actor with a loading indicator in the meantime.
   - [x] **Changelog to TestFlight (2026-07-31)** — every upload now sets the
     build's TestFlight **What to Test** notes to that release's changelog (the
     tag's GitHub Release body, written by `release.yaml`). After the upload,

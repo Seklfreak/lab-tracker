@@ -8,6 +8,7 @@ struct LogViewerView: View {
     @State private var entries: [AppLog.Entry] = []
     @State private var trail: [AppLog.Entry] = []
     @State private var category = "all"
+    @State private var isLoading = true
 
     private var categories: [String] {
         ["all"] + Set(entries.map(\.category)).sorted()
@@ -36,7 +37,12 @@ struct LogViewerView: View {
                     .pickerStyle(.segmented)
                     .listRowSeparator(.hidden)
                 }
-                if filtered.isEmpty {
+                if isLoading {
+                    HStack(spacing: 8) {
+                        ProgressView()
+                        Text("Loading logs…").font(.callout).foregroundStyle(.secondary)
+                    }
+                } else if filtered.isEmpty {
                     Text("No logs this session. Sign-in, token refresh, and Health sync events appear here.")
                         .font(.callout).foregroundStyle(.secondary)
                 } else {
@@ -54,8 +60,8 @@ struct LogViewerView: View {
                     .disabled(entries.isEmpty && trail.isEmpty)
             }
         }
-        .task { reload() }
-        .refreshable { reload() }
+        .task { await reload() }
+        .refreshable { await reload() }
     }
 
     @ViewBuilder private func row(_ entry: AppLog.Entry) -> some View {
@@ -71,9 +77,15 @@ struct LogViewerView: View {
         .padding(.vertical, 1)
     }
 
-    private func reload() {
-        entries = AppLog.recent()
-        trail = AppLog.authTrail()
+    // OSLogStore.getEntries can take seconds — read it off the main actor so
+    // opening the Logs screen doesn't freeze the app.
+    private func reload() async {
+        let (recent, authTrail) = await Task.detached(priority: .userInitiated) {
+            (AppLog.recent(), AppLog.authTrail())
+        }.value
+        entries = recent
+        trail = authTrail
+        isLoading = false
     }
 
     private var exportText: String {
