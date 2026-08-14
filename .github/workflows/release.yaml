@@ -1,10 +1,12 @@
 name: Release
 
-# Auto-cut a release on every green commit to main (including direct pushes): Test must
-# pass first, then Claude decides the semver bump (major/minor/patch) and writes the
-# release notes from the commits since the last tag. We tag the version, publish a GitHub
-# Release with those notes, and trigger the image build for that exact commit.
-# (No ANTHROPIC_API_KEY secret -> the AI step falls back to a patch bump + commit list.)
+# Auto-cut a release on every green commit to main (Test must pass first).
+# The bump decision, release notes, tagging and build dispatch all live in
+# Seklfreak/ai-release-action — this file supplies only what is specific to lab-tracker.
+#
+# project-description is what the classifier judges "can this change reach a user?"
+# against, so it must describe THIS project. A description carried over from another
+# repo silently suppresses real releases; that is why it has no default.
 on:
   workflow_run:
     workflows: ["Test"]
@@ -23,50 +25,17 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
-          fetch-depth: 0
-          fetch-tags: true
+          fetch-depth: 0 # the bump is read from the commit range
+          fetch-tags: true # the previous tag is the baseline
 
-      - uses: actions/setup-python@v7
+      - uses: Seklfreak/ai-release-action@v1
         with:
-          python-version: "3.14"
-      - run: pip install --quiet anthropic
-
-      - name: Decide bump + notes (Claude)
-        id: ai
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
-        run: |
-          last=$(git tag -l 'v*.*.*' | sort -V | tail -1)
-          bump=$(python scripts/propose_release.py "$last")
-          echo "bump=$bump" >> "$GITHUB_OUTPUT"
-          echo "last=${last:-v0.0.0}" >> "$GITHUB_OUTPUT"
-          echo "Proposed bump: $bump (from ${last:-none})"
-
-      - name: Tag, publish release, build
-        env:
-          GH_TOKEN: ${{ github.token }}
-          SHA: ${{ github.event.workflow_run.head_sha }}
-          BUMP: ${{ steps.ai.outputs.bump }}
-          LAST: ${{ steps.ai.outputs.last }}
-        run: |
-          if [ "$BUMP" = "none" ]; then
-            echo "AI decided these changes don't warrant a release; skipping."
-            exit 0
-          fi
-          ver=${LAST#v}; IFS=. read -r ma mi pa <<< "$ver"
-          case "$BUMP" in
-            major) new="v$((ma + 1)).0.0" ;;
-            minor) new="v${ma}.$((mi + 1)).0" ;;
-            *)     new="v${ma}.$((mi)).$((pa + 1))" ;;
-          esac
-          echo "Releasing $new (bump=$BUMP) at ${SHA:0:7}"
-          jq -r .notes release.json > notes.md
-          git tag "$new" "$SHA"
-          git push origin "$new"
-          gh release create "$new" --target "$SHA" --title "$new" --notes-file notes.md
-          # GITHUB_TOKEN tag pushes don't trigger workflows, so dispatch the build.
-          gh workflow run build.yaml --ref "$new" -f version="${new#v}"
-          # Same limitation applies to the iOS TestFlight upload (no-ops if its
-          # App Store Connect secrets aren't set).
-          gh workflow run testflight.yaml --ref "$new" -f version="${new#v}"
+          sha: ${{ github.event.workflow_run.head_sha }}
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          build-workflow: "build.yaml testflight.yaml"
+          project-description: >-
+            lab-tracker is a self-hosted lab-results tracker: a Go API (backend/) with an
+            embedded migration set, a React frontend (frontend/), an MCP server, and an iOS app
+            (ios/) shipped to TestFlight on every version tag. Changes under backend/, frontend/
+            and ios/ all reach users. Only docs/, scripts/ and CI workflows live outside the
+            released artifacts.
