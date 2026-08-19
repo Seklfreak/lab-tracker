@@ -114,6 +114,7 @@ jobs:
           platforms: ${{ matrix.platform }}
           build-args: |
             APP_VERSION=${{ env.APP_VERSION }}
+            VITE_SENTRY_DSN=https://6fdb9fb66702b84d05b79a6f9923fcb2@o4511866040811520.ingest.us.sentry.io/4511934627643392
           cache-from: type=gha,scope=${{ matrix.name }}-${{ env.PLATFORM_PAIR }}
           cache-to: type=gha,mode=max,scope=${{ matrix.name }}-${{ env.PLATFORM_PAIR }}
           outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true

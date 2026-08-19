@@ -6,14 +6,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Seklfreak/lab-tracker/backend/internal/db/sqlc"
+	"github.com/Seklfreak/lab-tracker/backend/internal/llm"
+	"github.com/Seklfreak/lab-tracker/backend/internal/storage"
 	"github.com/coreos/go-oidc/v3/oidc"
+	sentryhttp "github.com/getsentry/sentry-go/http"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/Seklfreak/lab-tracker/backend/internal/db/sqlc"
-	"github.com/Seklfreak/lab-tracker/backend/internal/llm"
-	"github.com/Seklfreak/lab-tracker/backend/internal/storage"
 )
 
 // BuildVersion is the running server's release version, set from main via
@@ -55,6 +56,10 @@ func (s *Server) Router(corsOrigins []string) http.Handler {
 	r.Use(middleware.RealIP) //nolint:staticcheck // trusted-proxy-only; logging
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+	// Inside Recoverer on purpose: a panic is captured to Sentry first, then
+	// re-panicked for Recoverer to turn into a 500. Also starts the request
+	// transactions the tracing sampler filters to /api/ paths.
+	r.Use(sentryhttp.New(sentryhttp.Options{Repanic: true}).Handle)
 	r.Use(middleware.Timeout(120 * time.Second))
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   corsOrigins,

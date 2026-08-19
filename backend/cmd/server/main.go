@@ -2,17 +2,20 @@ package main
 
 import (
 	"context"
-	"log/slog"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
-	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/Seklfreak/lab-tracker/backend/internal/api"
 	"github.com/Seklfreak/lab-tracker/backend/internal/config"
 	"github.com/Seklfreak/lab-tracker/backend/internal/db"
 	"github.com/Seklfreak/lab-tracker/backend/internal/llm"
+	"github.com/Seklfreak/lab-tracker/backend/internal/obs"
 	"github.com/Seklfreak/lab-tracker/backend/internal/storage"
+	"github.com/anthropics/anthropic-sdk-go/option"
+	"github.com/coreos/go-oidc/v3/oidc"
+	sentryhttpclient "github.com/getsentry/sentry-go/httpclient"
 )
 
 // version is the release version, injected at build time via
@@ -20,7 +23,18 @@ import (
 var version = "dev"
 
 func main() {
-	log := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	// Sentry first (SENTRY_DSN unset = disabled, the local default) so the
+	// logger below forwards error records as events. Only API request
+	// transactions are traced; health checks and static paths are dropped.
+	flush, sentryErr := obs.Init("lab-tracker@"+version, func(name string) bool {
+		return strings.Contains(name, "/api/")
+	})
+	defer flush()
+	log := obs.NewLogger()
+	if sentryErr != nil {
+		log.Error("sentry init", "err", sentryErr)
+		os.Exit(1)
+	}
 	log.Info("starting", "version", version)
 	api.BuildVersion = version
 
@@ -61,7 +75,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	extractor := llm.NewExtractor(cfg.AnthropicKey)
+	// Extraction calls become http.client spans on the request transaction.
+	extractor := llm.NewExtractor(cfg.AnthropicKey, option.WithHTTPClient(&http.Client{
+		Transport: sentryhttpclient.NewSentryRoundTripper(nil),
+	}))
 
 	var verifier *oidc.IDTokenVerifier
 	if cfg.AuthDisabled {

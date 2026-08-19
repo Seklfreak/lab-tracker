@@ -6,16 +6,19 @@ package main
 
 import (
 	"context"
-	"log/slog"
 	"net/http"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/Seklfreak/lab-tracker/backend/internal/db"
 	"github.com/Seklfreak/lab-tracker/backend/internal/db/sqlc"
 	"github.com/Seklfreak/lab-tracker/backend/internal/llm"
+	"github.com/Seklfreak/lab-tracker/backend/internal/obs"
+	"github.com/anthropics/anthropic-sdk-go/option"
+	sentryhttp "github.com/getsentry/sentry-go/http"
+	sentryhttpclient "github.com/getsentry/sentry-go/httpclient"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // version is the release version, injected at build time via
@@ -24,7 +27,18 @@ import (
 var version = "dev"
 
 func main() {
-	log := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	// Sentry first (SENTRY_DSN unset = disabled, the local default) so the
+	// logger below forwards error records as events. Only /mcp request
+	// transactions are traced; /health probes are dropped.
+	flush, sentryErr := obs.Init("lab-tracker@"+version, func(name string) bool {
+		return strings.Contains(name, "/mcp")
+	})
+	defer flush()
+	log := obs.NewLogger()
+	if sentryErr != nil {
+		log.Error("sentry init", "err", sentryErr)
+		os.Exit(1)
+	}
 	log.Info("starting", "version", version)
 
 	dbURL := os.Getenv("DATABASE_URL")
@@ -37,7 +51,11 @@ func main() {
 		port = "8080"
 	}
 	// Optional: only generate_analysis needs it.
-	extractor := llm.NewExtractor(os.Getenv("ANTHROPIC_API_KEY"))
+	// Analysis-generation calls become http.client spans on the /mcp
+	// request transaction.
+	extractor := llm.NewExtractor(os.Getenv("ANTHROPIC_API_KEY"), option.WithHTTPClient(&http.Client{
+		Transport: sentryhttpclient.NewSentryRoundTripper(nil),
+	}))
 
 	ctx := context.Background()
 	pool, err := db.Connect(ctx, dbURL)
@@ -78,9 +96,12 @@ func main() {
 	})
 
 	log.Info("mcp listening", "port", port)
+	// The middleware captures handler panics and opens the /mcp request
+	// transactions the sampler keeps.
+	sentryMW := sentryhttp.New(sentryhttp.Options{Repanic: true})
 	httpServer := &http.Server{
 		Addr:              ":" + port,
-		Handler:           mux,
+		Handler:           sentryMW.Handle(mux),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {

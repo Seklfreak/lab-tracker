@@ -5,6 +5,7 @@ go 1.26
 require (
 	github.com/anthropics/anthropic-sdk-go v1.63.1
 	github.com/coreos/go-oidc/v3 v3.20.0
+	github.com/getsentry/sentry-go v0.48.0
 	github.com/go-chi/chi/v5 v5.3.1
 	github.com/go-chi/cors v1.2.2
 	github.com/golang-migrate/migrate/v4 v4.19.1
@@ -29,7 +30,6 @@ require (
 	github.com/klauspost/compress v1.19.2 // indirect
 	github.com/klauspost/cpuid/v2 v2.4.0 // indirect
 	github.com/klauspost/crc32 v1.3.0 // indirect
-	github.com/kr/text v0.2.0 // indirect
 	github.com/minio/crc64nvme v1.1.1 // indirect
 	github.com/minio/md5-simd v1.1.2 // indirect
 	github.com/pb33f/ordered-map/v2 v2.3.1 // indirect

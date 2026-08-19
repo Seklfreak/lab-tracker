@@ -7,6 +7,10 @@ RUN npm ci
 # `npm ci` so a version change doesn't bust the dependency-install cache layer.
 ARG APP_VERSION=dev
 ENV VITE_APP_VERSION=$APP_VERSION
+# Sentry DSN, baked into the bundle (ingest-only, not a secret). Empty in
+# local builds -> Sentry off.
+ARG VITE_SENTRY_DSN=
+ENV VITE_SENTRY_DSN=$VITE_SENTRY_DSN
 COPY . .
 RUN npm run build
 
