@@ -202,6 +202,24 @@ Unit tests (Swift Testing, in `LabTrackerTests/`) cover the pure logic:
 `/config.js` parser, and the markdown renderer. Both run in CI
 (`.github/workflows/ios.yaml`) on any `ios/**` change.
 
+## Crash reporting (Sentry)
+
+Crashes and traces go to the `lab-tracker-ios` project in Sentry, started from
+`AppDelegate` in `LabTracker/LabTrackerApp.swift`. The SDK comes in as an SPM
+package declared in [`project.yml`](project.yml), so `xcodegen generate`
+resolves it — there is nothing to install by hand.
+
+Debug builds are excluded (`#if !DEBUG`), so simulator runs and local device
+builds never report; only Release builds — i.e. TestFlight — do. The DSN is
+ingest-only and ships in the app binary, so it lives in source rather than a
+secret.
+
+Crash reports symbolicate only once the build's dSYMs reach Sentry, which the
+TestFlight workflow does after each upload — but that step is skipped until the
+repo has a `SENTRY_AUTH_TOKEN` secret (a Sentry auth token with
+`project:releases`). Without it, builds still ship and crashes still report,
+just with unsymbolicated stack traces.
+
 ## Not yet implemented
 
 - **PDF upload** from the phone (share sheet / camera scan).

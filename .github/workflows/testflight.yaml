@@ -43,12 +43,19 @@ jobs:
         id: gate
         env:
           KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: |
           if [ -z "$KEY_ID" ]; then
             echo "::notice::App Store Connect secrets not set — skipping TestFlight upload."
             echo "ready=false" >> "$GITHUB_OUTPUT"
           else
             echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+          if [ -z "$SENTRY_AUTH_TOKEN" ]; then
+            echo "::notice::SENTRY_AUTH_TOKEN not set — crash reports stay unsymbolicated."
+            echo "sentry=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "sentry=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Tooling
@@ -159,6 +166,22 @@ jobs:
             -authenticationKeyPath ~/.appstoreconnect/private_keys/AuthKey_"$KEY_ID".p8 \
             -authenticationKeyID "$KEY_ID" \
             -authenticationKeyIssuerID "$ISSUER_ID"
+
+      # Symbolication for the crash reports the app sends to Sentry. Runs
+      # after the TestFlight upload and never fails the job — the build is
+      # already shipped by this point, and unsymbolicated crashes still
+      # report. Skipped entirely until the SENTRY_AUTH_TOKEN secret exists.
+      - name: Upload dSYMs to Sentry
+        if: steps.gate.outputs.ready == 'true' && steps.gate.outputs.sentry == 'true'
+        continue-on-error: true
+        working-directory: ios
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: winktech
+          SENTRY_PROJECT: lab-tracker-ios
+        run: |
+          curl -sL https://sentry.io/get-cli/ | bash
+          sentry-cli debug-files upload build/LabTracker.xcarchive/dSYMs
 
       # Push this release's changelog to TestFlight as the build's "What to Test"
       # notes. The changelog is the GitHub Release body for the tag (Claude writes

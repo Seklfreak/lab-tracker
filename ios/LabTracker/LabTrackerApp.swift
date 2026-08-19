@@ -1,3 +1,4 @@
+import Sentry
 import SwiftUI
 
 @main
@@ -30,6 +31,16 @@ struct LabTrackerApp: App {
 final class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        // Crash reporting + tracing (winktech/lab-tracker-ios). The DSN is
+        // ingest-only — it ships in the app binary regardless. Debug builds
+        // stay off so simulator noise never reaches the project.
+        #if !DEBUG
+        SentrySDK.start { options in
+            options.dsn = "https://bd2cd6d13ad4af70856bd356ed8e4673@o4511866040811520.ingest.us.sentry.io/4511937415544832"
+            // Household-scale traffic: trace everything rather than sample.
+            options.tracesSampleRate = 1.0
+        }
+        #endif
         MainActor.assumeIsolated {
             HealthSync.shared.startObservers()
             Task { await HealthSync.shared.enableBackgroundDelivery() }

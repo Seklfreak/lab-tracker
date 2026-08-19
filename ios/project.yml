@@ -4,6 +4,11 @@ options:
   deploymentTarget:
     iOS: "17.0"
   createIntermediateGroups: true
+packages:
+  # Crash reporting + tracing. Started in LabTrackerApp (release builds only).
+  Sentry:
+    url: https://github.com/getsentry/sentry-cocoa
+    from: 9.26.0
 settings:
   base:
     MARKETING_VERSION: "0.1.0"
@@ -16,6 +21,9 @@ targets:
     platform: iOS
     sources:
       - LabTracker
+    dependencies:
+      - package: Sentry
+        product: Sentry
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.winktech.labtracker
