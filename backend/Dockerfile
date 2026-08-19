@@ -1,5 +1,5 @@
 # Build a static Go binary; migrations are embedded (go:embed) and run on boot.
-FROM golang:1.26-alpine AS build
+FROM golang:1.27-alpine AS build
 WORKDIR /src
 ARG APP_VERSION=dev
 COPY go.mod go.sum ./
