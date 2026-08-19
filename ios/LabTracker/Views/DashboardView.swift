@@ -27,6 +27,7 @@ struct DashboardView: View {
     @State private var showBody = false
     @State private var loading = false
     @State private var error: String?
+    @State private var favoriteError: String?
     @State private var search = ""
     @State private var onlyOutOfRange = false
     @AppStorage("dashboardSort") private var sort: SortKey = .category
@@ -93,10 +94,21 @@ struct DashboardView: View {
             }
         }
         .navigationDestination(for: LabResult.self) { r in
-            AnalyteDetailView(profile: profile, analyteId: r.analyteId, analyteName: r.analyteName)
+            // Favoriting from the detail screen flips the row here too, so
+            // coming back doesn't show stale state (the dashboard's .task
+            // doesn't re-run on pop, and a refetch just to move one row is
+            // wasteful).
+            AnalyteDetailView(profile: profile, analyteId: r.analyteId, analyteName: r.analyteName) { fav in
+                applyFavorite(analyteId: r.analyteId, to: fav)
+            }
         }
         .task(id: profile.id) { await load() }
         .refreshable { await load() }
+        // A failed toggle is transient and must not replace the whole list with
+        // the "Couldn't load results" state, so it surfaces as an alert.
+        .alert("Couldn’t update favorite", isPresented: .constant(favoriteError != nil), presenting: favoriteError) { _ in
+            Button("OK") { favoriteError = nil }
+        } message: { Text($0) }
         .sheet(isPresented: $showBody, onDismiss: { Task { await load() } }, content: {
             BodyView(profile: profile)
         })
@@ -165,17 +177,27 @@ struct DashboardView: View {
     }
 
     @ViewBuilder private func row(_ r: LabResult) -> some View {
+        let fav = r.isFavorite == true
         NavigationLink(value: r) {
             ResultRow(result: r)
         }
         .swipeActions(edge: .leading) {
             Button {
-                Task { await toggleFavorite(r) }
+                Task { await setFavorite(analyteId: r.analyteId, to: !fav) }
             } label: {
-                let fav = r.isFavorite == true
                 Label(fav ? "Unfavorite" : "Favorite", systemImage: fav ? "star.slash" : "star")
             }
             .tint(.yellow)
+        }
+        // Long-press mirrors the swipe: a leading swipe is easy to miss, and
+        // it's the only affordance a VoiceOver user gets via the rotor.
+        .contextMenu {
+            Button {
+                Task { await setFavorite(analyteId: r.analyteId, to: !fav) }
+            } label: {
+                Label(fav ? "Remove from Favorites" : "Add to Favorites",
+                      systemImage: fav ? "star.slash" : "star")
+            }
         }
     }
 
@@ -192,64 +214,31 @@ struct DashboardView: View {
         bodyMeasurements = (try? await store.api.bodyMeasurements(profileId: profile.id)) ?? []
     }
 
-    private func toggleFavorite(_ r: LabResult) async {
+    /// Optimistic: the row moves between sections immediately and moves back if
+    /// the call fails, so the star never feels laggy on a slow connection.
+    private func setFavorite(analyteId: String, to fav: Bool) async {
+        applyFavorite(analyteId: analyteId, to: fav)
         do {
-            if r.isFavorite == true {
-                try await store.api.removeFavorite(profileId: profile.id, analyteId: r.analyteId)
+            if fav {
+                try await store.api.addFavorite(profileId: profile.id, analyteId: analyteId)
             } else {
-                try await store.api.addFavorite(profileId: profile.id, analyteId: r.analyteId)
+                try await store.api.removeFavorite(profileId: profile.id, analyteId: analyteId)
             }
-            await load()
         } catch {
-            self.error = error.localizedDescription
+            applyFavorite(analyteId: analyteId, to: !fav)
+            favoriteError = error.localizedDescription
+        }
+    }
+
+    private func applyFavorite(analyteId: String, to fav: Bool) {
+        withAnimation {
+            for i in results.indices where results[i].analyteId == analyteId {
+                results[i].isFavorite = fav
+            }
         }
     }
 }
 
-/// One analyte: name + value on top, the reference-range track below, then the
-/// reference interval as a quiet caption. Value is tabular and tinted by status.
-struct ResultRow: View {
-    let result: LabResult
-
-    var body: some View {
-        let status = result.status
-        VStack(alignment: .leading, spacing: 7) {
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                if result.isFavorite == true {
-                    Image(systemName: "star.fill")
-                        .font(.caption2)
-                        .foregroundStyle(.yellow)
-                }
-                Text(result.analyteName)
-                    .font(.body.weight(.medium))
-                Spacer(minLength: 8)
-                if let symbol = status.directionSymbol {
-                    Image(systemName: symbol)
-                        .font(.caption2.weight(.bold))
-                        .foregroundStyle(status.tint)
-                }
-                Text(result.displayValue)
-                    .font(.callout.weight(.semibold))
-                    .monospacedDigit()
-                    .foregroundStyle(status == .unknown ? Color.primary : status.tint)
-                if let unit = result.unit {
-                    Text(unit).font(.caption).foregroundStyle(.secondary)
-                }
-            }
-            if let v = result.valueNumeric, result.referenceLow != nil || result.referenceHigh != nil {
-                RangeTrack(value: v, low: result.referenceLow, high: result.referenceHigh, status: status)
-            }
-            if let ref = result.referenceLabel {
-                Text("Reference \(ref)")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .padding(.vertical, 4)
-    }
-}
-
-/// A changing body stat for the dashboard's Body section (excludes height + age).
 struct BodyDashItem: Identifiable {
     let id: String
     let label: String

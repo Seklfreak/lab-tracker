@@ -26,7 +26,9 @@ struct LabResult: Codable, Identifiable, Hashable {
     let observedDate: String?
     let sourceLab: String?
     let count: Int?
-    let isFavorite: Bool?
+    /// `var` so a favorite toggle can flip it in place: the row moves in or out
+    /// of the Favorites section immediately, with no dashboard refetch.
+    var isFavorite: Bool?
 
     /// Display string for the value (numeric preferred, else qualitative text).
     var displayValue: String {

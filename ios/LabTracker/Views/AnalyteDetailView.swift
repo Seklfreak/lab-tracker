@@ -12,7 +12,13 @@ struct AnalyteDetailView: View {
     let profile: Profile
     let analyteId: String
     let analyteName: String
+    /// Called after a successful toggle so the pushing view (the dashboard) can
+    /// update its own copy of this analyte instead of refetching on pop.
+    var onFavoriteChange: ((Bool) -> Void)?
 
+    @State private var isFavorite = false
+    @State private var favoriteBusy = false
+    @State private var favoriteError: String?
     @State private var points: [LabResult] = []
     @State private var chartPoints: [Point] = []
     @State private var analysis: Analysis?
@@ -51,7 +57,7 @@ struct AnalyteDetailView: View {
                 }
                 if chartPoints.count >= 2 {
                     Section("Trend") {
-                        chart
+                        AnalyteTrendChart(points: chartPoints, refLow: refLow, refHigh: refHigh)
                         if refLow != nil || refHigh != nil {
                             HStack(spacing: 6) {
                                 RoundedRectangle(cornerRadius: 2)
@@ -70,7 +76,24 @@ struct AnalyteDetailView: View {
         }
         .navigationTitle(analyteName)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    Task { await toggleFavorite() }
+                } label: {
+                    Image(systemName: isFavorite ? "star.fill" : "star")
+                        .foregroundStyle(isFavorite ? Color.yellow : Color.accentColor)
+                }
+                .disabled(favoriteBusy || points.isEmpty)
+                .accessibilityLabel(isFavorite ? "Remove from Favorites" : "Add to Favorites")
+            }
+        }
         .task(id: analyteId) { await load() }
+        // A failed toggle must not replace the chart and analysis with the
+        // full-screen error state, so it surfaces as an alert.
+        .alert("Couldn’t update favorite", isPresented: .constant(favoriteError != nil), presenting: favoriteError) { _ in
+            Button("OK") { favoriteError = nil }
+        } message: { Text($0) }
     }
 
     @ViewBuilder private func hero(_ latest: LabResult) -> some View {
@@ -99,61 +122,6 @@ struct AnalyteDetailView: View {
                 Text("Reference \(ref)").font(.caption).foregroundStyle(.secondary)
             }
         }
-    }
-
-    /// Y-axis range covering the readings and the reference bounds, padded a bit.
-    /// Pinned explicitly so a one-sided band can extend to the chart edge.
-    private var yDomain: ClosedRange<Double> {
-        var vals = chartPoints.map(\.value)
-        if let lo = refLow { vals.append(lo) }
-        if let hi = refHigh { vals.append(hi) }
-        guard let mn = vals.min(), let mx = vals.max() else { return 0...1 }
-        let pad = max((mx - mn) * 0.12, 1)
-        return (mn - pad)...(mx + pad)
-    }
-
-    @ViewBuilder private var chart: some View {
-        Chart {
-            // The shaded "good" zone. A one-sided range (> x / < x) shades from
-            // the bound to the edge of the chart, so the healthy region is always
-            // filled — not just marked with a line.
-            if let lo = refLow, let hi = refHigh {
-                band(from: lo, to: hi)
-                bound(lo)
-                bound(hi)
-            } else if let hi = refHigh {
-                band(from: yDomain.lowerBound, to: hi)
-                bound(hi)
-            } else if let lo = refLow {
-                band(from: lo, to: yDomain.upperBound)
-                bound(lo)
-            }
-            ForEach(chartPoints) { p in
-                LineMark(x: .value("Date", p.date), y: .value("Value", p.value))
-                    .foregroundStyle(Color.brandTeal)
-                    .interpolationMethod(.linear)
-                    .lineStyle(StrokeStyle(lineWidth: 3))
-                PointMark(x: .value("Date", p.date), y: .value("Value", p.value))
-                    .foregroundStyle(p.status == .unknown ? Color.brandTeal : p.status.tint)
-                    .symbolSize(p.status == .high || p.status == .low ? 70 : 30)
-            }
-        }
-        .chartYScale(domain: yDomain)
-        .frame(height: 220)
-        .padding(.vertical, 6)
-    }
-
-    /// The shaded normal-range band between two y-values.
-    private func band(from lo: Double, to hi: Double) -> some ChartContent {
-        RectangleMark(yStart: .value("From", lo), yEnd: .value("To", hi))
-            .foregroundStyle(Color.statusInRange.opacity(0.20))
-    }
-
-    /// A dashed edge line marking a reference bound.
-    private func bound(_ value: Double) -> some ChartContent {
-        RuleMark(y: .value("Reference", value))
-            .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-            .foregroundStyle(Color.statusInRange.opacity(0.6))
     }
 
     @ViewBuilder private var readings: some View {
@@ -244,6 +212,8 @@ struct AnalyteDetailView: View {
                 guard let v = r.valueNumeric, let day = r.observedDate, let date = Self.parseDay(day) else { return nil }
                 return Point(id: r.id, date: date, value: v, status: r.status)
             }
+            // Favorite state is per-analyte, so every row carries the same flag.
+            isFavorite = rows.last?.isFavorite == true
             error = nil
         } catch {
             self.error = error.localizedDescription
@@ -253,6 +223,29 @@ struct AnalyteDetailView: View {
         analysis = a
         analysisBlocks = a.map { MarkdownText.parse($0.content) } ?? []
         analysisLoaded = true
+    }
+
+    /// Optimistic: the star fills immediately and reverts if the call fails.
+    /// `favoriteBusy` keeps a double-tap from firing an add and a remove that
+    /// can land out of order.
+    private func toggleFavorite() async {
+        guard !favoriteBusy else { return }
+        favoriteBusy = true
+        defer { favoriteBusy = false }
+
+        let target = !isFavorite
+        isFavorite = target
+        do {
+            if target {
+                try await store.api.addFavorite(profileId: profile.id, analyteId: analyteId)
+            } else {
+                try await store.api.removeFavorite(profileId: profile.id, analyteId: analyteId)
+            }
+            onFavoriteChange?(target)
+        } catch {
+            isFavorite = !target
+            favoriteError = error.localizedDescription
+        }
     }
 
     /// Fast "yyyy-MM-dd" parse via DateComponents (DateFormatter is too slow to
