@@ -92,6 +92,11 @@ func (h sentryHandler) Handle(ctx context.Context, rec slog.Record) error {
 		hub = sentry.CurrentHub()
 	}
 	if cause != nil {
+		// A canceled request context means the client went away mid-request
+		// — logged, but not an app error.
+		if errors.Is(cause, context.Canceled) {
+			return nil
+		}
 		hub.CaptureException(fmt.Errorf("%s: %w", msg, cause))
 	} else {
 		hub.CaptureMessage(msg)
