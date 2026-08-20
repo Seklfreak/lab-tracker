@@ -13,6 +13,8 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/database/pgx/v5"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/Seklfreak/lab-tracker/backend/internal/obs"
 )
 
 //go:embed migrations/*.sql
@@ -20,7 +22,14 @@ var migrationsFS embed.FS
 
 // Connect opens a pgx connection pool and verifies connectivity.
 func Connect(ctx context.Context, databaseURL string) (*pgxpool.Pool, error) {
-	pool, err := pgxpool.New(ctx, databaseURL)
+	cfg, err := pgxpool.ParseConfig(databaseURL)
+	if err != nil {
+		return nil, fmt.Errorf("parse database url: %w", err)
+	}
+	// Every query becomes a Sentry span on the surrounding request
+	// transaction; a no-op when Sentry is off or no trace is active.
+	cfg.ConnConfig.Tracer = obs.PgxTracer{}
+	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("create pool: %w", err)
 	}
