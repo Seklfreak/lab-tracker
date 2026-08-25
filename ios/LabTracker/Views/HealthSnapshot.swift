@@ -111,7 +111,7 @@ struct HealthSnapshotSection: View {
             blocks = MarkdownText.parse(s.content)
             Self.cache(s, for: profile.id)
         } catch {
-            self.error = error.localizedDescription
+            self.error = error.report()
         }
     }
 

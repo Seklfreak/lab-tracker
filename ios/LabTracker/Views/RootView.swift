@@ -115,7 +115,7 @@ struct RootView: View {
             canReauth = false
             if store.selectedProfileId == nil { store.selectedProfileId = profiles.first?.id }
         } catch {
-            self.error = error.localizedDescription
+            self.error = error.report()
             canReauth = (error as? APIError)?.isUnauthorized ?? false
         }
     }
@@ -129,7 +129,7 @@ struct RootView: View {
             try await store.auth.signIn(serverURL: store.serverURL)
             await load()
         } catch {
-            self.error = error.localizedDescription
+            self.error = error.report()
         }
     }
 }

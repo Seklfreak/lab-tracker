@@ -285,7 +285,7 @@ extension BodyView {
             measurements = try await store.api.bodyMeasurements(profileId: profile.id)
             error = nil
         } catch {
-            self.error = error.localizedDescription
+            self.error = error.report()
         }
     }
 
@@ -304,7 +304,7 @@ extension BodyView {
             measurements = try await store.api.bodyMeasurements(profileId: profile.id)
             error = nil
         } catch {
-            self.error = error.localizedDescription
+            self.error = error.report()
         }
     }
 
@@ -336,7 +336,7 @@ extension BodyView {
             importSummary = counts.map { "\($0.0) \($0.1)" }.joined(separator: " · ")
             error = nil
         } catch {
-            self.error = error.localizedDescription
+            self.error = error.report()
         }
     }
 
@@ -359,7 +359,7 @@ extension BodyView {
             measurements.removeAll { $0.id == m.id }
             error = nil
         } catch {
-            self.error = error.localizedDescription
+            self.error = error.report()
         }
     }
 
@@ -372,7 +372,7 @@ extension BodyView {
                 dateOfBirth: hasDOB ? Self.format(dob) : nil)
             dismiss()
         } catch {
-            self.error = error.localizedDescription
+            self.error = error.report()
         }
     }
 

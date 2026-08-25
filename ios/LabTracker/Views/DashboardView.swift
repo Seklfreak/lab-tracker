@@ -208,7 +208,7 @@ struct DashboardView: View {
             results = try await store.api.latestResults(profileId: profile.id)
             error = nil
         } catch {
-            self.error = error.localizedDescription
+            self.error = error.report()
         }
         // Body stats are supplementary — don't fail the dashboard if they error.
         bodyMeasurements = (try? await store.api.bodyMeasurements(profileId: profile.id)) ?? []
@@ -226,7 +226,7 @@ struct DashboardView: View {
             }
         } catch {
             applyFavorite(analyteId: analyteId, to: !fav)
-            favoriteError = error.localizedDescription
+            favoriteError = error.report()
         }
     }
 

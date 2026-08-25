@@ -206,7 +206,7 @@ struct SettingsView: View {
             do {
                 try await healthSync.enable(profileId: target)
             } catch {
-                healthError = error.localizedDescription
+                healthError = error.report()
             }
         } else {
             await healthSync.disable()
@@ -243,7 +243,7 @@ struct SettingsView: View {
             try await store.auth.signIn(serverURL: store.serverURL)
             dismiss()
         } catch {
-            authError = error.localizedDescription
+            authError = error.report()
         }
     }
 }

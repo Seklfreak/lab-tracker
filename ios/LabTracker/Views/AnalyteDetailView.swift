@@ -193,7 +193,7 @@ struct AnalyteDetailView: View {
             analysis = a
             analysisBlocks = MarkdownText.parse(a.content)
         } catch {
-            analysisError = error.localizedDescription
+            analysisError = error.report()
         }
     }
 
@@ -216,7 +216,7 @@ struct AnalyteDetailView: View {
             isFavorite = rows.last?.isFavorite == true
             error = nil
         } catch {
-            self.error = error.localizedDescription
+            self.error = error.report()
         }
 
         let a = (try? await analysisTask) ?? nil
@@ -244,7 +244,7 @@ struct AnalyteDetailView: View {
             onFavoriteChange?(target)
         } catch {
             isFavorite = !target
-            favoriteError = error.localizedDescription
+            favoriteError = error.report()
         }
     }
 
