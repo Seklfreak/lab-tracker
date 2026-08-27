@@ -8,7 +8,7 @@ packages:
   # Crash reporting + tracing. Started in LabTrackerApp (release builds only).
   Sentry:
     url: https://github.com/getsentry/sentry-cocoa
-    from: 9.26.0
+    from: 9.26.1
 settings:
   base:
     MARKETING_VERSION: "0.1.0"
