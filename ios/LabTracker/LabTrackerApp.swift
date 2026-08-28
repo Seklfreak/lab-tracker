@@ -39,10 +39,12 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
             options.dsn = "https://bd2cd6d13ad4af70856bd356ed8e4673@o4511866040811520.ingest.us.sentry.io/4511937415544832"
             // Household-scale traffic: trace everything rather than sample.
             options.tracesSampleRate = 1.0
-            // Failed-request capture defaults to 5xx; the API reports auth
-            // and validation problems as 4xx, and those are the ones worth
-            // seeing too.
-            options.failedRequestStatusCodes = [HttpStatusCodeRange(min: 400, max: 599)]
+            // Left at the 5xx default on purpose. Widening this to 4xx captured
+            // every handled 401 a second time — once here and once through
+            // `Error.report()` at the catch site — so a single failed request
+            // opened two issues (LAB-TRACKER-IOS-1 and -3) off one trace ID.
+            // Client errors reach Sentry through `report()`, which knows the
+            // call site and can tell noise from a real fault.
         }
         #endif
         MainActor.assumeIsolated {

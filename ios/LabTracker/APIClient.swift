@@ -28,12 +28,21 @@ struct APIClient {
     var baseURL: String
     var auth: AuthSession?
 
-    private func bearer() async -> String? {
-        guard let t = await auth?.validAccessToken(), !t.isEmpty else { return nil }
+    /// Throws rather than falling back to an anonymous request when a refresh
+    /// fails transiently — see `AuthSession.validAccessToken`. A nil return
+    /// still means "send unauthenticated", which is correct for a public
+    /// endpoint and for an AUTH_DISABLED backend nobody has signed in to.
+    private func bearer() async throws -> String? {
+        guard let t = try await auth?.validAccessToken(), !t.isEmpty else { return nil }
         return t
     }
 
-    private func request<T: Decodable>(_ path: String, as _: T.Type) async throws -> T {
+    /// `authenticated: false` skips the token entirely, for endpoints the server
+    /// serves to anyone. Without it a public endpoint would inherit auth's
+    /// failure modes — /health, whose whole job is to answer "is the server
+    /// reachable", would start reporting that the *IdP* is unreachable.
+    private func request<T: Decodable>(_ path: String, authenticated: Bool = true,
+                                       as _: T.Type) async throws -> T {
         let trimmed = baseURL.hasSuffix("/") ? String(baseURL.dropLast()) : baseURL
         guard let url = URL(string: trimmed + path) else { throw APIError.badURL }
 
@@ -47,12 +56,12 @@ struct APIClient {
             return (data, http)
         }
 
-        var (data, http) = try await send(await bearer())
+        var (data, http) = try await send(authenticated ? try await bearer() : nil)
 
         // Token may have just expired — refresh once and retry.
-        if http.statusCode == 401, let auth {
+        if authenticated, http.statusCode == 401, let auth {
             try? await auth.refresh()
-            if let fresh = await auth.validAccessToken(), !fresh.isEmpty {
+            if let fresh = try? await auth.validAccessToken(), !fresh.isEmpty {
                 (data, http) = try await send(fresh)
             }
         }
@@ -103,7 +112,7 @@ struct APIClient {
 
     /// Public health endpoint (no auth) — used by the About screen for the API version.
     func health() async throws -> Health {
-        try await request("/health", as: Health.self)
+        try await request("/health", authenticated: false, as: Health.self)
     }
 
     func updateProfile(profileId: String, name: String, dateOfBirth: String?) async throws -> Profile {
@@ -147,10 +156,10 @@ struct APIClient {
             return (data, http)
         }
 
-        var (data, http) = try await run(await bearer())
+        var (data, http) = try await run(try await bearer())
         if http.statusCode == 401, let auth {
             try? await auth.refresh()
-            if let fresh = await auth.validAccessToken(), !fresh.isEmpty {
+            if let fresh = try? await auth.validAccessToken(), !fresh.isEmpty {
                 (data, http) = try await run(fresh)
             }
         }
@@ -212,10 +221,10 @@ extension APIClient {
             return (data, http)
         }
 
-        var (data, http) = try await send(await bearer())
+        var (data, http) = try await send(try await bearer())
         if http.statusCode == 401, let auth {
             try? await auth.refresh()
-            if let fresh = await auth.validAccessToken(), !fresh.isEmpty {
+            if let fresh = try? await auth.validAccessToken(), !fresh.isEmpty {
                 (data, http) = try await send(fresh)
             }
         }

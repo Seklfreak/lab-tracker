@@ -14,21 +14,6 @@ struct OIDCConfig {
     var isConfigured: Bool { !issuer.trimmingCharacters(in: .whitespaces).isEmpty }
 }
 
-enum OIDCError: LocalizedError {
-    case notConfigured, discovery, cancelled, noCode, stateMismatch, token(String)
-
-    var errorDescription: String? {
-        switch self {
-        case .notConfigured: return "OIDC issuer / client ID not set."
-        case .discovery: return "Couldn’t read the provider’s OpenID configuration."
-        case .cancelled: return "Sign-in was cancelled."
-        case .noCode: return "No authorization code was returned."
-        case .stateMismatch: return "State mismatch — possible interference. Try again."
-        case let .token(msg): return "Token request failed: \(msg)"
-        }
-    }
-}
-
 private struct DiscoveryDoc: Decodable {
     let authorizationEndpoint: String
     let tokenEndpoint: String
@@ -153,9 +138,27 @@ final class AuthSession: NSObject, ASWebAuthenticationPresentationContextProvidi
     }
 
     /// A non-expired access token, refreshing first if it's within 30s of expiry.
-    func validAccessToken() async -> String? {
+    ///
+    /// Throws when the refresh couldn't be completed but the session is still
+    /// valid — a background relaunch on a flaky network, Authentik restarting,
+    /// a gateway 5xx. Swallowing that (as `try?` once did) returns a nil token,
+    /// the caller sends an anonymous request, and the server's 401 is
+    /// indistinguishable from a revoked session: the app tells the user to sign
+    /// in again over what was a momentary blip.
+    ///
+    /// A genuine revocation does *not* throw. `refresh()` has already signed us
+    /// out by then, so a nil token is the truth, and the caller's 401 raises the
+    /// sign-in prompt — which is exactly what should happen.
+    func validAccessToken() async throws -> String? {
         if let exp = expiresAt, Date() < exp.addingTimeInterval(-30) { return accessToken }
-        if refreshToken != nil { try? await refresh() }
+        if refreshToken != nil {
+            do {
+                try await refresh()
+            } catch let error as OIDCError {
+                if case .token = error { return accessToken }
+                throw error
+            }
+        }
         return accessToken
     }
 
@@ -216,7 +219,7 @@ final class AuthSession: NSObject, ASWebAuthenticationPresentationContextProvidi
             let body = Self.bodySnippet(data)
             AppLog.auth.error("refresh: transient, kept token (status \(code, privacy: .public), body: \(body, privacy: .public))")
             AppLog.persistAuth("refresh transient failure (status \(code)) — kept token")
-            throw OIDCError.token("refresh failed (status \(code))")
+            throw OIDCError.refreshUnavailable(code)
         }
     }
 
