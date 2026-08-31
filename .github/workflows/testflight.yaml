@@ -24,7 +24,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Marketing version, e.g. 0.1.2. Blank = derive from the tag."
+        description: "Release version, e.g. 0.1.2 (the app ships as 0.1). Blank = derive from the tag."
         required: false
         default: ""
 
@@ -118,11 +118,17 @@ jobs:
           TEAM_ID: ${{ secrets.APP_STORE_TEAM_ID }}
           INPUT_VERSION: ${{ github.event.inputs.version }}
         run: |
-          # Marketing version: dispatch input wins, else derive from the tag (vX.Y.Z -> X.Y.Z).
+          # Release version: dispatch input wins, else derive from the tag (vX.Y.Z -> X.Y.Z).
           VERSION="$INPUT_VERSION"
           [ -z "$VERSION" ] && VERSION="${GITHUB_REF_NAME#v}"
+          # The app's marketing version is only major.minor. TestFlight runs a
+          # real Beta App Review for the first build of each new marketing
+          # version and waves later builds through, so patch releases — the
+          # common case — reuse the approved version and reach testers without
+          # another review. The build number still identifies the release.
+          MARKETING="$(echo "$VERSION" | cut -d. -f1-2)"
           BUILD="${GITHUB_RUN_NUMBER}"      # monotonic, unique per upload
-          echo "Archiving $VERSION (build $BUILD) with profile '$PROFILE_NAME'"
+          echo "Archiving $MARKETING (build $BUILD, release $VERSION) with profile '$PROFILE_NAME'"
           xcodebuild archive \
             -project LabTracker.xcodeproj -scheme LabTracker \
             -configuration Release \
@@ -132,7 +138,7 @@ jobs:
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Apple Distribution" \
             PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
-            MARKETING_VERSION="$VERSION" \
+            MARKETING_VERSION="$MARKETING" \
             CURRENT_PROJECT_VERSION="$BUILD"
 
       - name: Export + upload to TestFlight
@@ -215,7 +221,7 @@ jobs:
           [ -z "$NOTES" ] && NOTES="Bug fixes and improvements."
           printf '%s' "$NOTES" > "$RUNNER_TEMP/whats_new.md"
 
-          python scripts/testflight_whats_new.py \
+          python scripts/testflight_publish.py \
             --bundle-id dev.winktech.labtracker \
             --version "$VERSION" --build "$BUILD" \
             --notes-file "$RUNNER_TEMP/whats_new.md" \

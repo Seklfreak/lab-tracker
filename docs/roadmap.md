@@ -121,7 +121,7 @@ and rough notes so they aren't lost.
     tag's GitHub Release body, written by `release.yaml`). After the upload,
     [`testflight.yaml`](../.github/workflows/testflight.yaml) polls the App Store
     Connect API for the build and sets its `betaBuildLocalizations` `whatsNew`
-    via [`scripts/testflight_whats_new.py`](../scripts/testflight_whats_new.py) —
+    via [`scripts/testflight_publish.py`](../scripts/testflight_publish.py) —
     reusing the existing API key, best-effort (warns, never fails the upload).
   - [x] **Monthly TestFlight refresh (2026-07-31)** — TestFlight builds expire
     after 90 days, and releases are too sporadic to reliably beat that. A monthly

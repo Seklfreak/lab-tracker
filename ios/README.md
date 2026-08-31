@@ -104,8 +104,10 @@ no-ops cleanly otherwise:
 
 One-time setup on the Apple side: register the explicit App ID
 `dev.winktech.labtracker`, then create the matching app record in App Store
-Connect (the first upload fails without it). The marketing version comes from the
-tag; the build number is the workflow run number.
+Connect (the first upload fails without it). The marketing version is the tag's
+major.minor (patch releases reuse an approved TestFlight version, so only
+minor/major bumps trigger a Beta App Review); the build number is the workflow
+run number.
 
 **Changelog → "What to Test":** after the upload, the job sets the build's
 TestFlight test notes to that release's changelog (the tag's GitHub Release body,
