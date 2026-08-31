@@ -25,13 +25,9 @@ private struct TokenResponse: Decodable {
     let expiresIn: Int?
 }
 
-/// The `{ "error": "…" }` shape of an OAuth2 token-endpoint error (RFC 6749 §5.2).
-private struct OAuthError: Decodable {
-    let error: String
-}
-
-/// OIDC discovery/token responses are snake_case on the wire.
-private let oidcDecoder: JSONDecoder = {
+/// OIDC discovery/token responses are snake_case on the wire. Not file-private:
+/// the refresh classifier in OIDCPolicy.swift reads error bodies with it too.
+let oidcDecoder: JSONDecoder = {
     let decoder = JSONDecoder()
     decoder.keyDecodingStrategy = .convertFromSnakeCase
     return decoder
@@ -182,6 +178,14 @@ final class AuthSession: NSObject, ASWebAuthenticationPresentationContextProvidi
 
     private func performRefresh() async throws {
         guard let rt = refreshToken, config.isConfigured else { return }
+        // Rotation makes the next few hundred milliseconds the most dangerous
+        // in the app: once Authentik answers, the token just sent is void and
+        // only the reply can replace it. Being suspended in there — which is
+        // what iOS does to a process it woke for a background delivery — ends
+        // the session outright. The assertion buys time to finish writing what
+        // comes back; it is released on every path out.
+        let assertion = UIApplication.shared.beginBackgroundTask(withName: "oidc-token-refresh")
+        defer { if assertion != .invalid { UIApplication.shared.endBackgroundTask(assertion) } }
         AppLog.auth.notice("refresh: requesting new access token")
         let disco = try await discover()
         let (data, resp) = try await post(disco.tokenEndpoint, form: [
@@ -223,36 +227,6 @@ final class AuthSession: NSObject, ASWebAuthenticationPresentationContextProvidi
         }
     }
 
-    /// A short, token-free snippet of a token-endpoint error body for logging
-    /// (error responses are `{"error":"…"}` — no secrets).
-    private static func bodySnippet(_ data: Data) -> String {
-        let s = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
-        return s.count > 200 ? String(s.prefix(200)) + "…" : s
-    }
-
-    /// What the token endpoint's refresh response means for our stored tokens:
-    /// store the new ones, sign out, or keep the current token and retry later.
-    /// Only a definitively revoked/expired refresh token signs the user out —
-    /// per RFC 6749 §5.2 that's HTTP 400 `invalid_grant`. Everything else (5xx
-    /// from an Authentik restart/redeploy, gateway 502/503, other 4xx) preserves
-    /// the refresh token so a transient blip doesn't force a re-login.
-    enum RefreshOutcome: Equatable {
-        case refreshed
-        case revoked
-        case keepRetry(Int)
-    }
-
-    /// Pure (no I/O) so it can be unit-tested without a live IdP.
-    nonisolated static func classifyRefresh(status: Int, body: Data) -> RefreshOutcome {
-        if status == 200 { return .refreshed }
-        if status == 400,
-           let err = try? oidcDecoder.decode(OAuthError.self, from: body),
-           err.error == "invalid_grant" {
-            return .revoked
-        }
-        return .keepRetry(status)
-    }
-
     // MARK: - private
 
     private func exchange(code: String, verifier: String, tokenEndpoint: String) async throws {
@@ -285,9 +259,15 @@ final class AuthSession: NSObject, ASWebAuthenticationPresentationContextProvidi
         }
     }
 
+    /// The refresh token goes first, deliberately. The three writes cannot be
+    /// one transaction, so a process killed part-way through leaves a mixture
+    /// — and of the two orders, this is the recoverable one. New refresh token
+    /// with a stale access token costs one refresh on the next call; a new
+    /// access token with the spent refresh token behind it looks fine until
+    /// the access token expires, and then the session is simply over.
     private func persist() {
-        Keychain.set(accessToken, for: "access_token")
         Keychain.set(refreshToken, for: "refresh_token")
+        Keychain.set(accessToken, for: "access_token")
         Keychain.set(expiresAt.map { String($0.timeIntervalSince1970) }, for: "expires_at")
     }
 

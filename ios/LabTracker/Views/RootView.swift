@@ -107,6 +107,24 @@ struct RootView: View {
     }
 
     private func load() async {
+        // A background relaunch — iOS waking us for a HealthKit delivery —
+        // builds this view and runs its `.task` exactly like a foreground
+        // launch does. With no session there is nothing to fetch: sending the
+        // request anyway means an anonymous call, a 401 the server is right to
+        // refuse, and an error report filed for a signed-out app nobody is
+        // looking at. That is the whole of LAB-TRACKER-IOS-3 — one dead
+        // session re-reported at every wake. `HealthSync` already declines on
+        // the same condition; the UI now agrees with it.
+        //
+        // Only when auth is actually configured: a server that publishes no
+        // OIDC config serves these requests unauthenticated, and that
+        // deployment must keep working.
+        if AuthSession.needsSignIn(configured: store.auth.config.isConfigured, signedIn: store.auth.isSignedIn) {
+            profiles = []
+            error = nil
+            canReauth = true
+            return
+        }
         loading = true
         defer { loading = false }
         do {
