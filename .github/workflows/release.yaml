@@ -32,7 +32,14 @@ jobs:
         with:
           sha: ${{ github.event.workflow_run.head_sha }}
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
-          build-workflow: "build.yaml testflight.yaml"
+          # testflight.yaml carries a path filter: most releases here are
+          # backend/ or frontend/ only, and would otherwise spend a macOS
+          # runner rebuilding an unchanged app, notify testers, and hand
+          # Apple a review of nothing. testflight-refresh.yaml still
+          # rebuilds monthly, so the TestFlight build cannot expire.
+          build-workflow: |
+            build.yaml
+            testflight.yaml:^ios/
           project-description: >-
             lab-tracker is a self-hosted lab-results tracker: a Go API (backend/) with an
             embedded migration set, a React frontend (frontend/), an MCP server, and an iOS app
