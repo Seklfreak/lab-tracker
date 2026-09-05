@@ -3,7 +3,7 @@ module github.com/Seklfreak/lab-tracker/backend
 go 1.26
 
 require (
-	github.com/anthropics/anthropic-sdk-go v1.70.1
+	github.com/anthropics/anthropic-sdk-go v1.71.0
 	github.com/coreos/go-oidc/v3 v3.21.0
 	github.com/getsentry/sentry-go v0.49.0
 	github.com/go-chi/chi/v5 v5.3.2
