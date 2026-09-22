@@ -39,12 +39,20 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
             options.dsn = "https://bd2cd6d13ad4af70856bd356ed8e4673@o4511866040811520.ingest.us.sentry.io/4511937415544832"
             // Household-scale traffic: trace everything rather than sample.
             options.tracesSampleRate = 1.0
-            // Left at the 5xx default on purpose. Widening this to 4xx captured
-            // every handled 401 a second time — once here and once through
-            // `Error.report()` at the catch site — so a single failed request
-            // opened two issues (LAB-TRACKER-IOS-1 and -3) off one trace ID.
-            // Client errors reach Sentry through `report()`, which knows the
-            // call site and can tell noise from a real fault.
+            // Off, not narrowed. Capturing failed requests here was cut back
+            // from 4xx to the 5xx default once already, because a handled 401
+            // was arriving twice — once from the swizzle and once through
+            // `Error.report()` at the catch site. The 5xx default kept doing
+            // it: LAB-TRACKER-IOS-1 and -7 are one 502 from the IdP's
+            // discovery endpoint, filed as two issues a millisecond apart off
+            // the same trace and span id.
+            //
+            // Narrowing was treating the symptom. `report()` is meant to be
+            // the only place client errors are captured, and it is the better
+            // report either way — it knows the call site, tags the flow, and
+            // can tell a blip from a fault, where the swizzle's stack is
+            // nothing but the SDK's own frames.
+            options.enableCaptureFailedRequests = false
         }
         #endif
         MainActor.assumeIsolated {

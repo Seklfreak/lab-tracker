@@ -46,4 +46,37 @@ struct ErrorReportingTests {
         #expect(!urlError(NSURLErrorNetworkConnectionLost).isCancellation)
         #expect(urlError(NSURLErrorCancelled).isCancellation)
     }
+
+    /// LAB-TRACKER-IOS-1 and -7: one 502 from the gateway in front of the IdP,
+    /// filed as two issues a millisecond apart off the same trace id. A
+    /// gateway with nothing behind it is the same event as a refused
+    /// connection, seen from one layer further away.
+    @Test(arguments: [502, 503, 504])
+    func aGatewayWithNothingBehindItIsNotAFault(status: Int) {
+        #expect(OIDCError.discovery(status: status).isUnreachableGateway)
+        #expect(APIError.http(status, "").isUnreachableGateway)
+    }
+
+    /// Something answered and was wrong. That is a fault, and it reports.
+    @Test(arguments: [500, 501, 400, 401, 404])
+    func ananswerThatIsWrongStillReports(status: Int) {
+        #expect(!OIDCError.discovery(status: status).isUnreachableGateway)
+        #expect(!APIError.http(status, "").isUnreachableGateway)
+    }
+
+    /// Discovery that never became a request — a URL we built that will not
+    /// parse — is ours to fix, so it keeps reporting.
+    @Test func discoveryThatNeverReachedTheNetworkStillReports() {
+        #expect(!OIDCError.discovery(status: nil).isUnreachableGateway)
+    }
+
+    /// The gateway filter is about one shape of failure, not about silencing
+    /// these error types wholesale.
+    @Test func otherErrorsAreUntouchedByTheGatewayFilter() {
+        #expect(!APIError.decoding("bad json").isUnreachableGateway)
+        #expect(!APIError.badURL.isUnreachableGateway)
+        #expect(!OIDCError.cancelled.isUnreachableGateway)
+        #expect(!OIDCError.notConfigured.isUnreachableGateway)
+        #expect(!urlError(NSURLErrorTimedOut).isUnreachableGateway)
+    }
 }

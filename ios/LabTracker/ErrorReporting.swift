@@ -33,6 +33,30 @@ extension Error {
         ].contains(nsError.code)
     }
 
+    /// A gateway in front of a service had nothing to route to: the pod is
+    /// rolling, restarting, or briefly gone. Worth showing the user, never
+    /// worth a Sentry issue — there is no defect here to find, the next
+    /// attempt succeeds, and both services this app depends on are watched
+    /// by uptime checks that notify on their own. That is the same reasoning
+    /// as `isTransientNetwork` above, one layer up: a connection that was
+    /// refused and a connection that reached a gateway with nothing behind
+    /// it are the same event seen from different distances.
+    ///
+    /// 500 and 501 are deliberately not here. Those mean something answered
+    /// and was wrong, which is a fault worth a report.
+    var isUnreachableGateway: Bool {
+        let gateway: Set<Int> = [502, 503, 504]
+        switch self {
+        case let error as APIError:
+            if case let .http(code, _) = error { return gateway.contains(code) }
+        case let error as OIDCError:
+            if case let .discovery(status) = error, let status { return gateway.contains(status) }
+        default:
+            break
+        }
+        return false
+    }
+
     /// Sends the error to Sentry (no-op in Debug, where the SDK isn't
     /// started) tagged with the call site, and returns the text to show the
     /// user. Sentry's automatic capture only covers crashes and 5xx responses;
@@ -45,7 +69,7 @@ extension Error {
     /// separate decisions.
     @discardableResult
     func report(file: String = #fileID, function: String = #function) -> String {
-        if !isCancellation && !isTransientNetwork {
+        if !isCancellation && !isTransientNetwork && !isUnreachableGateway {
             let flow = "\(file.split(separator: "/").last.map(String.init) ?? file):\(function)"
             SentrySDK.capture(error: self) { scope in
                 scope.setTag(value: flow, key: "flow")

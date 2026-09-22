@@ -103,7 +103,7 @@ final class AuthSession: NSObject, ASWebAuthenticationPresentationContextProvidi
             .init(name: "code_challenge", value: challenge),
             .init(name: "code_challenge_method", value: "S256"),
         ]
-        guard let authURL = comps?.url else { throw OIDCError.discovery }
+        guard let authURL = comps?.url else { throw OIDCError.discovery(status: nil) }
 
         let callback = try await authenticate(url: authURL)
         let items = URLComponents(url: callback, resolvingAgainstBaseURL: false)?.queryItems ?? []
@@ -278,7 +278,8 @@ final class AuthSession: NSObject, ASWebAuthenticationPresentationContextProvidi
         if base.hasSuffix("/") { base = String(base.dropLast()) }
         guard let url = URL(string: base + "/config.js") else { throw OIDCError.notConfigured }
         let (data, resp) = try await URLSession.shared.data(from: url)
-        guard (resp as? HTTPURLResponse)?.statusCode == 200 else { throw OIDCError.discovery }
+        let configStatus = (resp as? HTTPURLResponse)?.statusCode
+        guard configStatus == 200 else { throw OIDCError.discovery(status: configStatus) }
         let js = String(decoding: data, as: UTF8.self)
         guard let issuer = jsString("oidcAuthority", in: js), !issuer.isEmpty,
               let clientID = jsString("oidcClientId", in: js) else {
@@ -297,15 +298,17 @@ final class AuthSession: NSObject, ASWebAuthenticationPresentationContextProvidi
     private func discover() async throws -> DiscoveryDoc {
         var base = config.issuer.trimmingCharacters(in: .whitespaces)
         if !base.hasSuffix("/") { base += "/" }
-        guard let url = URL(string: base + ".well-known/openid-configuration") else { throw OIDCError.discovery }
+        guard let url = URL(string: base + ".well-known/openid-configuration") else { throw OIDCError.discovery(status: nil) }
         let (data, resp) = try await URLSession.shared.data(from: url)
-        guard (resp as? HTTPURLResponse)?.statusCode == 200,
-              let doc = try? oidcDecoder.decode(DiscoveryDoc.self, from: data) else { throw OIDCError.discovery }
+        let status = (resp as? HTTPURLResponse)?.statusCode
+        guard status == 200, let doc = try? oidcDecoder.decode(DiscoveryDoc.self, from: data) else {
+            throw OIDCError.discovery(status: status)
+        }
         return doc
     }
 
     private func post(_ urlString: String, form: [String: String]) async throws -> (Data, URLResponse) {
-        guard let url = URL(string: urlString) else { throw OIDCError.discovery }
+        guard let url = URL(string: urlString) else { throw OIDCError.discovery(status: nil) }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
