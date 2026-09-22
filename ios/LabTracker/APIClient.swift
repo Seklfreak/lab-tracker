@@ -19,6 +19,39 @@ enum APIError: LocalizedError {
         if case .http(401, _) = self { return true }
         return false
     }
+
+    /// Why a 2xx body wouldn't decode, in enough detail to tell apart the
+    /// causes that otherwise all arrive as the same unactionable "The data
+    /// couldn't be read because it isn't in the correct format": an empty or
+    /// truncated response, a login or error page served as HTML with a 200,
+    /// and the server and this build genuinely disagreeing about the shape.
+    /// LAB-TRACKER-IOS-6 was 25 of those with no way to choose between them.
+    ///
+    /// Carries the response's *shape* only — status, content type, byte
+    /// count, and which key went wrong. Never the body: these responses hold
+    /// lab results, and none of that belongs in an error report.
+    static func decodingFailure(_ error: Error, data: Data, response: HTTPURLResponse) -> APIError {
+        let contentType = (response.value(forHTTPHeaderField: "Content-Type") ?? "no content-type")
+            .split(separator: ";").first.map(String.init) ?? "no content-type"
+        return .decoding("\(describe(error)); \(data.count) bytes of \(contentType)")
+    }
+
+    /// The failure as `DecodingError` states it, which says which key and
+    /// what was expected — where `localizedDescription` flattens every case
+    /// to one sentence. Coding paths are field names, never values.
+    private static func describe(_ error: Error) -> String {
+        func path(_ context: DecodingError.Context, _ key: CodingKey? = nil) -> String {
+            let keys = (context.codingPath + (key.map { [$0] } ?? [])).map(\.stringValue)
+            return keys.isEmpty ? "root" : keys.joined(separator: ".")
+        }
+        switch error as? DecodingError {
+        case let .keyNotFound(key, context): return "missing key \(path(context, key))"
+        case let .typeMismatch(type, context): return "expected \(type) at \(path(context))"
+        case let .valueNotFound(type, context): return "null \(type) at \(path(context))"
+        case let .dataCorrupted(context): return "malformed JSON at \(path(context))"
+        default: return error.localizedDescription
+        }
+    }
 }
 
 /// Thin REST client for the lab-tracker API. Uses the OIDC access token when
@@ -72,7 +105,7 @@ struct APIClient {
         do {
             return try JSONDecoder().decode(T.self, from: data)
         } catch {
-            throw APIError.decoding(error.localizedDescription)
+            throw APIError.decodingFailure(error, data: data, response: http)
         }
     }
 
@@ -169,7 +202,7 @@ struct APIClient {
         do {
             return try JSONDecoder().decode(T.self, from: data)
         } catch {
-            throw APIError.decoding(error.localizedDescription)
+            throw APIError.decodingFailure(error, data: data, response: http)
         }
     }
 }
