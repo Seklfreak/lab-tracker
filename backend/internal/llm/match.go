@@ -75,8 +75,11 @@ func (e *Extractor) MatchAnalytes(ctx context.Context, inputs []MatchInput, cata
 	}
 
 	msg, err := e.client.Messages.New(ctx, anthropic.MessageNewParams{
-		Model:     anthropic.ModelClaudeOpus4_8,
-		MaxTokens: 4000,
+		Model: anthropic.ModelClaudeOpus5_5,
+		// One line of JSON per input, but the model now thinks before writing
+		// any of them and that comes out of the same budget. Still small
+		// enough to stay under the SDK's non-streaming ceiling.
+		MaxTokens: 16000,
 		Messages: []anthropic.MessageParam{
 			anthropic.NewUserMessage(anthropic.NewTextBlock(
 				fmt.Sprintf(matchInstructions, cb.String(), nb.String()))),
@@ -85,14 +88,11 @@ func (e *Extractor) MatchAnalytes(ctx context.Context, inputs []MatchInput, cata
 	if err != nil {
 		return out, fmt.Errorf("anthropic match request: %w", err)
 	}
-
-	var sb strings.Builder
-	for _, block := range msg.Content {
-		if t, ok := block.AsAny().(anthropic.TextBlock); ok {
-			sb.WriteString(t.Text)
-		}
+	if msg.StopReason == anthropic.StopReasonMaxTokens {
+		return out, fmt.Errorf("match truncated at the %d-token budget", msg.Usage.OutputTokens)
 	}
-	jsonStr, err := extractJSONObject(sb.String())
+
+	jsonStr, err := extractJSONObject(messageText(msg))
 	if err != nil {
 		return out, fmt.Errorf("locate JSON in match output: %w", err)
 	}

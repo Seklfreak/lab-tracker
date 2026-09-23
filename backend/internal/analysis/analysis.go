@@ -19,6 +19,12 @@ import (
 
 const dateLayout = "2006-01-02"
 
+// analysisMaxTokens is the budget for one written analysis. The prose itself
+// fits in a couple of thousand tokens; the rest is headroom for the thinking
+// the model does first, which is billed and capped out of the same budget and
+// would otherwise eat the answer.
+const analysisMaxTokens = 8000
+
 // ErrNoResults is returned by Generate when the analyte has no results yet.
 var ErrNoResults = errors.New("no results to analyze")
 
@@ -51,7 +57,7 @@ func Generate(ctx context.Context, q sqlc.Querier, ex *llm.Extractor, profileID,
 		return "", 0, err
 	}
 
-	content, err := ex.Complete(ctx, buildAnalysisPrompt(profile, body, analyte, series, others), 2000)
+	content, err := ex.Complete(ctx, buildAnalysisPrompt(profile, body, analyte, series, others), analysisMaxTokens)
 	if err != nil {
 		return "", 0, err
 	}
@@ -87,7 +93,7 @@ func GeneratePanel(ctx context.Context, q sqlc.Querier, ex *llm.Extractor, profi
 	if err != nil {
 		return "", 0, err
 	}
-	content, err := ex.Complete(ctx, buildPanelPrompt(profile, body, latest), 2000)
+	content, err := ex.Complete(ctx, buildPanelPrompt(profile, body, latest), analysisMaxTokens)
 	if err != nil {
 		return "", 0, err
 	}

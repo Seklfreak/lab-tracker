@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
@@ -76,10 +77,55 @@ Rules:
 - For "specimen": use the panel/section context. Urinalysis and urine dipstick or microscopic tests are "urine". CBC and hematology/differential tests are "whole blood". Most chemistry, lipid, thyroid, and immunoassay/serology tests are "serum". Use null only if genuinely unclear.
 - If no results are found, return an empty "results" array.`
 
+// streamTimeout bounds a streamed request that arrives without a deadline of
+// its own. Streaming gives up the timeout the SDK derives from max_tokens for
+// a non-streaming call, and that timeout was the only bound the CLI entry
+// points ever had; this restores one of the same order. A server request
+// always carries a shorter deadline, which this leaves alone.
+const streamTimeout = 10 * time.Minute
+
+// stream runs one request as a stream and returns the accumulated message.
+// Extract goes through here rather than Messages.New because the model always
+// thinks: the thinking comes out of max_tokens along with the answer, and the
+// SDK refuses a non-streaming request whose max_tokens implies more than ten
+// minutes of work — about 21k tokens, well below what a long report needs.
+func (e *Extractor) stream(ctx context.Context, params anthropic.MessageNewParams) (*anthropic.Message, error) {
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, streamTimeout)
+		defer cancel()
+	}
+
+	st := e.client.Messages.NewStreaming(ctx, params)
+	var msg anthropic.Message
+	for st.Next() {
+		if err := msg.Accumulate(st.Current()); err != nil {
+			return nil, err
+		}
+	}
+	if err := st.Err(); err != nil {
+		return nil, err
+	}
+	return &msg, nil
+}
+
+// messageText concatenates a response's text blocks. Thinking blocks lead the
+// content on a model that always thinks, so every reader has to select by type
+// rather than take the first block.
+func messageText(msg *anthropic.Message) string {
+	var sb strings.Builder
+	for _, block := range msg.Content {
+		if t, ok := block.AsAny().(anthropic.TextBlock); ok {
+			sb.WriteString(t.Text)
+		}
+	}
+	return sb.String()
+}
+
 // Complete runs a single text prompt and returns the model's text response.
 func (e *Extractor) Complete(ctx context.Context, prompt string, maxTokens int64) (string, error) {
 	msg, err := e.client.Messages.New(ctx, anthropic.MessageNewParams{
-		Model:     anthropic.ModelClaudeOpus4_8,
+		Model:     anthropic.ModelClaudeOpus5_5,
 		MaxTokens: maxTokens,
 		Messages: []anthropic.MessageParam{
 			anthropic.NewUserMessage(anthropic.NewTextBlock(prompt)),
@@ -88,22 +134,20 @@ func (e *Extractor) Complete(ctx context.Context, prompt string, maxTokens int64
 	if err != nil {
 		return "", fmt.Errorf("anthropic completion: %w", err)
 	}
-	var sb strings.Builder
-	for _, block := range msg.Content {
-		if t, ok := block.AsAny().(anthropic.TextBlock); ok {
-			sb.WriteString(t.Text)
-		}
-	}
-	return sb.String(), nil
+	return messageText(msg), nil
 }
 
 // Extract parses a PDF's bytes into an ExtractedReport.
 func (e *Extractor) Extract(ctx context.Context, pdf []byte) (*ExtractedReport, error) {
 	b64 := base64.StdEncoding.EncodeToString(pdf)
 
-	msg, err := e.client.Messages.New(ctx, anthropic.MessageNewParams{
-		Model:     anthropic.ModelClaudeOpus4_8,
-		MaxTokens: 16000,
+	msg, err := e.stream(ctx, anthropic.MessageNewParams{
+		Model: anthropic.ModelClaudeOpus5_5,
+		// Sized for the thinking, not the answer: the reasoning over a
+		// multi-page panel is spent before a single result is written, and a
+		// budget that only fits the JSON gets truncated mid-object with
+		// nothing to show for the call.
+		MaxTokens: 64000,
 		Messages: []anthropic.MessageParam{
 			anthropic.NewUserMessage(
 				anthropic.NewDocumentBlock(anthropic.Base64PDFSourceParam{Data: b64}),
@@ -114,16 +158,13 @@ func (e *Extractor) Extract(ctx context.Context, pdf []byte) (*ExtractedReport, 
 	if err != nil {
 		return nil, fmt.Errorf("anthropic request: %w", err)
 	}
-
-	var sb strings.Builder
-	for _, block := range msg.Content {
-		if t, ok := block.AsAny().(anthropic.TextBlock); ok {
-			sb.WriteString(t.Text)
-		}
+	// Without this, a truncated response surfaces as an unbalanced-JSON parse
+	// error, which reads like a bad report rather than a budget that ran out.
+	if msg.StopReason == anthropic.StopReasonMaxTokens {
+		return nil, fmt.Errorf("extraction truncated at the %d-token budget", msg.Usage.OutputTokens)
 	}
-	raw := sb.String()
 
-	jsonStr, err := extractJSONObject(raw)
+	jsonStr, err := extractJSONObject(messageText(msg))
 	if err != nil {
 		return nil, fmt.Errorf("locate JSON in model output: %w", err)
 	}

@@ -22,7 +22,7 @@ func MockExtractor(t *testing.T, modelText string) *llm.Extractor {
 			"id":          "msg_test",
 			"type":        "message",
 			"role":        "assistant",
-			"model":       "claude-opus-4-8",
+			"model":       "claude-opus-5-5",
 			"content":     []map[string]any{{"type": "text", "text": modelText}},
 			"stop_reason": "end_turn",
 			"usage":       map[string]any{"input_tokens": 1, "output_tokens": 1},

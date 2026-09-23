@@ -3,6 +3,8 @@ package llm
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -13,15 +15,26 @@ import (
 // mockExtractor returns an Extractor whose Anthropic client is pointed at a
 // local server that always replies with modelText as the assistant message —
 // so the real SDK request/response + our parsing run, with no API key/network.
+// Extract streams and the other calls don't, so the server answers in whichever
+// shape the request asked for.
 func mockExtractor(t *testing.T, modelText string) *Extractor {
 	t.Helper()
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		var req struct {
+			Stream bool `json:"stream"`
+		}
+		_ = json.Unmarshal(raw, &req)
+		if req.Stream {
+			writeMessageStream(w, modelText)
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"id":          "msg_test",
 			"type":        "message",
 			"role":        "assistant",
-			"model":       "claude-opus-4-8",
+			"model":       "claude-opus-5-5",
 			"content":     []map[string]any{{"type": "text", "text": modelText}},
 			"stop_reason": "end_turn",
 			"usage":       map[string]any{"input_tokens": 1, "output_tokens": 1},
@@ -29,6 +42,39 @@ func mockExtractor(t *testing.T, modelText string) *Extractor {
 	}))
 	t.Cleanup(srv.Close)
 	return NewExtractor("test-key", option.WithBaseURL(srv.URL))
+}
+
+// writeMessageStream replays text as the server-sent event sequence a streamed
+// message arrives in, so the SDK's accumulator runs the way it does in
+// production rather than being handed a finished message.
+func writeMessageStream(w http.ResponseWriter, text string) {
+	w.Header().Set("Content-Type", "text/event-stream")
+	events := []struct {
+		name string
+		data map[string]any
+	}{
+		{"message_start", map[string]any{"type": "message_start", "message": map[string]any{
+			"id": "msg_test", "type": "message", "role": "assistant", "model": "claude-opus-5-5",
+			"content": []any{}, "stop_reason": nil, "stop_sequence": nil,
+			"usage": map[string]any{"input_tokens": 1, "output_tokens": 1},
+		}}},
+		{"content_block_start", map[string]any{"type": "content_block_start", "index": 0,
+			"content_block": map[string]any{"type": "text", "text": ""}}},
+		{"content_block_delta", map[string]any{"type": "content_block_delta", "index": 0,
+			"delta": map[string]any{"type": "text_delta", "text": text}}},
+		{"content_block_stop", map[string]any{"type": "content_block_stop", "index": 0}},
+		{"message_delta", map[string]any{"type": "message_delta",
+			"delta": map[string]any{"stop_reason": "end_turn", "stop_sequence": nil},
+			"usage": map[string]any{"output_tokens": 1}}},
+		{"message_stop", map[string]any{"type": "message_stop"}},
+	}
+	for _, ev := range events {
+		b, err := json.Marshal(ev.data)
+		if err != nil {
+			panic(err)
+		}
+		_, _ = fmt.Fprintf(w, "event: %s\ndata: %s\n\n", ev.name, b)
+	}
 }
 
 func TestCompleteSmoke(t *testing.T) {
