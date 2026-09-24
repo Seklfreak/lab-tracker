@@ -182,6 +182,7 @@ type ReportDTO struct {
 	ProfileID        uuid.UUID `json:"profileId"`
 	OriginalFilename *string   `json:"originalFilename"`
 	SourceLab        *string   `json:"sourceLab"`
+	Source           string    `json:"source"` // "pdf" or "device"
 	Status           string    `json:"status"`
 	ParseError       *string   `json:"parseError"`
 	CollectedDate    *string   `json:"collectedDate"`
@@ -195,6 +196,7 @@ func toReportDTO(r sqlc.LabReport) ReportDTO {
 		ProfileID:        r.ProfileID,
 		OriginalFilename: textToPtr(r.OriginalFilename),
 		SourceLab:        textToPtr(r.SourceLab),
+		Source:           r.Source,
 		Status:           r.Status,
 		ParseError:       textToPtr(r.ParseError),
 		CollectedDate:    dateToPtr(r.CollectedDate),

@@ -55,7 +55,9 @@ export function Reports() {
   return (
     <div className="space-y-3">
       {data.map((r) => {
-        const hasDraft = r.status === "parsed" || r.status === "saved";
+        const isDevice = r.source === "device";
+        // Device reports are imported already saved, with no PDF or draft.
+        const hasDraft = !isDevice && (r.status === "parsed" || r.status === "saved");
         const busy =
           r.status === "parsing" ||
           (reparse.isPending && reparse.variables === r.id) ||
@@ -66,7 +68,7 @@ export function Reports() {
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="truncate font-medium">
-                    {r.originalFilename ?? r.id.slice(0, 8)}
+                    {isDevice ? "Home meter reading" : (r.originalFilename ?? r.id.slice(0, 8))}
                   </span>
                   <Badge tone={statusTone[r.status]}>{r.status}</Badge>
                 </div>
@@ -75,14 +77,16 @@ export function Reports() {
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => void api.openPdf(r.id)}
-                  className="px-2 py-1 text-sm text-accent"
-                >
-                  PDF
-                </button>
-                {r.status === "saved" && (
+                {!isDevice && (
+                  <button
+                    type="button"
+                    onClick={() => void api.openPdf(r.id)}
+                    className="px-2 py-1 text-sm text-accent"
+                  >
+                    PDF
+                  </button>
+                )}
+                {!isDevice && r.status === "saved" && (
                   <Button
                     variant="ghost"
                     className="px-2 py-1"
@@ -100,15 +104,17 @@ export function Reports() {
                     Review
                   </Button>
                 )}
-                <Button
-                  variant="ghost"
-                  className="px-2 py-1"
-                  disabled={busy}
-                  onClick={() => reparse.mutate(r.id)}
-                  title="Re-run extraction on the stored PDF"
-                >
-                  Retry
-                </Button>
+                {!isDevice && (
+                  <Button
+                    variant="ghost"
+                    className="px-2 py-1"
+                    disabled={busy}
+                    onClick={() => reparse.mutate(r.id)}
+                    title="Re-run extraction on the stored PDF"
+                  >
+                    Retry
+                  </Button>
+                )}
                 <Button
                   variant="danger"
                   className="px-2 py-1"

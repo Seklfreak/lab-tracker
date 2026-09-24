@@ -44,6 +44,20 @@ type FakeQuerier struct {
 	ListBodyMeasurementsFn           func(context.Context, uuid.UUID) ([]sqlc.BodyMeasurement, error)
 	AddBodyMeasurementFn             func(context.Context, sqlc.AddBodyMeasurementParams) (sqlc.BodyMeasurement, error)
 	DeleteBodyMeasurementFn          func(context.Context, sqlc.DeleteBodyMeasurementParams) error
+
+	// Personal access tokens.
+	GetActiveAPITokenByHashFn func(context.Context, []byte) (sqlc.GetActiveAPITokenByHashRow, error)
+	TouchAPITokenFn           func(context.Context, uuid.UUID) error
+	CreateAPITokenFn          func(context.Context, sqlc.CreateAPITokenParams) (sqlc.ApiToken, error)
+	ListAPITokensForUserFn    func(context.Context, uuid.UUID) ([]sqlc.ApiToken, error)
+	RevokeAPITokenFn          func(context.Context, sqlc.RevokeAPITokenParams) (int64, error)
+
+	// Device readings.
+	ListDeviceReportsByExternalIDForUserFn func(context.Context, sqlc.ListDeviceReportsByExternalIDForUserParams) ([]sqlc.ListDeviceReportsByExternalIDForUserRow, error)
+	CreateDeviceReportFn                   func(context.Context, sqlc.CreateDeviceReportParams) (sqlc.LabReport, error)
+	CreateResultFn                         func(context.Context, sqlc.CreateResultParams) (sqlc.LabResult, error)
+	GetAnalyteByNameFn                     func(context.Context, string) (sqlc.Analyte, error)
+	GetAliasByRawNameFn                    func(context.Context, string) (sqlc.Analyte, error)
 }
 
 func (f *FakeQuerier) UpdateProfile(ctx context.Context, arg sqlc.UpdateProfileParams) (sqlc.Profile, error) {
@@ -168,4 +182,44 @@ func (f *FakeQuerier) GetAnalysis(ctx context.Context, arg sqlc.GetAnalysisParam
 
 func (f *FakeQuerier) UpsertAnalysis(ctx context.Context, arg sqlc.UpsertAnalysisParams) error {
 	return f.UpsertAnalysisFn(ctx, arg)
+}
+
+func (f *FakeQuerier) GetActiveAPITokenByHash(ctx context.Context, h []byte) (sqlc.GetActiveAPITokenByHashRow, error) {
+	return f.GetActiveAPITokenByHashFn(ctx, h)
+}
+
+func (f *FakeQuerier) TouchAPIToken(ctx context.Context, id uuid.UUID) error {
+	return f.TouchAPITokenFn(ctx, id)
+}
+
+func (f *FakeQuerier) CreateAPIToken(ctx context.Context, arg sqlc.CreateAPITokenParams) (sqlc.ApiToken, error) {
+	return f.CreateAPITokenFn(ctx, arg)
+}
+
+func (f *FakeQuerier) ListAPITokensForUser(ctx context.Context, userID uuid.UUID) ([]sqlc.ApiToken, error) {
+	return f.ListAPITokensForUserFn(ctx, userID)
+}
+
+func (f *FakeQuerier) RevokeAPIToken(ctx context.Context, arg sqlc.RevokeAPITokenParams) (int64, error) {
+	return f.RevokeAPITokenFn(ctx, arg)
+}
+
+func (f *FakeQuerier) ListDeviceReportsByExternalIDForUser(ctx context.Context, arg sqlc.ListDeviceReportsByExternalIDForUserParams) ([]sqlc.ListDeviceReportsByExternalIDForUserRow, error) {
+	return f.ListDeviceReportsByExternalIDForUserFn(ctx, arg)
+}
+
+func (f *FakeQuerier) CreateDeviceReport(ctx context.Context, arg sqlc.CreateDeviceReportParams) (sqlc.LabReport, error) {
+	return f.CreateDeviceReportFn(ctx, arg)
+}
+
+func (f *FakeQuerier) CreateResult(ctx context.Context, arg sqlc.CreateResultParams) (sqlc.LabResult, error) {
+	return f.CreateResultFn(ctx, arg)
+}
+
+func (f *FakeQuerier) GetAnalyteByName(ctx context.Context, name string) (sqlc.Analyte, error) {
+	return f.GetAnalyteByNameFn(ctx, name)
+}
+
+func (f *FakeQuerier) GetAliasByRawName(ctx context.Context, name string) (sqlc.Analyte, error) {
+	return f.GetAliasByRawNameFn(ctx, name)
 }

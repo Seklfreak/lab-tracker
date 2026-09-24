@@ -9,6 +9,9 @@ e.g. Authentik) — the API validates Bearer JWTs and the SPA does Authorization
 Code + PKCE; set `AUTH_DISABLED=true` to run locally without it. Each user owns
 their own profiles and can share a profile with other users to co-edit it; a
 super-user admin area (`ADMIN_EMAILS`) lists every user and their profile counts.
+Scripts and device importers authenticate with **personal access tokens**
+(created on the Tokens page, sent as `Authorization: Bearer lt_…`); a token acts
+as its owner but can't mint more tokens or use admin endpoints.
 
 ## Stack
 
@@ -85,6 +88,10 @@ npm run dev                # http://localhost:5173 (proxies /api to :8080)
 |---|---|---|
 | GET | `/api/me` | current user + whether they're a super-user |
 | GET | `/api/admin/users` | (super-user) every user with owned/shared profile counts |
+| GET/POST | `/api/tokens` | list / create personal access tokens (create needs a signed-in session; the token is returned once) |
+| DELETE | `/api/tokens/{id}` | revoke one of your tokens |
+| POST | `/api/device-readings/lookup` | which of the given device `externalIds` are already imported on your profiles |
+| POST | `/api/device-readings` | import one home-device reading (e.g. a lipid meter) onto a profile as a PDF-less report; idempotent on `externalId` |
 | GET/POST | `/api/profiles` | list owned-or-shared / create profiles |
 | PATCH/DELETE | `/api/profiles/{id}` | edit (name, birthdate) / delete (owner only) |
 | GET/POST/DELETE | `/api/profiles/{id}/body` | self-entered weight/height over time (kg, cm) |
@@ -105,13 +112,15 @@ npm run dev                # http://localhost:5173 (proxies /api to :8080)
 `users` (one per OIDC identity, keyed on `sub`), `profiles` (each owned by a user
 via `owner_user_id`), `profile_members` (profiles shared with other users),
 `analytes` (canonical tests), `analyte_aliases` (raw name → analyte),
-`lab_reports` (one PDF), `lab_results` (one dated measurement — the graph unit),
+`lab_reports` (one PDF, or one home-device reading: `source` = `pdf`/`device`,
+with the device's `external_id` so re-imports are idempotent), `lab_results` (one dated measurement — the graph unit),
 `favorites` (per-profile pinned analytes), `body_measurements` (weight, height,
 and vitals — body fat, waist, resting heart rate, VO₂max, blood oxygen, blood
 pressure — over time, with a `source` (manual or `apple_health`) and an
 `external_id` so HealthKit imports are idempotent; `value2` holds blood-pressure
 diastolic), `analyte_analyses` (stored AI analysis per profile + analyte), `ignored_analyte_pairs`
-(analyte pairs an admin marked "not duplicates", suppressing the dashboard hint). See
+(analyte pairs an admin marked "not duplicates", suppressing the dashboard hint),
+`api_tokens` (personal access tokens; only a SHA-256 is stored). See
 `backend/internal/db/migrations`.
 
 ## Testing

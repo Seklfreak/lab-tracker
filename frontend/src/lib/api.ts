@@ -35,6 +35,18 @@ export interface Member {
   isOwner: boolean;
 }
 
+export interface ApiToken {
+  id: string;
+  name: string;
+  prefix: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+}
+
+export interface CreatedApiToken extends ApiToken {
+  token: string; // plaintext, only returned on creation
+}
+
 export interface Me {
   userId: string;
   email: string | null;
@@ -130,6 +142,8 @@ export interface Report {
   profileId: string;
   originalFilename: string | null;
   sourceLab: string | null;
+  // "device" reports come from a home meter import: no PDF, nothing to review.
+  source: "pdf" | "device";
   status: ReportStatus;
   parseError: string | null;
   collectedDate: string | null;
@@ -211,6 +225,10 @@ export const health = (): Promise<{ status: string; version?: string }> =>
 export const api = {
   me: () => req<Me>("/api/me"),
   adminUsers: () => req<AdminUser[]>("/api/admin/users"),
+
+  listTokens: () => req<ApiToken[]>("/api/tokens"),
+  createToken: (name: string) => req<CreatedApiToken>("/api/tokens", json({ name })),
+  revokeToken: (id: string) => req<void>(`/api/tokens/${id}`, { method: "DELETE" }),
 
   listProfiles: () => req<Profile[]>("/api/profiles"),
   createProfile: (name: string, dateOfBirth: string | null) =>

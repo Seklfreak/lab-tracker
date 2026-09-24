@@ -92,6 +92,15 @@ func (s *Server) Router(corsOrigins []string) http.Handler {
 		r.Use(s.authMiddleware)
 
 		r.Get("/me", s.getMe)
+
+		// Personal access tokens for scripts and device importers.
+		r.Get("/tokens", s.listTokens)
+		r.Post("/tokens", s.createToken)
+		r.Delete("/tokens/{id}", s.revokeToken)
+
+		// Home-device readings (e.g. a lipid meter), imported idempotently.
+		r.Post("/device-readings/lookup", s.lookupDeviceReadings)
+		r.Post("/device-readings", s.importDeviceReading)
 		r.Get("/admin/users", s.listAllUsers)
 
 		r.Get("/profiles", s.listProfiles)

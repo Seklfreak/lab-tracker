@@ -34,6 +34,8 @@ const (
 	userIDKey  ctxKey = "user-id"
 	emailKey   ctxKey = "user-email"
 	isAdminKey ctxKey = "is-admin"
+	// viaTokenKey marks requests authenticated with a personal access token.
+	viaTokenKey ctxKey = "via-api-token"
 )
 
 // DevUserID is the fixed local user used when AUTH_DISABLED is set (dev). The
@@ -49,6 +51,12 @@ const DevUserSub = "dev-user"
 // has no verifier (AUTH_DISABLED), it acts as the fixed local dev user.
 func (s *Server) authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Personal access tokens are recognised by their prefix and checked
+		// against the database, independent of OIDC (and of AUTH_DISABLED).
+		if raw := bearerToken(r); isAPIToken(raw) {
+			s.serveWithAPIToken(w, r, raw, next)
+			return
+		}
 		if s.verifier == nil {
 			// Dev: act as the fixed local user, and treat them as admin so the
 			// admin area is reachable without a token.

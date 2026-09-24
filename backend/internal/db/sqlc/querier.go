@@ -20,7 +20,11 @@ type Querier interface {
 	AddFavorite(ctx context.Context, arg AddFavoriteParams) error
 	AddProfileMember(ctx context.Context, arg AddProfileMemberParams) error
 	CountResultsForAnalyte(ctx context.Context, analyteID uuid.UUID) (int64, error)
+	CreateAPIToken(ctx context.Context, arg CreateAPITokenParams) (ApiToken, error)
 	CreateAnalyte(ctx context.Context, arg CreateAnalyteParams) (Analyte, error)
+	// A saved, PDF-less report for one device reading. Returns no rows when this
+	// reading already exists on the profile.
+	CreateDeviceReport(ctx context.Context, arg CreateDeviceReportParams) (LabReport, error)
 	CreateProfile(ctx context.Context, arg CreateProfileParams) (Profile, error)
 	CreateReport(ctx context.Context, arg CreateReportParams) (LabReport, error)
 	CreateResult(ctx context.Context, arg CreateResultParams) (LabResult, error)
@@ -32,6 +36,8 @@ type Querier interface {
 	DeleteReport(ctx context.Context, id uuid.UUID) error
 	DeleteResult(ctx context.Context, id uuid.UUID) error
 	DeleteResultsForReport(ctx context.Context, reportID uuid.UUID) error
+	// The token's owner, if the token exists and hasn't been revoked.
+	GetActiveAPITokenByHash(ctx context.Context, tokenHash []byte) (GetActiveAPITokenByHashRow, error)
 	GetAliasByRawName(ctx context.Context, btrim string) (Analyte, error)
 	GetAnalysis(ctx context.Context, arg GetAnalysisParams) (AnalyteAnalysis, error)
 	GetAnalyte(ctx context.Context, id uuid.UUID) (Analyte, error)
@@ -48,9 +54,13 @@ type Querier interface {
 	GetUserByEmail(ctx context.Context, lower string) (User, error)
 	GetUserBySub(ctx context.Context, oidcSub string) (User, error)
 	IgnoreAnalytePair(ctx context.Context, arg IgnoreAnalytePairParams) error
+	ListAPITokensForUser(ctx context.Context, userID uuid.UUID) ([]ApiToken, error)
 	ListAnalytes(ctx context.Context) ([]Analyte, error)
 	ListAnalytesWithDataForProfile(ctx context.Context, profileID uuid.UUID) ([]Analyte, error)
 	ListBodyMeasurements(ctx context.Context, profileID uuid.UUID) ([]BodyMeasurement, error)
+	// Device reports with any of the given external ids, on profiles the user owns
+	// or that are shared with them. Other users' readings are never visible.
+	ListDeviceReportsByExternalIDForUser(ctx context.Context, arg ListDeviceReportsByExternalIDForUserParams) ([]ListDeviceReportsByExternalIDForUserRow, error)
 	ListIgnoredAnalytePairs(ctx context.Context) ([]ListIgnoredAnalytePairsRow, error)
 	ListLatestResultsForProfile(ctx context.Context, profileID uuid.UUID) ([]ListLatestResultsForProfileRow, error)
 	ListProfileMembers(ctx context.Context, profileID uuid.UUID) ([]ListProfileMembersRow, error)
@@ -75,10 +85,12 @@ type Querier interface {
 	// inside a transaction (see mergeAnalytes).
 	RepointResultsToAnalyte(ctx context.Context, arg RepointResultsToAnalyteParams) error
 	ResultStatsForProfileAnalyte(ctx context.Context, arg ResultStatsForProfileAnalyteParams) (ResultStatsForProfileAnalyteRow, error)
+	RevokeAPIToken(ctx context.Context, arg RevokeAPITokenParams) (int64, error)
 	SetReportError(ctx context.Context, arg SetReportErrorParams) error
 	SetReportParsed(ctx context.Context, arg SetReportParsedParams) error
 	SetReportParsing(ctx context.Context, id uuid.UUID) error
 	SetReportSaved(ctx context.Context, arg SetReportSavedParams) error
+	TouchAPIToken(ctx context.Context, id uuid.UUID) error
 	UnignoreAnalytePair(ctx context.Context, arg UnignoreAnalytePairParams) error
 	UpdateProfile(ctx context.Context, arg UpdateProfileParams) (Profile, error)
 	UpdateResult(ctx context.Context, arg UpdateResultParams) error

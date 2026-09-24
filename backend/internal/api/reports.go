@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/Seklfreak/lab-tracker/backend/internal/db/sqlc"
 	"github.com/Seklfreak/lab-tracker/backend/internal/llm"
 )
@@ -52,7 +53,7 @@ func (s *Server) uploadReport(w http.ResponseWriter, r *http.Request) {
 
 	report, err := s.q.CreateReport(r.Context(), sqlc.CreateReportParams{
 		ProfileID:        p.ID,
-		PdfObjectKey:     objectKey,
+		PdfObjectKey:     pgtype.Text{String: objectKey, Valid: true},
 		OriginalFilename: ptrToText(&header.Filename),
 	})
 	if err != nil {
@@ -135,7 +136,11 @@ func (s *Server) getReportPDF(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	obj, err := s.store.GetPDF(r.Context(), report.PdfObjectKey)
+	if !report.PdfObjectKey.Valid {
+		writeError(w, http.StatusNotFound, "report has no PDF")
+		return
+	}
+	obj, err := s.store.GetPDF(r.Context(), report.PdfObjectKey.String)
 	if err != nil {
 		s.log.Error("get pdf", "err", err)
 		writeError(w, http.StatusInternalServerError, "failed to load PDF")
@@ -155,9 +160,12 @@ func (s *Server) deleteReport(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	// Best-effort PDF removal; proceed with the DB delete regardless.
-	if err := s.store.DeletePDF(r.Context(), report.PdfObjectKey); err != nil {
-		s.log.Warn("delete pdf object", "report", report.ID, "err", err)
+	// Best-effort PDF removal; proceed with the DB delete regardless. Device
+	// reports have no PDF.
+	if report.PdfObjectKey.Valid {
+		if err := s.store.DeletePDF(r.Context(), report.PdfObjectKey.String); err != nil {
+			s.log.Warn("delete pdf object", "report", report.ID, "err", err)
+		}
 	}
 	if err := s.q.DeleteReport(r.Context(), report.ID); err != nil {
 		s.log.Error("delete report", "err", err)
@@ -174,7 +182,11 @@ func (s *Server) reparseReport(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	obj, err := s.store.GetPDF(r.Context(), report.PdfObjectKey)
+	if !report.PdfObjectKey.Valid {
+		writeError(w, http.StatusBadRequest, "only PDF reports can be re-parsed")
+		return
+	}
+	obj, err := s.store.GetPDF(r.Context(), report.PdfObjectKey.String)
 	if err != nil {
 		s.log.Error("get pdf for reparse", "err", err)
 		writeError(w, http.StatusInternalServerError, "failed to load PDF")

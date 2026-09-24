@@ -15,12 +15,12 @@ import (
 const createReport = `-- name: CreateReport :one
 INSERT INTO lab_reports (profile_id, pdf_object_key, original_filename, status)
 VALUES ($1, $2, $3, 'parsing')
-RETURNING id, profile_id, pdf_object_key, original_filename, source_lab, collected_date, reported_date, status, parse_error, parsed_draft, created_at
+RETURNING id, profile_id, pdf_object_key, original_filename, source_lab, collected_date, reported_date, status, parse_error, parsed_draft, created_at, source, external_id
 `
 
 type CreateReportParams struct {
 	ProfileID        uuid.UUID   `json:"profile_id"`
-	PdfObjectKey     string      `json:"pdf_object_key"`
+	PdfObjectKey     pgtype.Text `json:"pdf_object_key"`
 	OriginalFilename pgtype.Text `json:"original_filename"`
 }
 
@@ -39,6 +39,8 @@ func (q *Queries) CreateReport(ctx context.Context, arg CreateReportParams) (Lab
 		&i.ParseError,
 		&i.ParsedDraft,
 		&i.CreatedAt,
+		&i.Source,
+		&i.ExternalID,
 	)
 	return i, err
 }
@@ -54,7 +56,7 @@ func (q *Queries) DeleteReport(ctx context.Context, id uuid.UUID) error {
 }
 
 const getReport = `-- name: GetReport :one
-SELECT id, profile_id, pdf_object_key, original_filename, source_lab, collected_date, reported_date, status, parse_error, parsed_draft, created_at FROM lab_reports
+SELECT id, profile_id, pdf_object_key, original_filename, source_lab, collected_date, reported_date, status, parse_error, parsed_draft, created_at, source, external_id FROM lab_reports
 WHERE id = $1
 `
 
@@ -73,12 +75,14 @@ func (q *Queries) GetReport(ctx context.Context, id uuid.UUID) (LabReport, error
 		&i.ParseError,
 		&i.ParsedDraft,
 		&i.CreatedAt,
+		&i.Source,
+		&i.ExternalID,
 	)
 	return i, err
 }
 
 const listReportsForProfile = `-- name: ListReportsForProfile :many
-SELECT id, profile_id, pdf_object_key, original_filename, source_lab, collected_date, reported_date, status, parse_error, parsed_draft, created_at FROM lab_reports
+SELECT id, profile_id, pdf_object_key, original_filename, source_lab, collected_date, reported_date, status, parse_error, parsed_draft, created_at, source, external_id FROM lab_reports
 WHERE profile_id = $1
 ORDER BY created_at DESC
 `
@@ -104,6 +108,8 @@ func (q *Queries) ListReportsForProfile(ctx context.Context, profileID uuid.UUID
 			&i.ParseError,
 			&i.ParsedDraft,
 			&i.CreatedAt,
+			&i.Source,
+			&i.ExternalID,
 		); err != nil {
 			return nil, err
 		}

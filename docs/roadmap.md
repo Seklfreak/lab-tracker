@@ -5,6 +5,16 @@ and rough notes so they aren't lost.
 
 ## Done
 
+- [x] **Personal access tokens + home-device readings** (2026-09-24) — users
+  create revocable API tokens on a new Tokens page (`/api/tokens`; stored as a
+  SHA-256, shown once, never admin, can't mint more tokens). Home devices import
+  through `/api/device-readings`: each reading becomes a saved, PDF-less
+  `lab_reports` row (`source = 'device'`) with its measured values as ordinary
+  `lab_results` on the canonical analytes, so they chart alongside lab results.
+  Idempotent on the reading's `external_id` across all of the user's profiles;
+  `/api/device-readings/lookup` lets an importer skip known readings before
+  asking which profile a new one belongs to. First importer: the `curo-l7` CLI
+  for the CURO L7 lipid meter (TC/TG/HDL; calculated LDL deliberately not stored).
 - [x] **Birthdate + weight/height + BMI** (2026-06-30) — profiles gained an edit
   path (`PATCH /api/profiles/{id}`) for birthdate; a `body_measurements` table
   tracks self-entered weight/height over time (canonical kg/cm), exposed at

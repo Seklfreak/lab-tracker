@@ -34,6 +34,17 @@ type AnalyteAnalysis struct {
 	GeneratedAt pgtype.Timestamptz `json:"generated_at"`
 }
 
+type ApiToken struct {
+	ID          uuid.UUID          `json:"id"`
+	UserID      uuid.UUID          `json:"user_id"`
+	Name        string             `json:"name"`
+	TokenHash   []byte             `json:"token_hash"`
+	TokenPrefix string             `json:"token_prefix"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	LastUsedAt  pgtype.Timestamptz `json:"last_used_at"`
+	RevokedAt   pgtype.Timestamptz `json:"revoked_at"`
+}
+
 type BodyMeasurement struct {
 	ID         uuid.UUID          `json:"id"`
 	ProfileID  uuid.UUID          `json:"profile_id"`
@@ -61,7 +72,7 @@ type IgnoredAnalytePair struct {
 type LabReport struct {
 	ID               uuid.UUID          `json:"id"`
 	ProfileID        uuid.UUID          `json:"profile_id"`
-	PdfObjectKey     string             `json:"pdf_object_key"`
+	PdfObjectKey     pgtype.Text        `json:"pdf_object_key"`
 	OriginalFilename pgtype.Text        `json:"original_filename"`
 	SourceLab        pgtype.Text        `json:"source_lab"`
 	CollectedDate    pgtype.Date        `json:"collected_date"`
@@ -70,6 +81,8 @@ type LabReport struct {
 	ParseError       pgtype.Text        `json:"parse_error"`
 	ParsedDraft      []byte             `json:"parsed_draft"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	Source           string             `json:"source"`
+	ExternalID       pgtype.Text        `json:"external_id"`
 }
 
 type LabResult struct {

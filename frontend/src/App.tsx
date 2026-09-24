@@ -8,6 +8,7 @@ import {
   LayoutGrid,
   Upload as UploadIcon,
   FileText,
+  KeyRound,
   LogOut,
   PersonStanding,
   Shield,
@@ -29,6 +30,7 @@ const Reports = lazy(() => import("@/pages/Reports").then((m) => ({ default: m.R
 const Compare = lazy(() => import("@/pages/Compare").then((m) => ({ default: m.Compare })));
 const Body = lazy(() => import("@/pages/Body").then((m) => ({ default: m.Body })));
 const Admin = lazy(() => import("@/pages/Admin").then((m) => ({ default: m.Admin })));
+const Tokens = lazy(() => import("@/pages/Tokens").then((m) => ({ default: m.Tokens })));
 
 // RequireAuth gates the app behind OIDC login (no-op when auth is disabled).
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -203,6 +205,7 @@ function AppShell() {
               <NavItem to="/upload" icon={<UploadIcon size={16} />} label="Upload" />
               <NavItem to="/reports" icon={<FileText size={16} />} label="Reports" />
               <NavItem to="/body" icon={<PersonStanding size={16} />} label="Body" />
+              <NavItem to="/tokens" icon={<KeyRound size={16} />} label="Tokens" />
               {me.data?.isAdmin && (
                 <NavItem to="/admin" icon={<Shield size={16} />} label="Admin" />
               )}
@@ -223,6 +226,7 @@ function AppShell() {
                 <Route path="/body" element={<Body />} />
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/admin" element={<Admin />} />
+                <Route path="/tokens" element={<Tokens />} />
               </Routes>
             </Suspense>
           )}
