@@ -19,6 +19,17 @@ if (import.meta.env.VITE_SENTRY_DSN) {
     // Household-scale traffic: trace every pageload/navigation. API fetches
     // carry the sentry-trace header, so traces continue into the backend.
     tracesSampleRate: 1.0,
+    // SDK v11 collects request/response bodies, headers, cookies, query
+    // params, user info and stack-frame locals by default. Opt out of all of
+    // it: errors and traces are enough, the payloads are personal data.
+    dataCollection: {
+      userInfo: false,
+      cookies: false,
+      httpHeaders: false,
+      httpBodies: [],
+      urlQueryParams: false,
+      stackFrameVariables: false,
+    },
   });
 }
 
