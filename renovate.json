@@ -26,12 +26,23 @@
       "allowedVersions": "<7.0.0 || >=7.1.0"
     },
     {
-      "description": "Bump go.mod's go directive to each new Go release. By default Renovate reads it as a minimum ('>= 1.26.5'), which every newer Go already satisfies, so it never proposes one - and the release binary is built with exactly this version (setup-go go-version-file), so Go security patches would never ship.",
+      "description": "Bump go.mod's go directive to each new Go release. By default Renovate reads it as a minimum ('>= 1.26.5'), which every newer Go already satisfies, so it never proposes one - and the release binary is built with exactly this version (setup-go go-version-file), so Go security patches would never ship. Its own group: golangci-lint refuses a go directive newer than the Go it was built with, so a new Go minor can stay red until golangci-lint catches up, and must not hold every other update back meanwhile.",
       "matchDatasources": ["golang-version"],
-      "rangeStrategy": "bump"
+      "rangeStrategy": "bump",
+      "groupName": "go"
     }
   ],
   "customManagers": [
+    {
+      "customType": "regex",
+      "description": "golangci-lint is curl-installed in CI, so no built-in manager sees the pinned version.",
+      "managerFilePatterns": ["/(^|/)\\.github/workflows/.*\\.ya?ml$/"],
+      "matchStrings": ["-b \"\\$\\(go env GOPATH\\)/bin\" v(?<currentValue>\\d+\\.\\d+\\.\\d+)"],
+      "depNameTemplate": "golangci/golangci-lint",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.*)$",
+      "versioningTemplate": "semver"
+    },
     {
       "customType": "regex",
       "description": "SwiftLint and XcodeGen are downloaded from their GitHub releases in the workflow, so no built-in manager sees the pinned versions. Reads the `# renovate:` annotation above each env var, so a third pinned tool needs the annotation and nothing here.",

@@ -47,8 +47,10 @@ docker run -d --name lt-smoke-pg --network "$net" \
 # Any S3-compatible store will do; SeaweedFS's gateway accepts any credentials
 # when no identities are configured.
 docker run -d --name lt-smoke-s3 --network "$net" chrislusf/seaweedfs:4.48 server -s3 >/dev/null
+# Over TCP: on first start the entrypoint runs a temporary socket-only server
+# for initdb, which a socket check reports ready just before it restarts.
 for _ in $(seq 60); do
-  docker exec lt-smoke-pg pg_isready -q -U postgres -d labtracker 2>/dev/null && break
+  docker exec lt-smoke-pg pg_isready -q -h 127.0.0.1 -U postgres -d labtracker 2>/dev/null && break
   sleep 0.5
 done
 
