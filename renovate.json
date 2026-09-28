@@ -24,6 +24,11 @@
       "description": "Skip TypeScript 7.0.x: it ships no stable programmatic API, so typescript-eslint (peer typescript <6.1.0) can't run on it and the frontend install/lint breaks. The API is targeted for 7.1 — allow that through so a fresh PR reopens when it lands.",
       "matchPackageNames": ["typescript"],
       "allowedVersions": "<7.0.0 || >=7.1.0"
+    },
+    {
+      "description": "Bump go.mod's go directive to each new Go release. By default Renovate reads it as a minimum ('>= 1.26.5'), which every newer Go already satisfies, so it never proposes one - and the release binary is built with exactly this version (setup-go go-version-file), so Go security patches would never ship.",
+      "matchDatasources": ["golang-version"],
+      "rangeStrategy": "bump"
     }
   ],
   "customManagers": [

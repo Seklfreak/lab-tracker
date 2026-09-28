@@ -135,7 +135,13 @@ Unit tests cover the pure logic:
 ```
 
 Lint + tests run in CI on every push (backend via golangci-lint, frontend via
-ESLint; the iOS app builds + tests on `ios/**` changes).
+ESLint; the iOS app builds + tests on `ios/**` changes). An `image` job also
+builds the backend and MCP release images and starts them against a throwaway
+Postgres and S3 store (`scripts/image-smoke.sh`).
+
+The release Go binaries are built on the CI runner with `backend/go.mod`'s Go
+version, the one the tests use, and `backend/Dockerfile*.release` only copy
+them in; the plain `Dockerfile`s are for local from-source builds.
 
 DB/integration and extraction paths are still verified manually — recipes
 (smoke test, analyte matching, specimen disambiguation, favorites, report

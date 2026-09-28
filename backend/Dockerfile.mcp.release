@@ -1,0 +1,10 @@
+# CI-only runtime image: the Go binary is built on the runner by setup-go from
+# go.mod's go directive, the same toolchain test.yaml tests with, and copied
+# in (build.yaml). For local from-source builds use the Dockerfile without the
+# .release suffix.
+# distroless/static ships CA certs (outbound TLS to Postgres/Anthropic).
+FROM gcr.io/distroless/static-debian12:nonroot
+COPY out/mcp /mcp
+EXPOSE 8080
+USER nonroot:nonroot
+ENTRYPOINT ["/mcp"]

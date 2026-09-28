@@ -46,15 +46,15 @@ jobs:
           FRONTEND: ${{ steps.changes.outputs.frontend }}
         run: |
           build=(); merge=()
-          add() { # name context dockerfile
+          add() { # name context dockerfile [go-binary]
             for plat in linux/amd64 linux/arm64; do
-              build+=("{\"name\":\"$1\",\"context\":\"$2\",\"dockerfile\":\"$3\",\"platform\":\"$plat\"}")
+              build+=("{\"name\":\"$1\",\"context\":\"$2\",\"dockerfile\":\"$3\",\"bin\":\"${4:-}\",\"platform\":\"$plat\"}")
             done
             merge+=("{\"name\":\"$1\"}")
           }
           if [ "$ALL" = "true" ] || [ "$BACKEND" = "true" ]; then
-            add backend ./backend ./backend/Dockerfile
-            add mcp ./backend ./backend/Dockerfile.mcp
+            add backend ./backend ./backend/Dockerfile.release server
+            add mcp ./backend ./backend/Dockerfile.mcp.release mcp
           fi
           if [ "$ALL" = "true" ] || [ "$FRONTEND" = "true" ]; then
             add frontend ./frontend ./frontend/Dockerfile
@@ -94,6 +94,22 @@ jobs:
 
       - name: Checkout repository
         uses: actions/checkout@v7
+
+      # The Go images are a binary copy (Dockerfile*.release): the binary is
+      # built here by setup-go from go.mod, the toolchain test.yaml tests with,
+      # natively on this arch's runner. A golang builder stage would pin its
+      # own Go, which Renovate moves independently of go.mod.
+      - name: Set up Go
+        if: matrix.bin != ''
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Build Go binary
+        if: matrix.bin != ''
+        working-directory: backend
+        run: CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-X main.version=${APP_VERSION}" -o "out/${{ matrix.bin }}" "./cmd/${{ matrix.bin }}"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4

@@ -44,3 +44,25 @@ jobs:
           npm run lint
           npm run build
           npm test
+
+  # Builds the backend and MCP release images exactly as build.yaml does and
+  # runs them against a throwaway Postgres and S3 store
+  # (scripts/image-smoke.sh). Renovate auto-merges base-image and Go bumps once
+  # this workflow is green, and nothing else ever starts the images.
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - name: Build binaries and images
+        working-directory: backend
+        run: |
+          for bin in server mcp; do
+            CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-X main.version=ci" -o "out/$bin" "./cmd/$bin"
+          done
+          docker build -f Dockerfile.release -t lab-tracker-backend:ci .
+          docker build -f Dockerfile.mcp.release -t lab-tracker-mcp:ci .
+      - run: scripts/image-smoke.sh lab-tracker-backend:ci lab-tracker-mcp:ci
