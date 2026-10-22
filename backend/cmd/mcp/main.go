@@ -15,7 +15,7 @@ import (
 	"github.com/Seklfreak/lab-tracker/backend/internal/db/sqlc"
 	"github.com/Seklfreak/lab-tracker/backend/internal/llm"
 	"github.com/Seklfreak/lab-tracker/backend/internal/obs"
-	"github.com/anthropics/anthropic-sdk-go/option"
+	"github.com/anthropics/anthropic-sdk-go/v2/option"
 	sentryhttp "github.com/getsentry/sentry-go/http"
 	sentryhttpclient "github.com/getsentry/sentry-go/httpclient"
 	"github.com/modelcontextprotocol/go-sdk/mcp"

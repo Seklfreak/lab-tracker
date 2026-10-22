@@ -13,7 +13,7 @@ import (
 	"github.com/Seklfreak/lab-tracker/backend/internal/llm"
 	"github.com/Seklfreak/lab-tracker/backend/internal/obs"
 	"github.com/Seklfreak/lab-tracker/backend/internal/storage"
-	"github.com/anthropics/anthropic-sdk-go/option"
+	"github.com/anthropics/anthropic-sdk-go/v2/option"
 	"github.com/coreos/go-oidc/v3/oidc"
 	sentryhttpclient "github.com/getsentry/sentry-go/httpclient"
 )
